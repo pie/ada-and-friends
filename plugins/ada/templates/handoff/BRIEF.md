@@ -32,6 +32,8 @@ One sentence: what the customer, the kitchen or the admin can do or see afterwar
 Each item observable: a thing Tess can see, with where to see it.
 
 - [ ]
+- [ ] phpcs clean on every touched function (P30); each touched file's phpcs count before → after
+      in REVIEW-REQUEST
 
 ## Amendments
 

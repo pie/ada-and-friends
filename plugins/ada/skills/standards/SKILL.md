@@ -131,6 +131,21 @@ checked.
 nothing outside a module may depend on the module, so it can be switched off or moved without
 breaking other pages.
 
+**P30. Bring each function you touch up to standard, whole.** When a change touches a function or
+method, the whole of it is made phpcs-clean (indentation, spacing, naming, the project's
+formatting rules), not just the lines that changed. Never mix standards within one function;
+within a class it's tolerated, but it isn't the aim. Legacy code gets better as it's worked on.
+
+- The reformat is formatting only: no behaviour change rides along. It goes in its own commit, so
+  the behaviour change can be reviewed on its own.
+- A file riddled with legacy errors outside the touched functions is **not** swept into the PR.
+  It goes in Known Gaps with its phpcs count and a suggested refactor task.
+- "phpcs clean on changed files" can't be met on a legacy file, so a brief says "phpcs clean on
+  every touched function", with the file's count before and after.
+
+Why: a function in two styles is harder to read than either, and "clean on the new lines" lets a
+legacy file stay legacy for ever.
+
 ## Data and boundaries
 
 **P24. Read REST input with the explicit getters.** `$request->get_url_params()`,

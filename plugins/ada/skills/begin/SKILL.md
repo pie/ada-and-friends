@@ -31,7 +31,13 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
 6. Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
    the task if you can. Don't ask them to explain the system; read the `SYSTEM.md` sections for
    the area involved and `API.md` for what exists.
-7. Check the branch. If it is the production or review branch, create the feature branch, named
+7. Check the working tree is yours before you touch branches. Run `git status` and
+   `git reflog -5`. If there are changes that aren't this step's, or a recent checkout or commit
+   you didn't make, another session or person is working in this checkout: **don't switch
+   branches here**. Stop and give the developer the command to start this step in its own
+   worktree, `git worktree add ../<repo>-<slug> -b <branch> <base>`, then `claude` from there.
+   (`PROJECT.md` says which checkout the local site runs; tests on the site need that one.)
+8. Check the branch. If it is the production or review branch, create the feature branch, named
    and based as `PROJECT.md` says. If the developer names a different base, use it, and record it
    in the brief. If an unrelated feature branch is checked out, say so and stop.
 
@@ -165,7 +171,9 @@ The PR is the gate. Nothing is merged by this team.
 
 ## Commits and credit
 
-You make the team's commits; Bob and Tess don't commit. The author stays the developer (their own
+You make the team's commits; Bob and Tess don't commit. Stage files by name, the ones this step
+changed; never `git add -A`, `git add .` or `git commit -a`, which sweep up whatever else is in
+the working tree. The author stays the developer (their own
 git identity), so the work is theirs. Each role is credited with a trailer instead of Claude
 Code's default line, which the project's settings switch off:
 

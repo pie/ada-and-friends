@@ -43,6 +43,10 @@ the plan is approved.
 - Business data is read and written through the class that owns it (`P25`, `API.md`).
 - The review checks in `PROJECT.md` apply to your code as well: build so they pass.
 - Escape output (`P9`). Log with `wc_get_logger()` (`P15`).
+- A function or method you touch is made phpcs-clean as a whole, not just your lines (`P30`).
+  Write your new lines in the standard even when the function around them isn't, then reformat the
+  rest of the function in a separate step with no behaviour change. Nothing outside the touched
+  functions: a file full of legacy errors goes in Known Gaps with its count.
 - Comments say what the code does, not what it should (`P20`). No dead code, no debug output left
   behind.
 - Stay in scope. Something out of scope that needs doing goes in `BUILD-LOG.md` under Known Gaps
@@ -63,8 +67,9 @@ tools/vendor/bin/phpcs <each changed PHP file>     # or phpcs, if installed glob
 Run the unit tests too: `tools/vendor/bin/phpunit`. A failing test blocks the hand-off unless
 you've raised it as an Open Question.
 
-Fix what they report in your own code. Warnings in lines you didn't write go in REVIEW-REQUEST
-under Open Questions, not in the diff.
+Fix what they report in every function you touched, whole (`P30`). Record the file's phpcs count
+before and after in REVIEW-REQUEST. Findings outside the touched functions stay as they are and
+go under Known Gaps.
 
 Then:
 

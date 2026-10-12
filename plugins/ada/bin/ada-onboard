@@ -22,13 +22,24 @@ set -euo pipefail
 die() { echo "ada-onboard: $*" >&2; exit 2; }
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
 src="$(cd "$(dirname "$0")/../templates/repo" && pwd)"
-command -v python3 >/dev/null || die 'python3 is needed'
+# Python 3.8+: python3 on Mac and Linux. On Windows (Git Bash) it's often python or py -3, and
+# the python3 there can be a Microsoft Store shortcut that runs nothing, so each is tried.
+PY=()
+for c in python3 python 'py -3'; do
+	read -ra try <<<"$c"
+	if "${try[@]}" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+		PY=("${try[@]}"); break
+	fi
+done
+[ ${#PY[@]} -gt 0 ] || die 'Python 3.8 or later is needed (as python3, python or py -3)'
+# Windows Pythons print CRLF; the shell compares plain lines.
+py() { "${PY[@]}" "$@" | tr -d '\r'; }
 
 cmd="${1:-}"; shift || true
 
 case "$cmd" in
 files)
-	ADA_SRC="$src" ADA_ROOT="$root" python3 - "$@" <<'PY'
+	ADA_SRC="$src" ADA_ROOT="$root" py - "$@" <<'PY'
 import os, re, sys
 src, root = os.environ['ADA_SRC'], os.environ['ADA_ROOT']
 keys = {'PROJECT_NAME','PACKAGE','NAMESPACE','TEXT_DOMAIN','TIMEZONE','CODE_DIR','PROD_SSH','PROD_PREFIX','PROD_LOGS'}
@@ -53,7 +64,7 @@ for dirpath, _, files in os.walk(src):
         text = open(s, encoding='utf-8').read()
         for k, v in values.items():
             text = text.replace('{{' + k + '}}', v)
-        open(d, 'w', encoding='utf-8').write(text)
+        open(d, 'w', encoding='utf-8', newline='\n').write(text)
         os.chmod(d, os.stat(s).st_mode & 0o777)
         missing = sorted(set(re.findall(r'\{\{([A-Z_]+)\}\}', text)))
         print(f'created  {rel}' + (f'   (still to fill: {", ".join(missing)})' if missing else ''))
@@ -73,11 +84,11 @@ settings)
 	if [ -f "$root/.claude/team/prod.env" ]; then
 		host="$(sed -n 's/^[[:space:]]*PROD_SSH[[:space:]]*=[[:space:]]*\([A-Za-z0-9._-]*@[A-Za-z0-9.-]*\)[[:space:]]*$/\1/p' "$root/.claude/team/prod.env" | head -1)"
 	fi
-	ADA_ROOT="$root" ADA_HOST="$host" python3 - <<'PY'
+	ADA_ROOT="$root" ADA_HOST="$host" py - <<'PY'
 import json, os
 root, host = os.environ['ADA_ROOT'], os.environ['ADA_HOST']
 path = os.path.join(root, '.claude', 'settings.json')
-data = json.load(open(path)) if os.path.exists(path) else {}
+data = json.load(open(path, encoding='utf-8')) if os.path.exists(path) else {}
 data.setdefault('extraKnownMarketplaces', {})['pie'] = {'source': {'source': 'github', 'repo': 'pie/ada-and-friends'}}
 data.setdefault('enabledPlugins', {})['ada@pie'] = True
 # The team credits each role in its own trailers (/ada:begin, Commits and credit), so Claude
@@ -101,8 +112,8 @@ if host:
     deny += [f'Bash(ssh *{h}*)', f'Bash(ssh {user}*)']
 add('deny', deny)
 os.makedirs(os.path.dirname(path), exist_ok=True)
-open(path, 'w').write(json.dumps(data, indent=2) + '\n')
-print(open(path).read())
+open(path, 'w', encoding='utf-8', newline='\n').write(json.dumps(data, indent=2) + '\n')
+print(open(path, encoding='utf-8').read())
 PY
 	;;
 check)

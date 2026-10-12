@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.2.1.** Brief approval, and each role credited in commits and PRs. V&Me is the first project to use it.
+Status: **0.3.0.** Runs on Mac (bash 3.2); adds P30 and working-tree safety. V&Me is the first project to use it.
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -40,6 +40,17 @@ trailers, in place of Claude Code's default line (switched off in the project's 
 and `Co-Authored-By: Ada (Claude Code)` on briefs and onboarding. PRs end with "Built by Bob,
 reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
 
+## Platforms
+
+The helper scripts in `bin/` are bash with a little Python. They need bash 3.2 or later, Python
+3.8 or later, `git`, `gh` (logged in) and, for `prod-wp`, `ssh`.
+
+| Platform | Status |
+|---|---|
+| Linux | Used daily. |
+| macOS | Tested under bash 3.2.57, the version macOS ships. Python 3 comes with Apple's command line tools, which `git` already needs. |
+| Windows | Expected to work in Git Bash, which Claude Code uses on Windows; **not yet tested**. The scripts find Python as `python3`, `python` or `py -3`, skipping the Microsoft Store shortcut. First time on a PC: run `ada-onboard check` and `ada-brief who`, and report what breaks. WSL also works. |
+
 ## Install
 
 ```sh
@@ -61,7 +72,7 @@ plugins/ada/
   skills/pickup/                  resume from the checkpoint (/ada:pickup)
   skills/bughunt/                 read-only investigation (/ada:bughunt)
   skills/onboard/                 set a repo up for the team (/ada:onboard)
-  skills/standards/               the PIE rules (P1-P29), preloaded into the agents, not a command
+  skills/standards/               the PIE rules (P1 onwards), preloaded into the agents, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
   bin/                            on the Bash PATH while enabled: ada-brief, ada-handoff-init, ada-onboard, prod-wp
   templates/handoff/              the files the roles hand over through
