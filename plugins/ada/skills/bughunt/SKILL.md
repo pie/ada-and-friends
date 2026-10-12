@@ -11,8 +11,12 @@ Read `.claude/team/PROJECT.md` first: the project, its fragile areas, where know
 tracked, and its production-access notes. If `.claude/handoff/` doesn't exist, run
 `ada-handoff-init`.
 
-You run in the main session with no subagents, so a hunt costs a fraction of a build. Don't
-cut corners on the reasoning, though: a wrong root cause costs more than the tokens saved.
+You run in the main session without Bob, Claudia or Tess, so a hunt costs a fraction of a build.
+Don't cut corners on the reasoning, though: a wrong root cause costs more than the tokens saved.
+
+**Load the `ada:efficiency` skill** (Skill tool) and work to it. A hunt is a long session, so its
+Ada section applies to you too: a broad search through code or logs goes to an Explore agent, and
+you keep its conclusion and the evidence.
 
 ## The three places, and what you may do in each
 

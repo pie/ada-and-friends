@@ -4,7 +4,8 @@
 
 From the review of the first full `/ada:begin` dry run (V&Me, 12 Oct).
 
-- **New `efficiency` skill**, preloaded into Bob, Claudia and Tess and loaded by Ada: grep before
+- **New `efficiency` skill**, preloaded into Bob, Claudia and Tess, and loaded by Ada, the bug hunter
+  and onboarding: grep before
   read, one read per file, no speculative calls, simple commands, docs first and code to confirm,
   conclusions not working, and Ada hands anything long to a subagent. Adapted from Three Man
   Team's token-optimisation rules.
