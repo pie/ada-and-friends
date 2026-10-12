@@ -1,6 +1,6 @@
 {
   "name": "ada",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Ada (architect), Bob (builder), Claudia (reviewer) and Tess (tester) work as a team on a project, plus /ada:bughunt for read-only investigation. Project knowledge lives in each repo's .claude/team/.",
   "author": { "name": "PIE Code", "url": "https://pie.co.de" },
   "repository": "https://github.com/pie/ada-and-friends",

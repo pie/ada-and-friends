@@ -87,4 +87,5 @@ REVIEW-REQUEST with what you changed and set `Ready for Review: YES` again.
 - Add a REST route without a real permission callback.
 - Put a secret in source.
 - Change a file under `tests/`.
+- Commit. Ada commits your work, credited to you, at the PR gate.
 - Report to the developer directly. Everything goes through Ada.

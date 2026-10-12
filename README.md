@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.2.0.** Adds brief approval. V&Me is the first project to use it.
+Status: **0.2.1.** Brief approval, and each role credited in commits and PRs. V&Me is the first project to use it.
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -30,6 +30,15 @@ adds the `brief-approved` label to approve, or leaves review comments to ask for
 developer carries on with `/ada:pickup`. `bin/ada-brief` does the checking: only a label added by
 an approver, after the brief last changed, counts. A changed brief is approved again. The draft
 PR becomes the work's PR at the end. It needs `gh`, logged in.
+
+## Credit in commits and PRs
+
+The developer is the author of every commit. Ada makes the commits and credits the roles with
+trailers, in place of Claude Code's default line (switched off in the project's settings):
+`Co-Authored-By: Tess (Ada and friends, Claude Code)` on the tests,
+`Co-Authored-By: Bob (Ada and friends, Claude Code)` and `Reviewed-by: Claudia (…)` on the build,
+and `Co-Authored-By: Ada (Claude Code)` on briefs and onboarding. PRs end with "Built by Bob,
+reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
 
 ## Install
 

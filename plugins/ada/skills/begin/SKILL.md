@@ -145,7 +145,8 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
 2. Ask: open the PR?
 3. On yes:
    - Update `BUILD-LOG.md`.
-   - Make sure every commit says what changed and what was verified (P20).
+   - Commit, credited as in **Commits and credit** below. Every commit says what changed and
+     what was verified (P20).
    - Push the branch.
    - Write the PR description to `.claude/handoff/PR.md`, following
      `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
@@ -161,6 +162,23 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
 4. Write `CHECKPOINT.md`.
 
 The PR is the gate. Nothing is merged by this team.
+
+## Commits and credit
+
+You make the team's commits; Bob and Tess don't commit. The author stays the developer (their own
+git identity), so the work is theirs. Each role is credited with a trailer instead of Claude
+Code's default line, which the project's settings switch off:
+
+| Commit | Trailers |
+|---|---|
+| The tests (`tests/`) | `Co-Authored-By: Tess (Ada and friends, Claude Code) <tess@ada.pie.co.de>` |
+| The build (everything else) | `Co-Authored-By: Bob (Ada and friends, Claude Code) <bob@ada.pie.co.de>` and `Reviewed-by: Claudia (Ada and friends, Claude Code) <claudia@ada.pie.co.de>` |
+| The brief, onboarding, anything you write yourself | `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>` |
+
+Tests first, then the build, so the history shows the tests were written from the brief. Fix
+rounds after a review are folded into the build commit, not committed one by one. End the PR
+description with: "Built by Bob, reviewed by Claudia, tested by Tess. Ada and friends, Claude
+Code." Trim it to the roles that took part.
 
 ## Anti-drift
 

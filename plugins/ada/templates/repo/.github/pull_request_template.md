@@ -31,3 +31,7 @@ Rules checked (STANDARDS.md numbers), what was found, how it was resolved.
 ## Known gaps
 
 Out-of-scope items found and logged, not fixed.
+
+---
+
+Built by Bob, reviewed by Claudia, tested by Tess. Ada and friends, Claude Code.

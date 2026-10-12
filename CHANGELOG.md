@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1, 12 Oct 2026
+
+- Each role is credited by name. Ada commits the team's work (Bob and Tess no longer may), with
+  `Co-Authored-By: Bob / Tess / Ada (…, Claude Code)` trailers and `Reviewed-by: Claudia`; the
+  developer stays the author. `ada-onboard settings` switches off Claude Code's default
+  attribution, and the PR template ends with the team's credit line.
+
 ## 0.2.0, 12 Oct 2026
 
 - Brief approval. `PROJECT.md` gets a "Brief approval" section (Approvers, Trusted). When the

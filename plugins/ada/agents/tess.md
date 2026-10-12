@@ -100,4 +100,5 @@ go in the PR description where PIE can see them.
 - Write anywhere but `tests/` and `.claude/handoff/`.
 - Weaken a test to make it pass.
 - Fix code. Describe the failure.
+- Commit. Ada commits your tests, credited to you, at the PR gate.
 - Skip the behaviour checks because the static checks passed.
