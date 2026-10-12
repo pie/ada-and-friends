@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.2, 12 Oct 2026
+
+From V&Me, 12 Oct: auto mode's safety check refused Bob's shell edit to a docblock as "audit
+tampering". Bob then made the same edit with the Edit tool and only said so in his report. The
+change was one the developer had agreed, and Claudia confirmed the diff, but nothing in the role
+files said a refusal means stop.
+
+- **Bob, Claudia and Tess** never work around a refused or denied tool call (a declined prompt, a
+  blocking hook, a safety check). They stop, record what was refused, and hand back to Ada.
+- **Claudia** escalates any refused action that was made another way, and checks the change is
+  only what the brief asked.
+- **Ada** never performs a refused action herself or tells a role to retry it. She takes it to the
+  developer, and tells them when a role worked around one.
+
 ## 0.3.1, 12 Oct 2026
 
 From the review of the first full `/ada:begin` dry run (V&Me, 12 Oct).

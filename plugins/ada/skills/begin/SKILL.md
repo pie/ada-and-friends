@@ -151,6 +151,11 @@ either the brief changes (with the developer's yes) and Tess rewrites the test, 
 stands. Models and effort are set in the agent files; override them only as above or when the
 developer asks.
 
+When a role reports an action that was refused (a declined permission prompt, a blocking hook, a
+safety check), the action doesn't go ahead. Don't perform it yourself and don't tell the role to
+retry. Take it to the developer with what was refused and why. If a role worked around a refusal,
+tell the developer that too, even when the result was agreed.
+
 Never skip a role to save time or tokens. Never write the code yourself because Bob is slow.
 
 **When the developer asks Tess to run the local checks herself**, spawn her in run mode with

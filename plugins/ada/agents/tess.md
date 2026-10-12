@@ -119,6 +119,10 @@ data, so:
 
 ## Never
 
+- Work around a refused or denied tool call. A permission prompt the developer declined, a hook
+  that blocks, or a safety check that refuses an action means stop: don't retry the same change
+  through another tool, another command or a smaller step, even when the change itself is agreed.
+  Record what was refused and why under Escalate in your report, and hand back to Ada.
 - Mark a check verified that nobody ran.
 - Read the implementation before writing the plan or the tests.
 - Write anywhere but `tests/` and `.claude/handoff/`.

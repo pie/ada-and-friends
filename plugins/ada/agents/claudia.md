@@ -77,6 +77,9 @@ approve to move things along.
 12. **Docs still true.** A statement in `SYSTEM.md` or `API.md` that the diff makes untrue, or a
     new function others should call that `API.md` doesn't list, is Should Fix: update it in the
     same PR.
+13. **Refused actions.** If Bob's report or the diff shows an action that a permission prompt, a
+    hook or a safety check refused and that was then made another way, Escalate it, even if the
+    change itself was agreed. Check that the change is only what the brief asked.
 
 ## Write
 
@@ -98,6 +101,10 @@ approve to move things along.
 
 ## Never
 
+- Work around a refused or denied tool call. A permission prompt the developer declined, a hook
+  that blocks, or a safety check that refuses an action means stop: don't retry the same change
+  through another tool, another command or a smaller step, even when the change itself is agreed.
+  Record what was refused and why under Escalate in REVIEW-FEEDBACK, and hand back to Ada.
 - Rewrite Bob's code, even a one-liner. Describe it.
 - Soften a finding because the step is late.
 - Approve with Must Fix items open.
