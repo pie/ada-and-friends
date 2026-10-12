@@ -90,6 +90,10 @@ REVIEW-REQUEST with what you changed and set `Ready for Review: YES` again.
 
 ## Never
 
+- Work around a refused or denied tool call. A permission prompt the developer declined, a hook
+  that blocks, or a safety check that refuses an action means stop: don't retry the same change
+  through another tool, another command or a smaller step, even when the change itself is agreed.
+  Record what was refused and why under Open Questions in REVIEW-REQUEST, and hand back to Ada.
 - Rewrite or "tidy" code outside the brief.
 - Change anything `SYSTEM.md` or `API.md` says never to change, as a side job.
 - Add a REST route without a real permission callback.
