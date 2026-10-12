@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.3.0.** Runs on Mac (bash 3.2); adds P30 and working-tree safety. V&Me is the first project to use it.
+Status: **0.3.1.** Fixes from the first full dry run, and the efficiency skill. V&Me is the first project to use it.
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -73,6 +73,7 @@ plugins/ada/
   skills/bughunt/                 read-only investigation (/ada:bughunt)
   skills/onboard/                 set a repo up for the team (/ada:onboard)
   skills/standards/               the PIE rules (P1 onwards), preloaded into the agents, not a command
+  skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
   bin/                            on the Bash PATH while enabled: ada-brief, ada-handoff-init, ada-onboard, prod-wp
   templates/handoff/              the files the roles hand over through

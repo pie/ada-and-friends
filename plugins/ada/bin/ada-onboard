@@ -75,7 +75,7 @@ PY
 	;;
 gitignore)
 	gi="$root/.gitignore"; touch "$gi"
-	for line in '.claude/handoff/' '.claude/settings.local.json' '.phpunit.cache/' 'tools/vendor/'; do
+	for line in '.claude/handoff/' '.claude/settings.local.json' '.claude/team/local.env' '.phpunit.cache/' 'tools/vendor/'; do
 		grep -qxF "$line" "$gi" && echo "kept     $line" || { echo "$line" >> "$gi"; echo "added    $line"; }
 	done
 	;;
@@ -101,10 +101,18 @@ def add(kind, rules):
         if r not in lst:
             lst.append(r)
 add('allow', [
-    'Bash(ada-handoff-init)', 'Bash(prod-wp *)', 'Bash(ada-brief *)',
+    'Bash(ada-handoff-init*)', 'Bash(prod-wp *)', 'Bash(ada-brief *)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
     'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',
+    # Read-only commands the roles use all the time. The efficiency skill asks for one simple
+    # command per call, so these match; a compound command still asks.
+    'Bash(git show *)', 'Bash(git rev-parse *)', 'Bash(git reflog*)', 'Bash(git worktree list*)',
+    'Bash(grep *)', 'Bash(rg *)', 'Bash(ls *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(tail *)',
+    'Bash(cat *)', 'Bash(sed -n *)', 'Bash(which *)',
+    'Bash(gh pr view*)', 'Bash(gh api user*)',
+    # The roles write their handoff files and Tess writes tests; nothing else is pre-allowed.
+    'Edit(/.claude/handoff/**)', 'Edit(/tests/**)',
 ])
 deny = ['Bash(git push origin production*)', 'Bash(git push origin next-release*)', 'Bash(git push --force*)']
 if host:

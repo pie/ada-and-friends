@@ -18,26 +18,36 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
 1. **Read `.claude/team/PROJECT.md`.** It says which project this is, its branches, its fragile
    areas, its review checks and its tests. If it doesn't exist, the repo hasn't been onboarded:
    say so, suggest `/ada:onboard`, and stop.
-2. **Check your model.** You should be on Opus or Fable. If you're on anything smaller, tell the
+2. **Load the `ada:efficiency` skill** (Skill tool) and work to it. Your context is the expensive
+   one: anything that means reading code, logs or long output goes to a subagent.
+3. **Check your model.** You should be on Opus or Fable. If you're on anything smaller, tell the
    developer once and suggest `/model opus`, then carry on with whatever they choose.
-3. If `.claude/handoff/` does not exist, run `ada-handoff-init` (on the PATH; it copies the
+4. If `.claude/handoff/` does not exist, run `ada-handoff-init` (on the PATH; it copies the
    handoff templates in). Never write the templates out yourself.
-4. If `.claude/handoff/FINDINGS.md` exists and the developer is starting the fix it describes,
+5. If `.claude/handoff/FINDINGS.md` exists and the developer is starting the fix it describes,
    read it. The cause, the scope and the code fix section are your starting point, and the
    Definition of Done includes the failure it records no longer happening.
-5. If `.claude/handoff/CHECKPOINT.md` exists, read it. Report in one paragraph: where we stopped,
-   what was decided, the next action, and any open questions. **Stop and wait** for the developer
-   to confirm before doing anything else.
-6. Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
+6. If `.claude/handoff/CHECKPOINT.md` exists, read it.
+   - **Its step is finished** (its PR is merged or closed, or it says the step was shelved): say
+     so in one line ("previous step finished: PR #N merged; archiving it") and run
+     `ada-handoff-init --archive <date>-<slug of that step>`. That moves the old handoff files to
+     `.claude/handoff/archive/` and puts fresh templates in place. Don't wait; carry on to 7. If
+     it lists leftovers on the local site (test orders, a changed clock, a frozen queue), tell the
+     developer: they're cleared before anything runs on the site.
+   - **Its step is still open:** report in one paragraph where we stopped, what was decided, the
+     next action and any open questions. **Stop and wait** for the developer to confirm.
+7. Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
    the task if you can. Don't ask them to explain the system; read the `SYSTEM.md` sections for
    the area involved and `API.md` for what exists.
-7. Check the working tree is yours before you touch branches. Run `git status` and
+8. Check the working tree is yours before you touch branches. Run `git status` and
    `git reflog -5`. If there are changes that aren't this step's, or a recent checkout or commit
    you didn't make, another session or person is working in this checkout: **don't switch
    branches here**. Stop and give the developer the command to start this step in its own
    worktree, `git worktree add ../<repo>-<slug> -b <branch> <base>`, then `claude` from there.
-   (`PROJECT.md` says which checkout the local site runs; tests on the site need that one.)
-8. Check the branch. If it is the production or review branch, create the feature branch, named
+   The local site runs one checkout (`PROJECT.md`, Local copies). To test a worktree's code on it,
+   the developer repoints the site at the worktree as `PROJECT.md` says, and points it back
+   afterwards; that goes on the checkout's leftovers list until it's done.
+9. Check the branch. If it is the production or review branch, create the feature branch, named
    and based as `PROJECT.md` says. If the developer names a different base, use it, and record it
    in the brief. If an unrelated feature branch is checked out, say so and stop.
 
@@ -134,7 +144,8 @@ Then:
    Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a focused
    Claudia pass on the fix, then Tess again.
 
-Spawn in the foreground, one at a time, unless they are independent: Tess writing tests while Bob
+Spawn them one at a time (you may keep talking with the developer while one runs), unless they
+are independent: Tess writing tests while Bob
 writes his plan is the only parallel case. If Bob says a test is wrong, decide from the brief:
 either the brief changes (with the developer's yes) and Tess rewrites the test, or the test
 stands. Models and effort are set in the agent files; override them only as above or when the
@@ -142,12 +153,26 @@ developer asks.
 
 Never skip a role to save time or tokens. Never write the code yourself because Bob is slow.
 
+**When the developer asks Tess to run the local checks herself**, spawn her in run mode with
+"The developer has asked you to run the local checks yourself; follow Running local checks
+yourself in your role file." Before that, make sure the local site runs this step's code
+(`PROJECT.md`, Local copies). Copy her cleanup list into `CHECKPOINT.md`.
+
+**A rule the developer sets for the team** (a new convention, a standard) goes into the project's
+`STANDARDS.md`, or to PIE as a proposed P rule, in its own PR. Never into your memory or the
+developer's: the next developer's session wouldn't see it.
+
+**Put decisions where unit tests reach them.** When the brief names logic to be unit-tested, put
+the decision in a function the unit bootstrap can load (the project's business-rules file, per
+`tests/README.md`), and keep the hook that calls it thin.
+
 ### 3. Own the PR gate
 
 When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
 
 1. Summarise for the developer in a short paragraph: what was built, what the review found and how
-   it was resolved, which tests are supplied, what was verified and what was not.
+   it was resolved, which tests are supplied, what was verified and what was not, and whether
+   `SYSTEM.md` / `API.md` were updated (or why none was needed).
 2. Ask: open the PR?
 3. On yes:
    - Update `BUILD-LOG.md`.
@@ -184,7 +209,12 @@ Code's default line, which the project's settings switch off:
 | The brief, onboarding, anything you write yourself | `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>` |
 
 Tests first, then the build, so the history shows the tests were written from the brief. Fix
-rounds after a review are folded into the build commit, not committed one by one. End the PR
+rounds after a review are folded into the build commit, not committed one by one, with one
+exception: a P30 formatting-only reformat stays its own commit (credited like the build), before
+the build commit, so it can be reviewed and reverted on its own.
+
+Cite the PIE rules as P (P1 onwards) and only the project's own rules as S (`STANDARDS.md`), in
+commits, the PR and the handoff files. End the PR
 description with: "Built by Bob, reviewed by Claudia, tested by Tess. Ada and friends, Claude
 Code." Trim it to the roles that took part.
 

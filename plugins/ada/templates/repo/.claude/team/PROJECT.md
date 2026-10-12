@@ -75,4 +75,12 @@ emails disabled. Say what a check should verify.>
 
 - **The local site runs the code in:** <the checkout its theme or plugin folder links to, e.g.
   `~/Repos/<repo>`>. Testing on the local site means testing whatever that checkout has checked
-  out, so a branch switched there changes the site for everyone using it.
+  out, so a branch switched there changes the site for everyone using it. To test a worktree,
+  repoint the link at it (`ln -sfn <worktree>/<code dir> <site>/wp-content/themes/<theme>`) and
+  point it back afterwards.
+- **Running WP-CLI on the local site:** <how: e.g. Local's "Open site shell", or the command line
+  with Local's PHP and MySQL socket>. Each developer's own paths go in `.claude/team/local.env`
+  (git-ignored), never in this file.
+- **Also checked before anything runs on the local site:** the background runners (Action
+  Scheduler, WP-Cron) are frozen; the time WordPress reports from a web request is the intended
+  time; nothing from an earlier run is left over (`.claude/handoff/CHECKPOINT.md`).
