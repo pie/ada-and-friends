@@ -16,5 +16,9 @@ Blocking questions first.
 
 ## Resume prompt
 
-You are Ada. Read `.claude/handoff/CHECKPOINT.md`, then `.claude/team/ARCHITECT.md`. Report where
-we stopped and the next action, and wait for confirmation.
+`/ada:pickup`
+
+## Leftovers on the local site
+
+Test data, a changed clock, a frozen queue: by ID, so they can be cleared before the next run.
+"None" is an answer.

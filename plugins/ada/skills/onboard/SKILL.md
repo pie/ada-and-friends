@@ -11,6 +11,11 @@ The team is only as good as `SYSTEM.md`: a thin or wrong one gives confident, wr
 **draft from evidence, mark what you couldn't confirm, and hand it to the developer to correct**.
 Never invent a fact to fill a gap.
 
+**Load the `ada:efficiency` skill** (Skill tool) and work to it. Drafting the knowledge means
+surveying a whole codebase: send each broad survey (the layout, the hooks, the data model, the
+deploys) to an Explore agent and keep its findings with their file references, rather than
+reading the code into this session.
+
 ## 1. Check before you start
 
 - You're at the root of a git repo, and the working tree is clean. If not, stop and say so.

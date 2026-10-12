@@ -1,7 +1,8 @@
 # Build log
 
-Owned by Ada, updated by Bob. Persistent across steps in this clone. Not committed; the PR
-description carries what PIE needs to see.
+Owned by Ada, updated by Bob. One step's log: archived with the other handoff files when the step
+finishes (`ada-handoff-init --archive`). Not committed; the PR description carries what PIE needs
+to see.
 
 ## Current
 
@@ -21,11 +22,9 @@ description carries what PIE needs to see.
 
 ## Known gaps
 
-Out-of-scope items found along the way. Each becomes a line in the PR description; PIE decides
-whether it becomes an Asana task.
+Out-of-scope items found in this step. Each becomes a line in the PR description; PIE decides
+whether it becomes a task. Gaps from earlier steps aren't copied here; they're in the archive and
+their PRs.
 
 - KG-1 — what, where, why it is out of scope
 
-## Decisions that outlive this step
-
--

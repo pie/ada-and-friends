@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.1, 12 Oct 2026
+
+From the review of the first full `/ada:begin` dry run (V&Me, 12 Oct).
+
+- **New `efficiency` skill**, preloaded into Bob, Claudia and Tess, and loaded by Ada, the bug hunter
+  and onboarding: grep before
+  read, one read per file, no speculative calls, simple commands, docs first and code to confirm,
+  conclusions not working, and Ada hands anything long to a subagent. Adapted from Three Man
+  Team's token-optimisation rules.
+- **Bob** no longer "matches the style" of the code around him: conventions yes, formatting per
+  phpcs and P30. phpcs findings are counted from `--report=summary`'s total.
+- **Commits:** a P30 reformat keeps its own commit, before the build commit (it was folded into
+  the build commit by one rule and kept separate by another). Cite PIE rules as P, project rules
+  as S.
+- **Finished steps are archived:** `ada-handoff-init --archive <name>`. Ada archives a finished
+  step's handoff files at session start instead of stopping on its checkpoint. The build log is
+  per step; the checkpoint lists leftovers on the local site.
+- **Tess can run the local checks herself** when the developer asks: preconditions she checks,
+  no branch switching in a shared checkout, no logging in as a customer in the browser, and a
+  cleanup list by ID. Customers are referred to by ID only.
+- **Claudia checks the docs are still true:** a `SYSTEM.md`/`API.md` statement the diff makes
+  untrue, or a missing `API.md` entry, is Should Fix.
+- **Ada:** rules the developer sets for the team go to `STANDARDS.md` in a PR, never memory;
+  decisions go where unit tests can reach them; the gate says whether the docs were updated.
+- **Local site:** the `PROJECT.md` template says how to run WP-CLI there, puts each developer's
+  paths in a git-ignored `.claude/team/local.env`, adds frozen runners, a sane clock and no
+  leftovers to the safety checks, and says how to point the site at a worktree.
+- **Permissions:** `ada-onboard settings` pre-allows common read-only commands and edits under
+  `.claude/handoff/` and `tests/`. The first dry run ran in auto mode; the next one runs in
+  default mode to find what's still missing.
+- The PR template opens with "For the reviewer"; the checkpoint's resume prompt is `/ada:pickup`
+  (it named a file that no longer exists); the `CLAUDE.md` template aims for about 50 lines.
+
 ## 0.3.0, 12 Oct 2026
 
 - **Mac fix.** `ada-brief` used `mapfile`, which macOS's bash 3.2 doesn't have, so brief approval

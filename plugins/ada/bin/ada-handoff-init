@@ -2,11 +2,34 @@
 # Copies the team's handoff templates into .claude/handoff/ of the current repo, without
 # overwriting anything already there. Ada runs it at session start. The templates ship in the
 # plugin, which Claude can't read without a permission rule, so a script does the copying.
+#
+#   ada-handoff-init                     copy in any template that's missing
+#   ada-handoff-init --archive <name>    when a step is finished: move its handoff files to
+#                                        .claude/handoff/archive/<name>/, then copy in fresh
+#                                        templates. <name> is e.g. 2026-10-12-zero-adjustment-note.
 set -euo pipefail
+die() { echo "ada-handoff-init: $*" >&2; exit 2; }
 src="$(cd "$(dirname "$0")/../templates/handoff" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 dest="$root/.claude/handoff"
 mkdir -p "$dest"
+
+if [ "${1:-}" = '--archive' ]; then
+	name="${2:-}"
+	[[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || die 'usage: ada-handoff-init --archive <name> (letters, digits, . _ -)'
+	to="$dest/archive/$name"
+	[ -e "$to" ] && die "archive/$name already exists"
+	mkdir -p "$to"
+	moved=0
+	for f in "$dest"/*.md; do
+		[ -e "$f" ] || continue
+		mv "$f" "$to/"; moved=$((moved + 1))
+	done
+	echo "archived $moved file(s) to .claude/handoff/archive/$name/"
+elif [ $# -gt 0 ]; then
+	die 'usage: ada-handoff-init [--archive <name>]'
+fi
+
 for f in "$src"/*.md; do
 	name="$(basename "$f")"
 	if [ -e "$dest/$name" ]; then

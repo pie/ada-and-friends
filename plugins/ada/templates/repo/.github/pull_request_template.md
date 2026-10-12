@@ -1,6 +1,10 @@
 Asana:
 Brief: <`.claude/briefs/<task id>.md`, approved by @login | approval not needed, and why>
 
+## For the reviewer
+
+Three to five lines: what to look at closely, and what wasn't verified.
+
 ## What changed and why
 
 ## Built

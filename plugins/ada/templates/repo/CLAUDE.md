@@ -1,8 +1,8 @@
 # {{PROJECT_NAME}}
 
 <One or two sentences: what the site is and who maintains it.> This file loads into every Claude
-session and every subagent, so it stays short; the detail lives in `.claude/team/` and is read on
-demand.
+session and every subagent, so it stays short (about 50 lines at most); the detail lives in
+`.claude/team/` and is read on demand.
 
 ## Layout
 

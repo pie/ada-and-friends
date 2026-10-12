@@ -140,6 +140,7 @@ within a class it's tolerated, but it isn't the aim. Legacy code gets better as 
   the behaviour change can be reviewed on its own.
 - A file riddled with legacy errors outside the touched functions is **not** swept into the PR.
   It goes in Known Gaps with its phpcs count and a suggested refactor task.
+- Count findings from the total line of `phpcs --report=summary`, never by counting output lines.
 - "phpcs clean on changed files" can't be met on a legacy file, so a brief says "phpcs clean on
   every touched function", with the file's count before and after.
 
