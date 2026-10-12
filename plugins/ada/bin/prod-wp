@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Read-only access to a project's PRODUCTION site for /ada:bughunt. Only the commands below are
+# allowed; anything else is refused before it reaches the server. Writes, replication and fix
+# attempts happen on a local site, never here.
+#
+#   prod-wp config                              show the settings in use (nothing is sent)
+#   prod-wp sql "SELECT ..."                    one SELECT / SHOW / DESCRIBE / EXPLAIN;
+#                                               write {prefix} for the table prefix:
+#                                               SELECT ID FROM {prefix}posts ...
+#   prod-wp inspect <script> [args...]          a READ-ONLY script from the project's tools/bughunt/
+#   prod-wp notes <order or subscription id> [count]    order notes, newest first
+#   prod-wp option <name>                       wp option get
+#   prod-wp actions <list|get|next> [args...]   wp action-scheduler action, read-only subcommands
+#   prod-wp logs list [source]                  WooCommerce log files, newest first
+#   prod-wp logs tail <file> [lines]
+#   prod-wp logs grep <fixed text> [source]     matching lines across log files
+#
+# Settings come from .claude/team/prod.env at the root of the current git repo, as KEY=value
+# lines. The file is parsed, never executed. An environment variable of the same name overrides
+# the file.
+#
+#   PROD_SSH=install@install.ssh.wpengine.net      required; your own SSH key does the auth
+#   PROD_PREFIX=wp_                                 the production table prefix
+#   PROD_LOGS=sites/install/wp-content/uploads/wc-logs
+#   PROD_FORBIDDEN=expensive_view another_table     names that may not appear in a query
+#
+# The WP Engine gateway re-parses inline commands and drops quotes, so remote commands are sent
+# as a script on standard input, each argument quoted with printf %q.
+
+set -euo pipefail
+
+die() { echo "prod-wp: $*" >&2; exit 2; }
+q() { printf '%q' "$1"; }
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+conf="$root/.claude/team/prod.env"
+
+PROD_SSH_FILE='' PROD_PREFIX_FILE='wp_' PROD_LOGS_FILE='' PROD_FORBIDDEN_FILE=''
+if [ -f "$conf" ]; then
+	while IFS= read -r line || [ -n "$line" ]; do
+		line="${line%%#*}"
+		[[ "$line" =~ ^[[:space:]]*$ ]] && continue
+		[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || die "can't read this line in prod.env: $line"
+		key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+		val="${val%"${val##*[![:space:]]}"}"
+		[[ "$val" =~ ^\"(.*)\"$ || "$val" =~ ^\'(.*)\'$ ]] && val="${BASH_REMATCH[1]}"
+		case "$key" in
+			PROD_SSH) PROD_SSH_FILE="$val" ;;
+			PROD_PREFIX) PROD_PREFIX_FILE="$val" ;;
+			PROD_LOGS) PROD_LOGS_FILE="$val" ;;
+			PROD_FORBIDDEN) PROD_FORBIDDEN_FILE="$val" ;;
+			*) die "unknown setting in prod.env: $key" ;;
+		esac
+	done < "$conf"
+fi
+HOST="${PROD_SSH:-$PROD_SSH_FILE}"
+PREFIX="${PROD_PREFIX:-$PROD_PREFIX_FILE}"
+LOGS="${PROD_LOGS:-$PROD_LOGS_FILE}"
+FORBIDDEN="${PROD_FORBIDDEN:-$PROD_FORBIDDEN_FILE}"
+
+# Settings are checked before use, so a bad value can't change what runs on the server.
+[[ -z "$HOST" || "$HOST" =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$ ]] || die "PROD_SSH must look like user@host: $HOST"
+[[ "$PREFIX" =~ ^[A-Za-z0-9_]+$ ]] || die "PROD_PREFIX may only hold letters, digits and _: $PREFIX"
+[[ -z "$LOGS" || ( "$LOGS" =~ ^[A-Za-z0-9._/-]+$ && ! "$LOGS" =~ \.\. ) ]] || die "PROD_LOGS must be a plain path: $LOGS"
+[[ "$FORBIDDEN" =~ ^[A-Za-z0-9_\ ]*$ ]] || die "PROD_FORBIDDEN is a space-separated list of names"
+
+need_host() { [ -n "$HOST" ] || die "no PROD_SSH: add it to .claude/team/prod.env"; }
+need_logs() { [ -n "$LOGS" ] || die "no PROD_LOGS: add it to .claude/team/prod.env"; }
+run() { need_host; ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" bash -s; }
+
+[ $# -ge 1 ] || die "no command. See the header of $0."
+cmd="$1"; shift
+
+case "$cmd" in
+config)
+	echo "repo:       $root"
+	echo "settings:   $conf$([ -f "$conf" ] || echo ' (missing)')"
+	echo "ssh:        ${HOST:-(not set)}"
+	echo "prefix:     $PREFIX"
+	echo "logs:       ${LOGS:-(not set)}"
+	echo "forbidden:  ${FORBIDDEN:-(none)}"
+	echo "inspectors: $root/tools/bughunt/"
+	;;
+sql)
+	[ $# -eq 1 ] || die 'sql takes one quoted statement'
+	s="$1"
+	shopt -s nocasematch
+	[[ "$s" =~ ^[[:space:]]*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN)[[:space:]] ]] || die 'only SELECT, SHOW, DESCRIBE or EXPLAIN'
+	[[ "$s" =~ \;[[:space:]]*[^[:space:]] ]] && die 'one statement only'
+	[[ "$s" =~ (INTO[[:space:]]+(OUT|DUMP)FILE|FOR[[:space:]]+UPDATE|LOCK[[:space:]]+IN|SLEEP\(|BENCHMARK\() ]] && die 'not allowed in a read-only query'
+	for name in $FORBIDDEN; do
+		[[ "$s" =~ $name ]] && die "$name is on this project's never-query list (PROD_FORBIDDEN); query the underlying tables"
+	done
+	shopt -u nocasematch
+	s="${s//\{prefix\}/$PREFIX}"
+	echo "wp db query $(q "$s")" | run
+	;;
+inspect)
+	[ $# -ge 1 ] || die 'inspect needs a script name'
+	name="${1%.php}"; shift
+	[[ "$name" =~ ^[a-z0-9-]+$ ]] || die 'script names are lower-case words and hyphens'
+	file="$root/tools/bughunt/$name.php"
+	[ -f "$file" ] || die "no script tools/bughunt/$name.php in this repo"
+	head -5 "$file" | grep -q 'READ-ONLY' || die "tools/bughunt/$name.php is not marked READ-ONLY in its first five lines"
+	args=''; for a in "$@"; do args+=" $(q "$a")"; done
+	{ echo "wp eval-file -$args <<'ADA_BUGHUNT_PHP'"; cat "$file"; echo; echo 'ADA_BUGHUNT_PHP'; } | run
+	;;
+notes)
+	[[ "${1:-}" =~ ^[0-9]+$ ]] || die 'notes needs a numeric id'
+	n="${2:-30}"; [[ "$n" =~ ^[0-9]+$ ]] || die 'count must be a number'
+	# WooCommerce hides order notes from comment queries, so read the table directly.
+	echo "wp db query $(q "SELECT comment_date, comment_author, comment_content FROM ${PREFIX}comments WHERE comment_post_ID = $1 AND comment_type = 'order_note' ORDER BY comment_date DESC, comment_ID DESC LIMIT $n")" | run
+	;;
+option)
+	[[ "${1:-}" =~ ^[A-Za-z0-9_-]+$ ]] || die 'option needs a name'
+	echo "wp option get $(q "$1") --format=json" | run
+	;;
+actions)
+	[[ "${1:-}" =~ ^(list|get|next)$ ]] || die 'actions allows list, get or next only'
+	args=''; for a in "$@"; do args+=" $(q "$a")"; done
+	echo "wp action-scheduler action$args" | run
+	;;
+logs)
+	need_logs
+	sub="${1:-}"; shift || true
+	case "$sub" in
+	list)
+		src="${1:-}"; [[ "$src" =~ ^[a-z0-9-]*$ ]] || die 'bad source'
+		echo "ls -t $(q "$LOGS") | grep -- $(q "^${src}") | head -40" | run ;;
+	tail)
+		[[ "${1:-}" =~ ^[A-Za-z0-9._-]+\.log$ ]] || die 'tail needs a log file name from logs list'
+		n="${2:-200}"; [[ "$n" =~ ^[0-9]+$ ]] || die 'lines must be a number'
+		echo "tail -n $n $(q "$LOGS/$1")" | run ;;
+	grep)
+		[ -n "${1:-}" ] || die 'grep needs the text to find'
+		src="${2:-}"; [[ "$src" =~ ^[a-z0-9-]*$ ]] || die 'bad source'
+		echo "grep -F -h -- $(q "$1") $(q "$LOGS")/${src}*.log | tail -n 300" | run ;;
+	*) die 'logs list | tail | grep' ;;
+	esac
+	;;
+*)
+	die "unknown or not allowed: $cmd. Production is read-only; see the header of $0."
+	;;
+esac

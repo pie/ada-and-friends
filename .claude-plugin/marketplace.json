@@ -1,0 +1,12 @@
+{
+  "name": "pie",
+  "owner": { "name": "PIE Code", "url": "https://pie.co.de" },
+  "metadata": { "description": "Claude Code plugins from PIE Code." },
+  "plugins": [
+    {
+      "name": "ada",
+      "source": "./plugins/ada",
+      "description": "Ada and friends: an architect, builder, reviewer and tester that work as a team on a project, plus a read-only bug hunter."
+    }
+  ]
+}

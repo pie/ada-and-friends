@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Sets a repo up for the ada team. /ada:onboard runs it; a developer can too. Run from inside the
+# project repo.
+#
+#   ada-onboard files KEY=value [KEY=value ...]
+#       Copies the plugin's repo templates into the repo, never overwriting a file that exists,
+#       and fills {{KEY}} placeholders in the files it copies. Reports any placeholder left.
+#       Keys: PROJECT_NAME PACKAGE NAMESPACE TEXT_DOMAIN TIMEZONE CODE_DIR PROD_SSH PROD_PREFIX
+#       PROD_LOGS
+#   ada-onboard gitignore
+#       Adds the team's ignore lines to .gitignore if they're missing.
+#   ada-onboard settings
+#       Merges the plugin, the marketplace and the team's permissions into .claude/settings.json,
+#       keeping whatever is there. Reads the SSH host from .claude/team/prod.env to deny direct
+#       SSH to it. Prints the result.
+#   ada-onboard check
+#       Lists what's still missing or still holds a placeholder.
+
+set -euo pipefail
+
+die() { echo "ada-onboard: $*" >&2; exit 2; }
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+src="$(cd "$(dirname "$0")/../templates/repo" && pwd)"
+command -v python3 >/dev/null || die 'python3 is needed'
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+files)
+	ADA_SRC="$src" ADA_ROOT="$root" python3 - "$@" <<'PY'
+import os, re, sys
+src, root = os.environ['ADA_SRC'], os.environ['ADA_ROOT']
+keys = {'PROJECT_NAME','PACKAGE','NAMESPACE','TEXT_DOMAIN','TIMEZONE','CODE_DIR','PROD_SSH','PROD_PREFIX','PROD_LOGS'}
+values = {}
+for arg in sys.argv[1:]:
+    k, sep, v = arg.partition('=')
+    if not sep or k not in keys:
+        sys.exit(f'ada-onboard: expected KEY=value with KEY one of {" ".join(sorted(keys))}: {arg}')
+    if '\n' in v or '{{' in v:
+        sys.exit(f'ada-onboard: bad value for {k}')
+    values[k] = v
+left = set()
+for dirpath, _, files in os.walk(src):
+    for name in sorted(files):
+        s = os.path.join(dirpath, name)
+        rel = os.path.relpath(s, src)
+        d = os.path.join(root, rel)
+        if os.path.exists(d):
+            print(f'kept     {rel}')
+            continue
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        text = open(s, encoding='utf-8').read()
+        for k, v in values.items():
+            text = text.replace('{{' + k + '}}', v)
+        open(d, 'w', encoding='utf-8').write(text)
+        os.chmod(d, os.stat(s).st_mode & 0o777)
+        missing = sorted(set(re.findall(r'\{\{([A-Z_]+)\}\}', text)))
+        print(f'created  {rel}' + (f'   (still to fill: {", ".join(missing)})' if missing else ''))
+        left.update(missing)
+if left:
+    print('\nPlaceholders left: ' + ', '.join(sorted(left)))
+PY
+	;;
+gitignore)
+	gi="$root/.gitignore"; touch "$gi"
+	for line in '.claude/handoff/' '.claude/settings.local.json' '.phpunit.cache/' 'tools/vendor/'; do
+		grep -qxF "$line" "$gi" && echo "kept     $line" || { echo "$line" >> "$gi"; echo "added    $line"; }
+	done
+	;;
+settings)
+	host=''
+	if [ -f "$root/.claude/team/prod.env" ]; then
+		host="$(sed -n 's/^[[:space:]]*PROD_SSH[[:space:]]*=[[:space:]]*\([A-Za-z0-9._-]*@[A-Za-z0-9.-]*\)[[:space:]]*$/\1/p' "$root/.claude/team/prod.env" | head -1)"
+	fi
+	ADA_ROOT="$root" ADA_HOST="$host" python3 - <<'PY'
+import json, os
+root, host = os.environ['ADA_ROOT'], os.environ['ADA_HOST']
+path = os.path.join(root, '.claude', 'settings.json')
+data = json.load(open(path)) if os.path.exists(path) else {}
+data.setdefault('extraKnownMarketplaces', {})['pie'] = {'source': {'source': 'github', 'repo': 'pie/ada-and-friends'}}
+data.setdefault('enabledPlugins', {})['ada@pie'] = True
+perms = data.setdefault('permissions', {})
+def add(kind, rules):
+    lst = perms.setdefault(kind, [])
+    for r in rules:
+        if r not in lst:
+            lst.append(r)
+add('allow', [
+    'Bash(ada-handoff-init)', 'Bash(prod-wp *)',
+    'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
+    'Bash(composer install -d tools*)',
+    'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',
+])
+deny = ['Bash(git push origin production*)', 'Bash(git push origin next-release*)', 'Bash(git push --force*)']
+if host:
+    user, _, h = host.partition('@')
+    deny += [f'Bash(ssh *{h}*)', f'Bash(ssh {user}*)']
+add('deny', deny)
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(json.dumps(data, indent=2) + '\n')
+print(open(path).read())
+PY
+	;;
+check)
+	cd "$root"
+	for f in CLAUDE.md .claude/team/PROJECT.md .claude/team/SYSTEM.md .claude/team/API.md \
+	         .claude/team/STANDARDS.md .claude/team/TEST-AREAS.md .claude/team/prod.env \
+	         .claude/settings.json tests/README.md tools/composer.json phpcs.xml.dist phpunit.xml.dist; do
+		[ -e "$f" ] || { echo "missing  $f"; continue; }
+		if grep -qE '\{\{[A-Z_]+\}\}' "$f"; then
+			echo "fill in  $f: $(grep -oE '\{\{[A-Z_]+\}\}' "$f" | sort -u | tr '\n' ' ')"
+		# A <prompt> counts outside code only: `<type>/<slug>` in backticks or a fence is syntax.
+		elif [[ "$f" == *.md ]] && prompts="$(awk '/^ *```/ { fence = !fence; next } !fence' "$f" |
+				sed -E 's/`[^`]*`//g' | grep -cE '<[A-Za-z][^<>]{3,}>')" && [ "$prompts" -gt 0 ]; then
+			echo "draft    $f: $prompts line(s) still hold a <prompt> to replace"
+		else
+			echo "ok       $f"
+		fi
+	done
+	[ -f .claude/settings.json ] && grep -q '"ada@pie"' .claude/settings.json || echo "missing  ada@pie in .claude/settings.json (run: ada-onboard settings)"
+	;;
+*)
+	die 'usage: ada-onboard files KEY=value... | gitignore | settings | check (see the header of this script)'
+	;;
+esac

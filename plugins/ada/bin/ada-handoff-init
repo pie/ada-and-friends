@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Copies the team's handoff templates into .claude/handoff/ of the current repo, without
+# overwriting anything already there. Ada runs it at session start. The templates ship in the
+# plugin, which Claude can't read without a permission rule, so a script does the copying.
+set -euo pipefail
+src="$(cd "$(dirname "$0")/../templates/handoff" && pwd)"
+root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+dest="$root/.claude/handoff"
+mkdir -p "$dest"
+for f in "$src"/*.md; do
+	name="$(basename "$f")"
+	if [ -e "$dest/$name" ]; then
+		echo "kept     .claude/handoff/$name"
+	else
+		cp "$f" "$dest/$name"
+		echo "created  .claude/handoff/$name"
+	fi
+done
