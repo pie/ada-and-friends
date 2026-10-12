@@ -63,8 +63,8 @@ Then `/ada:begin` in a project that has been onboarded with `/ada:onboard`.
 **The first time you run `claude` in a project, it asks whether to trust the folder. Say yes.**
 Until a folder is trusted, Claude Code ignores the project's `.claude/settings.json` permission
 rules, so the team's pre-allowed commands (`prod-wp`, `ada-brief`, the read-only git and grep
-commands) would all ask for permission instead. The same prompt also offers to install the `ada`
-plugin from the project's settings: say yes to that too.
+commands) would all ask for permission instead. Claude Code also offers to install the `ada`
+plugin that the project's settings name: say yes to that too.
 
 To try a local checkout instead, start Claude with `claude --plugin-dir ~/path/to/ada-and-friends/plugins/ada`.
 
