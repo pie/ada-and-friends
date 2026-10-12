@@ -37,6 +37,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Timezone | ask (WordPress's own setting is in the database) |
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
+| Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |
 | Expensive or sensitive tables, classes whose constructors write | ask, and grep for views, `CREATE VIEW` and constructors that save |
@@ -59,6 +60,10 @@ ada-onboard settings
   production.
 - If the project has no production access to set up, leave `PROD_SSH` out. `prod-wp` then says so
   instead of guessing.
+
+If briefs need approval, suggest a `.github/CODEOWNERS` line, `/.claude/ @<an approver>`, so a
+change to the approval lists (or any team file) needs a PIE review. It only takes effect with
+branch protection requiring code-owner review; say so, and leave turning that on to PIE.
 
 Then `composer install -d tools`. Run `tools/vendor/bin/phpunit` to check the harness loads; with
 no tests yet, a "no tests executed" result is expected. Edit `tests/unit/bootstrap.php` to load the

@@ -18,6 +18,19 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
   (Change if this project differs from the PIE workflow.)
 - **Branch names:** `<type>/<slug>/<Asana task URL without https://>`
 
+## Brief approval
+
+Whose briefs need approving before anything is built. `ada-brief` reads this section; keep the
+two lines as they are and change only the values.
+
+- **Approvers:** <`none` if no one outside PIE writes code here; otherwise the GitHub logins who
+  can approve, e.g. `@neilpie, @annawerno`>
+- **Trusted:** <`none`, or the GitHub logins who don't need approval but can't approve>
+
+Approvers never need approval. Anyone on neither list does: a new developer is covered without
+anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
+added by an approver.
+
 ## Environments
 
 | Branch | Environment | Host / install |

@@ -77,11 +77,35 @@ the code (P29).
 
 Confirm the brief with the developer.
 
+**Then get it approved, if this project needs that.** Run `ada-brief who`:
+
+- `not-needed`, `approver <login>` or `trusted <login>`: no approval is needed. Write which, and
+  why, on the brief's `Approval:` line (e.g. "not needed: @login is trusted") and carry on.
+- `required <login>`: run `ada-brief submit <Asana task id> <the PR base from PROJECT.md>`. It
+  commits the brief to `.claude/briefs/`, pushes the branch and opens a draft PR with the brief as
+  its description. Set the brief's status to `awaiting approval`, give the developer the PR link,
+  write `CHECKPOINT.md`, and **stop**. Nothing is built, and Tess and Bob are not spawned, until
+  `ada-brief status` says `approved`. The developer carries on with `/ada:pickup` once the
+  approver has looked.
+- If `ada-brief` says `gh` is missing or not logged in, the developer has to fix that first; the
+  brief can't be approved without it.
+
+`ada-brief status` prints the state on its first line:
+
+- `approved @login <time>`: record "approved by @login on <date>" on the `Approval:` line and
+  carry on.
+- `changes-requested`, followed by what the approvers said: go through each point with the
+  developer, change the brief, and `ada-brief submit` again. That resets the approval.
+- `waiting`: say so, with any note it prints (an earlier version was approved; a label added by
+  someone who isn't an approver doesn't count), and stop.
+
 **The brief is a contract with the developer.** Once they have agreed it, any change to the
 Outcome, Decisions, Out of scope or Definition of Done needs their explicit yes **before** it
 takes effect. Present the evidence, the proposed wording and what happens if they say no, then
 stop and wait. Telling the developer you are making a change is not asking. While you wait, the
 step pauses. Record each agreed change under Amendments in the brief, with the developer's name.
+If the brief needed approval, an amendment does too: `ada-brief submit` it again and wait for
+`approved` before the change takes effect.
 Wording without that line is not part of the brief: Tess reports against the agreed wording, and
 Claudia escalates the difference.
 
@@ -128,7 +152,10 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
      Rules are cited by number. Not-verified items and known gaps are listed so the PIE reviewer
      can see them.
    - Open the PR into the branch `PROJECT.md` names, with `gh pr create` if `gh` is available.
-     Otherwise give the developer the compare link and the description to paste. PRs are
+     If the brief's draft PR already exists, use it instead:
+     `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
+     `Approval:` line. Without `gh`, give the developer the compare link and the description to
+     paste. PRs are
      squash-merged, so the title becomes the commit on production: keep it short, imperative and
      specific.
 4. Write `CHECKPOINT.md`.

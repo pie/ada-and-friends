@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+# Brief approval: who needs it, sending a brief for it, and whether it has been given. Ada runs
+# it from /ada:begin and /ada:pickup; a developer can too. Run from inside the project repo.
+#
+#   ada-brief who
+#       What the brief approval policy means for the developer running this, from the "Brief
+#       approval" section of .claude/team/PROJECT.md and their GitHub login. Prints one line:
+#         not-needed                      the project needs no approval (Approvers: none)
+#         approver <login>                exempt; can approve others
+#         trusted <login>                 exempt; can't approve others
+#         required <login>                this developer's briefs need an approver's label
+#   ada-brief submit <task-id> <base-branch>
+#       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
+#       opens a draft PR into <base-branch> with the brief as its description (or updates the
+#       branch's PR). Removes any brief-approved label, so a changed brief is approved again.
+#   ada-brief status
+#       For the current branch's PR: approved, changes-requested or waiting, with who approved,
+#       or the approvers' comments since the brief was last submitted.
+#   ada-brief ready <title> <description-file>
+#       At the end of the step: gives the branch's PR its final title and description and takes
+#       it out of draft.
+#
+# PR edits go through the REST API: `gh pr edit` fails on gh before 2.50 (it still asks for
+# classic Projects, which GitHub has retired).
+#
+# Approval is the brief-approved label on the PR, added by someone on the Approvers list after
+# the brief's last commit. GitHub records who added a label, so a label added by anyone else
+# doesn't count.
+
+set -euo pipefail
+
+die() { echo "ada-brief: $*" >&2; exit 2; }
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+cd "$root"
+command -v python3 >/dev/null || die 'python3 is needed'
+
+LABEL='brief-approved'
+MARK='<!-- ada-brief:'
+
+# Prints "approvers" then "trusted" lines (space-separated lowercase logins), or "none" when the
+# project needs no approval, or "missing" when PROJECT.md has no Brief approval section.
+policy() {
+	python3 - "$root/.claude/team/PROJECT.md" <<'PY'
+import re, sys
+try:
+    text = open(sys.argv[1], encoding='utf-8').read()
+except FileNotFoundError:
+    sys.exit('ada-brief: no .claude/team/PROJECT.md; onboard the repo first')
+m = re.search(r'^## Brief approval\s*$(.*?)(?=^## |\Z)', text, re.M | re.S)
+if not m:
+    print('missing'); sys.exit()
+def field(name):
+    f = re.search(r'^\s*-\s*\*\*' + name + r':\*\*(.*)$', m.group(1), re.M)
+    if not f:
+        sys.exit(f'ada-brief: the Brief approval section has no **{name}:** line')
+    value = f.group(1).strip()
+    if value.lower().startswith('none'):
+        return []
+    logins = re.findall(r'@([A-Za-z0-9-]+)', value)
+    if not logins:
+        sys.exit(f'ada-brief: **{name}:** must be "none" or a list of @logins: {value}')
+    return [l.lower() for l in logins]
+approvers, trusted = field('Approvers'), field('Trusted')
+if not approvers:
+    print('none')
+else:
+    print(' '.join(approvers)); print(' '.join(trusted))
+PY
+}
+
+need_gh() {
+	command -v gh >/dev/null || die 'gh (GitHub CLI) is needed: install it, then gh auth login'
+	gh auth status >/dev/null 2>&1 || die 'gh is not logged in: run gh auth login'
+}
+
+me() { gh api user -q .login | tr 'A-Z' 'a-z'; }
+
+repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
+pr_number() { gh pr view --json number -q .number 2>/dev/null; }
+
+in_list() { local x="$1"; shift; for y in "$@"; do [ "$x" = "$y" ] && return 0; done; return 1; }
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+who)
+	pol="$(policy)" || exit 2
+	mapfile -t p <<<"$pol"
+	case "${p[0]}" in
+	missing) echo 'not-needed'; echo 'ada-brief: PROJECT.md has no "Brief approval" section; treating as not needed' >&2; exit 0 ;;
+	none) echo 'not-needed'; exit 0 ;;
+	esac
+	need_gh
+	read -ra approvers <<<"${p[0]}"; read -ra trusted <<<"${p[1]:-}"
+	login="$(me)"
+	if in_list "$login" "${approvers[@]}"; then echo "approver $login"
+	elif [ ${#trusted[@]} -gt 0 ] && in_list "$login" "${trusted[@]}"; then echo "trusted $login"
+	else echo "required $login"
+	fi
+	;;
+
+submit)
+	[ $# -eq 2 ] || die 'usage: ada-brief submit <task-id> <base-branch>'
+	task="$1"; base="$2"
+	[[ "$task" =~ ^[A-Za-z0-9_-]+$ ]] || die "task id must be letters, digits, - or _: $task"
+	[[ "$base" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad base branch: $base"
+	need_gh
+	[ -f .claude/handoff/BRIEF.md ] || die 'no .claude/handoff/BRIEF.md to submit'
+	branch="$(git branch --show-current)"
+	[ -n "$branch" ] || die 'not on a branch'
+	[ "$branch" != "$base" ] || die "on the base branch $base: create the feature branch first"
+	case "$branch" in production|next-release|review|main|master) die "won't push a brief to $branch" ;; esac
+
+	file=".claude/briefs/$task.md"
+	mkdir -p .claude/briefs
+	cp .claude/handoff/BRIEF.md "$file"
+	title="$(sed -n '1s/^#[[:space:]]*Brief[^:]*:[[:space:]]*//p' "$file")"
+	[ -n "$title" ] || title="$(head -1 "$file" | sed 's/^#*[[:space:]]*//')"
+	git add "$file"
+	if ! git diff --cached --quiet -- "$file"; then
+		git commit -q -m "Brief for approval: $title" -- "$file"
+	fi
+	out="$(git push -q -u origin HEAD 2>&1)" || die "push failed: $out"
+
+	gh label create "$LABEL" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
+	body="$(mktemp)"; trap 'rm -f "$body"' EXIT
+	{
+		echo "$MARK $file -->"
+		echo '> **Brief for approval.** Nothing is built until an approver adds the `brief-approved` label.'
+		echo '> To ask for changes, leave review comments or a comment here. The brief is'
+		echo "> \`$file\` on this branch."
+		echo
+		cat "$file"
+	} >"$body"
+	if n="$(pr_number)"; then
+		r="$(repo)"
+		url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
+		gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
+		echo "updated  $url (approval reset)"
+	else
+		url="$(gh pr create --draft --base "$base" --title "$title" --body-file "$body" 2>/dev/null)" ||
+			die "couldn't open the draft PR into $base"
+		echo "opened   $url"
+	fi
+	;;
+
+status)
+	need_gh
+	pol="$(policy)" || exit 2
+	mapfile -t p <<<"$pol"
+	case "${p[0]}" in missing|none) echo 'not-needed'; exit 0 ;; esac
+	read -ra approvers <<<"${p[0]}"
+	pr="$(gh pr view --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
+	PR="$pr" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" python3 - <<'PY'
+import json, os, re, subprocess, sys
+pr = json.loads(os.environ['PR'])
+approvers = os.environ['APPROVERS'].split()
+label, mark, repo = os.environ['LABEL'], os.environ['MARK'], os.environ['REPO']
+# One page of 100 is plenty for a brief's PR, and works on older gh (no --slurp before 2.48).
+def gh(path):
+    return json.loads(subprocess.run(['gh', 'api', f'{path}?per_page=100'], check=True, capture_output=True, text=True).stdout)
+def flat(items):
+    return items
+m = re.search(re.escape(mark) + r'\s*(\S+)\s*-->', pr['body'] or '')
+if not m:
+    print('not-submitted'); print(f"{pr['url']} has no ada-brief marker: submit with ada-brief submit"); sys.exit()
+brief = m.group(1)
+# When the brief last changed on the pushed branch: approval and comments count after this.
+since = subprocess.run(['git', 'log', '-1', '--format=%cI', '@{upstream}', '--', brief], capture_output=True, text=True).stdout.strip()
+if not since:
+    print('not-submitted'); print(f'{brief} is not on the pushed branch'); sys.exit()
+from datetime import datetime
+def t(s): return datetime.fromisoformat(s.replace('Z', '+00:00'))
+since_t = t(since)
+n = pr['number']
+labelled = any(l['name'] == label for l in pr['labels'])
+events = [e for e in flat(gh(f'repos/{repo}/issues/{n}/events')) if e.get('event') == 'labeled' and e.get('label', {}).get('name') == label]
+notes = []
+if labelled and events:
+    last = events[-1]
+    who = (last.get('actor') or {}).get('login', '').lower()
+    if who not in approvers:
+        notes.append(f'the {label} label was added by @{who}, who is not an approver, so it does not count')
+    elif t(last['created_at']) < since_t:
+        notes.append(f'@{who} approved an earlier version; the brief has changed since')
+    else:
+        print(f"approved @{who} {last['created_at']}"); print(pr['url']); sys.exit()
+# The approvers' words since the brief last changed: reviews, line comments and PR comments.
+said = []
+for r in flat(gh(f'repos/{repo}/pulls/{n}/reviews')):
+    if (r.get('user') or {}).get('login', '').lower() in approvers and r.get('submitted_at') and t(r['submitted_at']) >= since_t and (r.get('body') or r['state'] == 'CHANGES_REQUESTED'):
+        said.append((r['submitted_at'], r['user']['login'], f"review ({r['state'].lower()})", r.get('body') or ''))
+for c in flat(gh(f'repos/{repo}/pulls/{n}/comments')):
+    if c['user']['login'].lower() in approvers and t(c['created_at']) >= since_t:
+        said.append((c['created_at'], c['user']['login'], f"on {c['path']}:{c.get('line') or c.get('original_line')}", c['body']))
+for c in flat(gh(f'repos/{repo}/issues/{n}/comments')):
+    if c['user']['login'].lower() in approvers and t(c['created_at']) >= since_t:
+        said.append((c['created_at'], c['user']['login'], 'comment', c['body']))
+print('changes-requested' if said else 'waiting')
+for note in notes:
+    print(note)
+for when, who, where, body in sorted(said):
+    print(f'--- @{who}, {where}, {when}')
+    print(body.strip())
+print(pr['url'])
+PY
+	;;
+
+ready)
+	[ $# -eq 2 ] || die 'usage: ada-brief ready <title> <description-file>'
+	[ -f "$2" ] || die "no file $2"
+	need_gh
+	n="$(pr_number)" || die 'no PR for this branch'
+	url="$(gh api -X PATCH "repos/$(repo)/pulls/$n" -f "title=$1" -F "body=@$2" -q .html_url)"
+	gh pr ready "$n" >/dev/null 2>&1 || echo "ada-brief: couldn't take $url out of draft; the developer can press 'Ready for review'" >&2
+	echo "ready    $url"
+	;;
+
+*)
+	die 'usage: ada-brief who | submit <task-id> <base-branch> | status | ready <title> <file> (see the header of this script)'
+	;;
+esac
