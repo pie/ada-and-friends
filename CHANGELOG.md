@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0, 12 Oct 2026
+
+- Brief approval. `PROJECT.md` gets a "Brief approval" section (Approvers, Trusted). When the
+  developer's briefs need approval, Ada commits the brief to `.claude/briefs/`, opens a draft PR
+  and stops until an approver adds the `brief-approved` label. Amendments are approved again.
+- New `bin/ada-brief` (`who`, `submit`, `status`), allowed by `ada-onboard settings`.
+- `/ada:onboard` asks who approves; `ada-onboard check` checks the section.
+- The brief template has an `Approval:` line and the PR template a `Brief:` line.
+
 ## 0.1.0, 12 Oct 2026
 
 - First public release, published to `pie/ada-and-friends` with a single clean commit.

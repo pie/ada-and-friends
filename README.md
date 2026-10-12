@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.1.0.** First public release. V&Me is the first project to use it.
+Status: **0.2.0.** Adds brief approval. V&Me is the first project to use it.
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -14,6 +14,22 @@ A Claude Code team for working on a project, from PIE Code:
 
 The process lives here. **Each project's knowledge lives in its own repo**, in `.claude/team/`:
 `PROJECT.md`, `SYSTEM.md`, `API.md`, `STANDARDS.md` (project rules) and `TEST-AREAS.md`.
+
+## Brief approval
+
+On a project where people outside PIE write code, PIE can approve each brief before anything is
+built. The project's `PROJECT.md` has a "Brief approval" section with two lists of GitHub logins:
+
+- **Approvers** can approve anyone's brief and never need approval themselves.
+- **Trusted** developers don't need approval but can't approve.
+- **Everyone else** needs approval, so a new developer is covered by default.
+
+`Approvers: none` turns it off (an internal project). When approval is needed, Ada commits the
+agreed brief to `.claude/briefs/<task id>.md`, opens a draft PR with it, and stops. An approver
+adds the `brief-approved` label to approve, or leaves review comments to ask for changes; the
+developer carries on with `/ada:pickup`. `bin/ada-brief` does the checking: only a label added by
+an approver, after the brief last changed, counts. A changed brief is approved again. The draft
+PR becomes the work's PR at the end. It needs `gh`, logged in.
 
 ## Install
 
@@ -38,7 +54,7 @@ plugins/ada/
   skills/onboard/                 set a repo up for the team (/ada:onboard)
   skills/standards/               the PIE rules (P1-P29), preloaded into the agents, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
-  bin/                            on the Bash PATH while enabled: ada-handoff-init, ada-onboard, prod-wp
+  bin/                            on the Bash PATH while enabled: ada-brief, ada-handoff-init, ada-onboard, prod-wp
   templates/handoff/              the files the roles hand over through
   templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
 ```

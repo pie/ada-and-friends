@@ -2,7 +2,8 @@
 
 Asana: <task URL>
 Branch: <branch name>
-Status: draft | agreed | building | in review | testing | ready for PR
+Status: draft | agreed | awaiting approval | building | in review | testing | ready for PR
+Approval: <not needed (why) | approved by @login on <date> | awaiting @approvers>
 
 Overwritten each step. This is the contract, not a log; the log is BUILD-LOG.md.
 

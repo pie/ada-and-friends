@@ -86,7 +86,7 @@ def add(kind, rules):
         if r not in lst:
             lst.append(r)
 add('allow', [
-    'Bash(ada-handoff-init)', 'Bash(prod-wp *)',
+    'Bash(ada-handoff-init)', 'Bash(prod-wp *)', 'Bash(ada-brief *)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
     'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',
@@ -118,6 +118,10 @@ check)
 		fi
 	done
 	[ -f .claude/settings.json ] && grep -q '"ada@pie"' .claude/settings.json || echo "missing  ada@pie in .claude/settings.json (run: ada-onboard settings)"
+	if [ -f .claude/team/PROJECT.md ]; then
+		grep -q '^## Brief approval' .claude/team/PROJECT.md || echo 'missing  "Brief approval" section in .claude/team/PROJECT.md (see the plugin template)'
+		out="$(ada_brief="$(dirname "$0")/ada-brief"; "$ada_brief" who 2>&1 >/dev/null)" || echo "error    brief approval: $out"
+	fi
 	;;
 *)
 	die 'usage: ada-onboard files KEY=value... | gitignore | settings | check (see the header of this script)'
