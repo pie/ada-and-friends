@@ -68,7 +68,10 @@ approve to move things along.
    make it real, because it reads as coverage that isn't there. A weaker kind of test than the
    item allows (a script where a unit test would reach) is Should Fix.
 10. **Logging and readability.** `P15`–`P20`. Comments that claim coverage: trace the claim.
-11. **Static checks.** Run `php -l`, `phpcs` and the unit tests yourself. Don't take Bob's word
+11. **Static checks.** Run `php -l`, `phpcs` and the unit tests yourself. phpcs is checked per
+    touched function, whole, not per added line (`P30`): a touched function that still has
+    findings, or that mixes styles, is Must Fix. Behaviour changed inside a reformat is Must Fix.
+    Legacy findings outside the touched functions are not findings; check they're in Known Gaps. Don't take Bob's word
     for it.
 
 ## Write

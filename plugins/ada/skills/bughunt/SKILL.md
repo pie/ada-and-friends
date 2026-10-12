@@ -87,7 +87,10 @@ can reproduce is a bug you understand. If it won't reproduce, say what differed.
 
 You may try a fix locally to confirm the cause: a scratch change on a `bughunt/<slug>` branch,
 never pushed, never merged. Its job is proof. Record it in the findings as a sketch; the real fix
-goes through `/ada:begin`.
+goes through `/ada:begin`. Before switching to that branch, check the working tree is yours
+(`git status`, `git reflog -5`). If anyone else's work is there, don't switch: ask the developer
+to run the hunt from its own worktree. Replicating on the local site changes it for everyone
+using it (`PROJECT.md`, Local copies), so check nobody is testing on it first.
 
 ### 5. Scope
 

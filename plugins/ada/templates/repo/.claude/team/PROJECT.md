@@ -72,3 +72,7 @@ list) are in `.claude/team/prod.env`; `prod-wp config` shows them.
 
 <How a local copy is made and made safe, e.g. pulled from production; Stripe in test mode;
 emails disabled. Say what a check should verify.>
+
+- **The local site runs the code in:** <the checkout its theme or plugin folder links to, e.g.
+  `~/Repos/<repo>`>. Testing on the local site means testing whatever that checkout has checked
+  out, so a branch switched there changes the site for everyone using it.

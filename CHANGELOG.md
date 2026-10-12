@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0, 12 Oct 2026
+
+- **Mac fix.** `ada-brief` used `mapfile`, which macOS's bash 3.2 doesn't have, so brief approval
+  failed on a stock Mac in 0.2.x. All the scripts are now tested under bash 3.2.57.
+- **Windows.** The scripts find Python as `python3`, `python` or `py -3` (skipping the Microsoft
+  Store shortcut), strip CRLF from its output, and write files with LF endings.
+- **P30: bring each function you touch up to standard, whole.** Formatting-only reformat in its
+  own commit; legacy files go in Known Gaps with their phpcs count, not into the PR. Bob, Claudia
+  and the brief's Definition of Done follow it.
+- **Working-tree safety.** Ada checks the working tree is hers before switching branches and
+  sends the developer to a worktree if someone else's work is there; the team stages files by
+  name, never `git add -A` or `commit -a`. `/ada:bughunt` checks before its scratch branch and
+  before replicating on a shared local site. `PROJECT.md` says which checkout the local site runs.
+
 ## 0.2.1, 12 Oct 2026
 
 - Each role is credited by name. Ada commits the team's work (Bob and Tess no longer may), with

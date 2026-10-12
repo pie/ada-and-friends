@@ -32,7 +32,18 @@ set -euo pipefail
 die() { echo "ada-brief: $*" >&2; exit 2; }
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
 cd "$root"
-command -v python3 >/dev/null || die 'python3 is needed'
+# Python 3.8+: python3 on Mac and Linux. On Windows (Git Bash) it's often python or py -3, and
+# the python3 there can be a Microsoft Store shortcut that runs nothing, so each is tried.
+PY=()
+for c in python3 python 'py -3'; do
+	read -ra try <<<"$c"
+	if "${try[@]}" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+		PY=("${try[@]}"); break
+	fi
+done
+[ ${#PY[@]} -gt 0 ] || die 'Python 3.8 or later is needed (as python3, python or py -3)'
+# Windows Pythons print CRLF; the shell compares plain lines.
+py() { "${PY[@]}" "$@" | tr -d '\r'; }
 
 LABEL='brief-approved'
 MARK='<!-- ada-brief:'
@@ -40,7 +51,7 @@ MARK='<!-- ada-brief:'
 # Prints "approvers" then "trusted" lines (space-separated lowercase logins), or "none" when the
 # project needs no approval, or "missing" when PROJECT.md has no Brief approval section.
 policy() {
-	python3 - "$root/.claude/team/PROJECT.md" <<'PY'
+	py - "$root/.claude/team/PROJECT.md" <<'PY'
 import re, sys
 try:
     text = open(sys.argv[1], encoding='utf-8').read()
@@ -85,7 +96,7 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
 who)
 	pol="$(policy)" || exit 2
-	mapfile -t p <<<"$pol"
+	p=(); while IFS= read -r line; do p+=("$line"); done <<<"$pol"   # no mapfile: macOS has bash 3.2
 	case "${p[0]}" in
 	missing) echo 'not-needed'; echo 'ada-brief: PROJECT.md has no "Brief approval" section; treating as not needed' >&2; exit 0 ;;
 	none) echo 'not-needed'; exit 0 ;;
@@ -148,11 +159,11 @@ submit)
 status)
 	need_gh
 	pol="$(policy)" || exit 2
-	mapfile -t p <<<"$pol"
+	p=(); while IFS= read -r line; do p+=("$line"); done <<<"$pol"   # no mapfile: macOS has bash 3.2
 	case "${p[0]}" in missing|none) echo 'not-needed'; exit 0 ;; esac
 	read -ra approvers <<<"${p[0]}"
 	pr="$(gh pr view --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
-	PR="$pr" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" python3 - <<'PY'
+	PR="$pr" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py - <<'PY'
 import json, os, re, subprocess, sys
 pr = json.loads(os.environ['PR'])
 approvers = os.environ['APPROVERS'].split()
