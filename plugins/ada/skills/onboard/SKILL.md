@@ -65,6 +65,8 @@ If briefs need approval, suggest a `.github/CODEOWNERS` line, `/.claude/ @<an ap
 change to the approval lists (or any team file) needs a PIE review. It only takes effect with
 branch protection requiring code-owner review; say so, and leave turning that on to PIE.
 
+Commit the onboarding with the trailer `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>`.
+
 Then `composer install -d tools`. Run `tools/vendor/bin/phpunit` to check the harness loads; with
 no tests yet, a "no tests executed" result is expected. Edit `tests/unit/bootstrap.php` to load the
 first file worth testing, if there's an obvious one: a file of pure business rules.

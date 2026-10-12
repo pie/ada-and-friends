@@ -118,7 +118,8 @@ submit)
 	[ -n "$title" ] || title="$(head -1 "$file" | sed 's/^#*[[:space:]]*//')"
 	git add "$file"
 	if ! git diff --cached --quiet -- "$file"; then
-		git commit -q -m "Brief for approval: $title" -- "$file"
+		git commit -q -m "Brief for approval: $title" \
+			-m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>' -- "$file"
 	fi
 	out="$(git push -q -u origin HEAD 2>&1)" || die "push failed: $out"
 
