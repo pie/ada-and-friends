@@ -1,9 +1,18 @@
 Asana:
 Brief: <`.claude/briefs/<task id>.md`, approved by @login | approval not needed, and why>
+Plan: <none | unit <ID> of `.claude/briefs/<Epic task id>-plan.md`; ships <independent | after #PR>>
+
+<!-- A feature's last PR (feature branch into the release branch): list its parts' PRs here,
+with the smoke-test result under Tested. It is checked like a release, by a smoke test, not a
+code review. -->
 
 ## For the reviewer
 
-Three to five lines: what to look at closely, and what wasn't verified.
+Review: <about N minutes (small | medium | large), from `ada-size`; raised for a fragile area, and why>
+Actual review time: <the reviewer fills this in, so the estimates can be tuned>
+
+Three to five lines: where the review is (the changed logic, and any fragile area, by file and
+function), what is cheap to skim, and what wasn't verified.
 
 ## What changed and why
 

@@ -1,0 +1,291 @@
+#!/usr/bin/env bash
+# Plans: a piece of work broken into units, each with its own brief, branch and PR. Ada runs it
+# from /ada:begin and /ada:pickup; a developer can too. Run from inside the project repo. The
+# plan is .claude/handoff/plan/PLAN.md, and the briefs drafted from it sit beside it as
+# .claude/handoff/plan/<task id>.md until each is submitted (ada-brief submit) or built.
+#
+#   ada-plan init
+#       Copies the plan template to .claude/handoff/plan/PLAN.md.
+#   ada-plan check
+#       Reads the Units table and prints each unit with where it branches from and PRs into,
+#       or what's wrong with the table.
+#   ada-plan briefs
+#       Drafts a brief from the template for each unit that has none yet, with its Asana,
+#       Branch, Plan, PR into and Ships lines filled in.
+#   ada-plan branches
+#       Creates each unit's branch that doesn't exist yet, locally, without a checkout:
+#       top-level units from the production branch on origin, parts from their feature branch.
+#       Pushing is ada-brief submit's job.
+#   ada-plan status
+#       Each unit's PR, brief approval, whether it has shipped, and what happens next: which
+#       units are ready to build, and what the others are waiting for.
+#
+# The production and release branches are the "Branch from" and "PR into" names in
+# .claude/team/PROJECT.md.
+
+set -euo pipefail
+
+die() { echo "ada-plan: $*" >&2; exit 2; }
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+cd "$root"
+here="$(cd "$(dirname "$0")" && pwd)"
+templates="$(cd "$here/../templates" && pwd)"
+# Python 3.8+, found as in ada-brief.
+PY=()
+for c in python3 python 'py -3'; do
+	read -ra try <<<"$c"
+	if "${try[@]}" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+		PY=("${try[@]}"); break
+	fi
+done
+[ ${#PY[@]} -gt 0 ] || die 'Python 3.8 or later is needed (as python3, python or py -3)'
+
+dir='.claude/handoff/plan'
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+init)
+	[ $# -eq 0 ] || die 'usage: ada-plan init'
+	[ -e "$dir/PLAN.md" ] && die "$dir/PLAN.md already exists"
+	mkdir -p "$dir"
+	cp "$templates/plan/PLAN.md" "$dir/PLAN.md"
+	echo "created  $dir/PLAN.md"
+	exit 0
+	;;
+check|briefs|branches|status)
+	[ $# -eq 0 ] || die "usage: ada-plan $cmd"
+	[ -f "$dir/PLAN.md" ] || die "no $dir/PLAN.md: ada-plan init first"
+	;;
+*)
+	die 'usage: ada-plan init | check | briefs | branches | status (see the header of this script)'
+	;;
+esac
+
+if [ "$cmd" = branches ] || [ "$cmd" = status ]; then
+	prod="$("${PY[@]}" - "$root/.claude/team/PROJECT.md" <<'PY'
+import re, sys
+text = open(sys.argv[1], encoding='utf-8').read()
+m = re.search(r'\*\*Branch from:\*\*\s*`([^`]+)`', text)
+print(m.group(1) if m else 'production')
+PY
+)"
+	prod="$(printf '%s' "$prod" | tr -d '\r')"
+	git fetch -q origin "$prod" 2>/dev/null || die "couldn't fetch $prod from origin"
+fi
+if [ "$cmd" = status ]; then
+	command -v gh >/dev/null || die 'gh (GitHub CLI) is needed: install it, then gh auth login'
+	gh auth status >/dev/null 2>&1 || die 'gh is not logged in: run gh auth login'
+fi
+
+CMD="$cmd" DIR="$dir" PROD="${prod:-}" TEMPLATE="$templates/handoff/BRIEF.md" BRIEF_BIN="$here/ada-brief" \
+	"${PY[@]}" - <<'PY' | tr -d '\r'
+import json, os, re, subprocess, sys
+
+cmd, d = os.environ['CMD'], os.environ['DIR']
+def die(msg):
+    print(f'ada-plan: {msg}', file=sys.stderr); sys.exit(2)
+
+text = open(os.path.join(d, 'PLAN.md'), encoding='utf-8').read()
+project = open('.claude/team/PROJECT.md', encoding='utf-8').read() if os.path.exists('.claude/team/PROJECT.md') else ''
+def named(label, default):
+    m = re.search(r'\*\*' + label + r':\*\*\s*`([^`]+)`', project)
+    return m.group(1) if m else default
+prod, release = named('Branch from', 'production'), named('PR into', 'next-release')
+
+m = re.search(r'^Epic:\s*(\S+)', text, re.M)
+epic_url = m.group(1) if m else ''
+m = re.search(r'(\d{6,})(?:/f)?/?\s*$', epic_url)
+epic = m.group(1) if m else ''
+
+# The Units table.
+sec = re.search(r'^## Units\s*$(.*?)(?=^## |\Z)', text, re.M | re.S)
+if not sec:
+    die('PLAN.md has no "## Units" section')
+rows = [l for l in sec.group(1).splitlines() if l.strip().startswith('|')]
+if len(rows) < 2:
+    die('the Units table is empty')
+head = [c.strip().lower() for c in rows[0].strip().strip('|').split('|')]
+if head != ['id', 'unit', 'task', 'branch', 'parent', 'ships']:
+    die('the Units table columns must be: ID | Unit | Task | Branch | Parent | Ships')
+units, problems = [], []
+for l in rows[2:]:
+    c = [x.strip() for x in l.strip().strip('|').split('|')]
+    if len(c) != 6:
+        problems.append(f'not six columns: {l.strip()}'); continue
+    if all(x.startswith('<') or not x for x in c):
+        continue  # the template's example row
+    uid, title, task, branch, parent, ships = c
+    units.append(dict(id=uid, title=title, task=task, branch=branch, parent=parent, ships=ships))
+if not units:
+    die('the Units table has no units')
+
+byid = {u['id']: u for u in units}
+if not epic:
+    problems.append('the Epic line has no Asana task URL (it names the committed plan file)')
+for u in units:
+    w = f"unit {u['id']}"
+    if not re.fullmatch(r'[A-Za-z0-9]+', u['id']):
+        problems.append(f'{w}: ID must be letters and digits')
+    if not re.fullmatch(r'[A-Za-z0-9_-]+', u['task']):
+        problems.append(f"{w}: Task must be the Asana task id, not '{u['task']}'")
+    if not re.fullmatch(r'[A-Za-z0-9._/-]+', u['branch']) or u['branch'] in (prod, release, 'review', 'main', 'master'):
+        problems.append(f"{w}: bad branch '{u['branch']}'")
+    if u['parent']:
+        p = byid.get(u['parent'])
+        if not p:
+            problems.append(f"{w}: Parent {u['parent']} isn't a unit")
+        elif p['parent']:
+            problems.append(f"{w}: Parent {u['parent']} is itself a part (two levels at most)")
+    s = u['ships']
+    if s == 'independent':
+        u['after'] = []
+    else:
+        a = re.fullmatch(r'after\s+(.+)', s)
+        u['after'] = [x.strip() for x in a.group(1).split(',')] if a else None
+        if u['after'] is None:
+            problems.append(f"{w}: Ships must be 'independent' or 'after <IDs>', not '{s}'")
+            u['after'] = []
+        for x in u['after']:
+            if x not in byid:
+                problems.append(f"{w}: ships after {x}, which isn't a unit")
+            elif byid[x]['parent'] != u['parent']:
+                problems.append(f"{w}: ships after {x}, which isn't at its level (top-level after top-level, a part after a part of the same feature)")
+for key in ('id', 'task', 'branch'):
+    seen = [u[key] for u in units]
+    for x in sorted({x for x in seen if seen.count(x) > 1}):
+        problems.append(f'{key} {x} is used twice')
+# Cycles in Ships.
+def visit(uid, path):
+    if uid in path:
+        problems.append('Ships goes round in a circle: ' + ' -> '.join(path + [uid])); return True
+    return any(visit(x, path + [uid]) for x in byid.get(uid, {}).get('after') or [] if x in byid)
+for u in units:
+    if visit(u['id'], []):
+        break
+if problems:
+    die('the plan has problems:\n  ' + '\n  '.join(problems))
+
+for u in units:
+    u['parts'] = [p for p in units if p['parent'] == u['id']]
+    if u['parent']:
+        u['base'] = u['into'] = byid[u['parent']]['branch']
+    else:
+        u['base'], u['into'] = prod, release
+    u['kind'] = 'part' if u['parent'] else ('feature' if u['parts'] else 'unit')
+plan_file = f'.claude/briefs/{epic}-plan.md'
+
+def git(*a):
+    return subprocess.run(['git', *a], capture_output=True, text=True)
+
+if cmd == 'check':
+    print(f'plan {plan_file}: {len(units)} units')
+    for u in units:
+        after = 'after ' + ', '.join(u['after']) if u['after'] else 'independent'
+        print(f"{u['id']:<4} {u['kind']:<8} {u['branch']}  ({u['base']} -> {u['into']}; {after})  {u['title']}")
+
+elif cmd == 'briefs':
+    template = open(os.environ['TEMPLATE'], encoding='utf-8').read()
+    for u in units:
+        path = os.path.join(d, f"{u['task']}.md")
+        if os.path.exists(path):
+            print(f'kept     {path}'); continue
+        b = template
+        b = re.sub(r'^# Brief.*$', f"# Brief — {u['id']}: {u['title']}", b, count=1, flags=re.M)
+        b = re.sub(r'^Asana:.*$', f"Asana: <task URL> (task {u['task']})", b, count=1, flags=re.M)
+        b = re.sub(r'^Branch:.*$', f"Branch: {u['branch']}", b, count=1, flags=re.M)
+        b = re.sub(r'^Plan:.*$', f"Plan: {plan_file}, unit {u['id']}", b, count=1, flags=re.M)
+        b = re.sub(r'^PR into:.*$', f"PR into: {u['into']}", b, count=1, flags=re.M)
+        if u['after']:
+            how = 'once that is merged into ' + u['into'] if u['parent'] else 'once that is in ' + prod
+            ships = f"after {', '.join(u['after'])}: built {how}"
+        else:
+            ships = 'independent'
+        if u['parts']:
+            ships += '\nParts: ' + ', '.join(f"{p['id']} ({p['branch']})" for p in u['parts']) + \
+                     f"; each PRs into {u['branch']}, which PRs into {u['into']} when they're all in"
+        b = re.sub(r'^Ships:.*$', lambda _: f'Ships: {ships}', b, count=1, flags=re.M)
+        b = b.replace('\r\n', '\n')
+        open(path, 'w', encoding='utf-8', newline='\n').write(b)
+        print(f'created  {path}')
+
+elif cmd == 'branches':
+    # Parents first, so a part can branch from its feature branch.
+    for u in sorted(units, key=lambda u: bool(u['parent'])):
+        b = u['branch']
+        if git('rev-parse', '--verify', '-q', f'refs/heads/{b}').returncode == 0:
+            print(f'kept     {b}'); continue
+        if git('rev-parse', '--verify', '-q', f'refs/remotes/origin/{b}').returncode == 0:
+            start = f'origin/{b}'
+        elif u['parent']:
+            start = byid[u['parent']]['branch']
+        else:
+            start = f'origin/{prod}'
+        r = git('branch', '--no-track', b, start)
+        if r.returncode:
+            die(f"couldn't create {b} from {start}: {r.stderr.strip()}")
+        print(f'created  {b} from {start}')
+
+elif cmd == 'status':
+    brief_bin = os.environ['BRIEF_BIN']
+    def run(*a):
+        return subprocess.run(list(a), capture_output=True, text=True)
+    # Whether this developer's briefs need approval at all.
+    who = (run(brief_bin, 'who').stdout.split() or ['required'])[0]
+    needed = who == 'required'
+    def ok(s):
+        return s.startswith('approved') or s == 'not-needed'
+    for u in units:
+        r = run('gh', 'pr', 'list', '--head', u['branch'], '--state', 'all', '--limit', '1',
+                '--json', 'number,state,isDraft,mergeCommit,url')
+        prs = json.loads(r.stdout or '[]') if r.returncode == 0 else []
+        pr = u['pr'] = prs[0] if prs else None
+        u['local'] = git('rev-parse', '--verify', '-q', f"refs/heads/{u['branch']}").returncode == 0
+        u['shipped'] = False
+        if not pr:
+            u['brief'], u['state'] = ('not-submitted' if needed else 'not-needed'), 'no PR'
+        elif pr['state'] == 'MERGED':
+            u['brief'] = 'approved'
+            if u['parent']:
+                u['state'], u['shipped'] = f"merged into {u['into']}", True
+            else:
+                sha = (pr.get('mergeCommit') or {}).get('oid', '')
+                u['shipped'] = bool(sha) and git('merge-base', '--is-ancestor', sha, f'origin/{prod}').returncode == 0
+                u['state'] = f'in {prod}' if u['shipped'] else f"merged into {u['into']}"
+        elif pr['state'] == 'CLOSED':
+            u['brief'], u['state'] = '-', 'PR closed'
+        else:
+            u['brief'] = (run(brief_bin, 'status', u['branch']).stdout.splitlines() or ['unknown'])[0].strip() if needed else 'not-needed'
+            u['state'] = 'draft PR' if pr['isDraft'] else 'PR open'
+    for u in units:
+        pr, parent = u['pr'], byid.get(u['parent'])
+        blockers = [x for x in u['after'] if not byid[x]['shipped']]
+        # A part also waits for whatever its feature waits for.
+        held = [x for x in parent['after'] if not byid[x]['shipped']] if parent else []
+        if pr and pr['state'] == 'MERGED':
+            nxt = 'done' if u['shipped'] else f"waiting for release to {prod} (if it was released by squash, ask)"
+        elif pr and pr['state'] == 'CLOSED':
+            nxt = 'PR closed: ask the developer'
+        elif pr and not pr['isDraft']:
+            nxt = 'with the PIE reviewer'
+        elif parent and not ok(parent['brief']):
+            nxt = f"waiting for {parent['id']}'s brief to be approved"
+        elif u['brief'] == 'not-submitted':
+            nxt = 'brief to submit'
+        elif not ok(u['brief']):
+            nxt = f"brief {u['brief']}"
+        elif held:
+            nxt = f"build waits for {', '.join(held)} to be in {prod} ({parent['id']} ships after)"
+        elif blockers:
+            where = f"merged into {u['into']}" if u['parent'] else f'in {prod}'
+            nxt = f"build waits for {', '.join(blockers)} to be {where}"
+        elif u['parts']:
+            left = [p['id'] for p in u['parts'] if not p['shipped']]
+            nxt = f"parts to merge: {', '.join(left)}" if left else f"ready: smoke test, then the PR into {u['into']}"
+        else:
+            nxt = 'ready to build (or building)'
+        num = f"#{pr['number']}" if pr else '-'
+        note = '' if u['local'] or pr else '  (no branch yet: ada-plan branches)'
+        print(f"{u['id']:<4} {u['kind']:<8} {num:<6} {u['state']:<24} brief: {u['brief']}")
+        print(f"     next: {nxt}")
+        print(f"     {u['branch']}{note}")
+PY

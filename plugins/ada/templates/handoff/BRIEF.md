@@ -2,10 +2,14 @@
 
 Asana: <task URL>
 Branch: <branch name>
+PR into: <the release branch PROJECT.md names | the feature branch this is a part of>
+Plan: <none | .claude/briefs/<Epic task id>-plan.md, unit <ID>>
+Ships: <independent | after <unit IDs>: built once they are in production (a part: merged into the feature branch)>
 Status: draft | agreed | awaiting approval | building | in review | testing | ready for PR
 Approval: <not needed (why) | approved by @login on <date> | awaiting @approvers>
 
-Overwritten each step. This is the contract, not a log; the log is BUILD-LOG.md.
+Overwritten each step. This is the contract, not a log; the log is BUILD-LOG.md. A unit of a
+plan is drafted as .claude/handoff/plan/<task id>.md and copied here when its build starts.
 
 ## Outcome
 
@@ -20,6 +24,8 @@ One sentence: what the customer, the kitchen or the admin can do or see afterwar
 - SYSTEM.md sections that apply:
 - API.md entries to use:
 - Files expected to change:
+- Expected review: <small | medium | large: the behaviour and functions the reviewer reads
+  closely, and any fragile area; checked against ada-size at the PR gate>
 - Surfaces to check (S12):
 - Out of scope:
 

@@ -9,13 +9,18 @@
 #         approver <login>                exempt; can approve others
 #         trusted <login>                 exempt; can't approve others
 #         required <login>                this developer's briefs need an approver's label
-#   ada-brief submit <task-id> <base-branch>
+#   ada-brief submit <task-id> <base-branch> [<branch>]
 #       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
 #       opens a draft PR into <base-branch> with the brief as its description (or updates the
 #       branch's PR). Removes any brief-approved label, so a changed brief is approved again.
-#   ada-brief status
-#       For the current branch's PR: approved, changes-requested or waiting, with who approved,
-#       or the approvers' comments since the brief was last submitted.
+#       With <branch> (a planned unit's branch that isn't checked out), the brief is
+#       .claude/handoff/plan/<task-id>.md and is committed to <branch> without a checkout.
+#       A brief whose "Plan:" line names a plan file takes .claude/handoff/plan/PLAN.md with it,
+#       committed there and shown under the brief. A brief whose <base-branch> has its own brief
+#       PR (a part of a larger unit) can't be submitted until that brief is approved.
+#   ada-brief status [<branch>]
+#       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
+#       who approved, or the approvers' comments since the brief was last submitted.
 #   ada-brief ready <title> <description-file>
 #       At the end of the step: gives the branch's PR its final title and description and takes
 #       it out of draft.
@@ -87,7 +92,26 @@ need_gh() {
 me() { gh api user -q .login | tr 'A-Z' 'a-z'; }
 
 repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
-pr_number() { gh pr view --json number -q .number 2>/dev/null; }
+# The PR for a branch (the current one when none is given).
+pr_number() { gh pr view ${1:+"$1"} --json number -q .number 2>/dev/null; }
+
+# Commits one or more files to a branch that isn't checked out, without touching the working
+# tree: commit_to <branch> <message> <path-in-repo>=<source-file>...
+commit_to() {
+	local branch="$1" msg="$2"; shift 2
+	local idx old tree commit pair blob
+	old="$(git rev-parse --verify -q "refs/heads/$branch")" || die "no local branch $branch"
+	idx="$(mktemp -d)/index"   # git won't read an empty index file, so a fresh path
+	GIT_INDEX_FILE="$idx" git read-tree "$old"
+	for pair in "$@"; do
+		blob="$(git hash-object -w "${pair#*=}")"
+		GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "100644,$blob,${pair%%=*}"
+	done
+	tree="$(GIT_INDEX_FILE="$idx" git write-tree)"; rm -rf "$(dirname "$idx")"
+	[ "$tree" = "$(git rev-parse "$old^{tree}")" ] && return 0
+	commit="$(git commit-tree "$tree" -p "$old" -m "$msg" -m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>')"
+	git update-ref "refs/heads/$branch" "$commit" "$old"
+}
 
 in_list() { local x="$1"; shift; for y in "$@"; do [ "$x" = "$y" ] && return 0; done; return 1; }
 
@@ -111,28 +135,57 @@ who)
 	;;
 
 submit)
-	[ $# -eq 2 ] || die 'usage: ada-brief submit <task-id> <base-branch>'
+	[ $# -eq 2 ] || [ $# -eq 3 ] || die 'usage: ada-brief submit <task-id> <base-branch> [<branch>]'
 	task="$1"; base="$2"
+	current="$(git branch --show-current)"; branch="${3:-$current}"
 	[[ "$task" =~ ^[A-Za-z0-9_-]+$ ]] || die "task id must be letters, digits, - or _: $task"
 	[[ "$base" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad base branch: $base"
-	need_gh
-	[ -f .claude/handoff/BRIEF.md ] || die 'no .claude/handoff/BRIEF.md to submit'
-	branch="$(git branch --show-current)"
 	[ -n "$branch" ] || die 'not on a branch'
+	[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
 	[ "$branch" != "$base" ] || die "on the base branch $base: create the feature branch first"
 	case "$branch" in production|next-release|review|main|master) die "won't push a brief to $branch" ;; esac
+	if [ "$branch" = "$current" ]; then src='.claude/handoff/BRIEF.md'; else src=".claude/handoff/plan/$task.md"; fi
+	[ -f "$src" ] || die "no $src to submit"
+	need_gh
+
+	# A part of a larger unit: the unit's brief, on its feature branch, is approved first.
+	if pr_number "$base" >/dev/null; then
+		st="$("$0" status "$base" | head -1)"
+		case "$st" in
+		approved*|not-needed|not-submitted) ;;
+		*) die "the brief on $base is $st; it's approved before its parts' briefs are submitted" ;;
+		esac
+	fi
 
 	file=".claude/briefs/$task.md"
-	mkdir -p .claude/briefs
-	cp .claude/handoff/BRIEF.md "$file"
-	title="$(sed -n '1s/^#[[:space:]]*Brief[^:]*:[[:space:]]*//p' "$file")"
-	[ -n "$title" ] || title="$(head -1 "$file" | sed 's/^#*[[:space:]]*//')"
-	git add "$file"
-	if ! git diff --cached --quiet -- "$file"; then
-		git commit -q -m "Brief for approval: $title" \
-			-m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>' -- "$file"
+	title="$(sed -n '1s/^#[[:space:]]*Brief[^:]*:[[:space:]]*//p' "$src")"
+	[ -n "$title" ] || title="$(head -1 "$src" | sed 's/^#*[[:space:]]*//')"
+	# The plan this brief is part of, if any, goes with it.
+	plan="$(sed -n 's/^Plan:[[:space:]]*\(\.claude\/briefs\/[A-Za-z0-9_-]*-plan\.md\).*/\1/p' "$src" | head -1)"
+	plan_src=''
+	[ -n "$plan" ] && [ -f .claude/handoff/plan/PLAN.md ] && plan_src='.claude/handoff/plan/PLAN.md'
+
+	if [ "$branch" = "$current" ]; then
+		mkdir -p .claude/briefs
+		cp "$src" "$file"
+		paths=("$file")
+		if [ -n "$plan_src" ]; then cp "$plan_src" "$plan"; paths+=("$plan"); fi
+		git add -- "${paths[@]}"
+		if ! git diff --cached --quiet -- "${paths[@]}"; then
+			git commit -q -m "Brief for approval: $title" \
+				-m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>' -- "${paths[@]}"
+		fi
+		out="$(git push -q -u origin HEAD 2>&1)" || die "push failed: $out"
+	else
+		# Committing to a branch checked out elsewhere would leave that worktree behind its branch.
+		if git worktree list --porcelain | grep -qx "branch refs/heads/$branch"; then
+			die "$branch is checked out in another worktree: submit from there"
+		fi
+		pairs=("$file=$src")
+		[ -n "$plan_src" ] && pairs+=("$plan=$plan_src")
+		commit_to "$branch" "Brief for approval: $title" "${pairs[@]}"
+		out="$(git push -q -u origin "$branch" 2>&1)" || die "push failed: $out"
 	fi
-	out="$(git push -q -u origin HEAD 2>&1)" || die "push failed: $out"
 
 	gh label create "$LABEL" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
 	body="$(mktemp)"; trap 'rm -f "$body"' EXIT
@@ -141,29 +194,45 @@ submit)
 		echo '> **Brief for approval.** Nothing is built until an approver adds the `brief-approved` label.'
 		echo '> To ask for changes, leave review comments or a comment here. The brief is'
 		echo "> \`$file\` on this branch."
+		[ -n "$plan" ] && echo "> It is one unit of a plan (\`$plan\`, at the end): approving it approves its place in the plan."
 		echo
-		cat "$file"
+		git show "$branch:$file"
+		if [ -n "$plan" ] && git cat-file -e "$branch:$plan" 2>/dev/null; then
+			echo
+			echo '---'
+			echo
+			echo "<details open><summary>The plan: <code>$plan</code></summary>"
+			echo
+			git show "$branch:$plan"
+			echo
+			echo '</details>'
+		fi
 	} >"$body"
-	if n="$(pr_number)"; then
+	if n="$(pr_number "$branch")"; then
 		r="$(repo)"
 		url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
 		gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
 		echo "updated  $url (approval reset)"
 	else
-		url="$(gh pr create --draft --base "$base" --title "$title" --body-file "$body" 2>/dev/null)" ||
+		url="$(gh pr create --draft --base "$base" --head "$branch" --title "$title" --body-file "$body" 2>/dev/null)" ||
 			die "couldn't open the draft PR into $base"
 		echo "opened   $url"
 	fi
 	;;
 
 status)
+	[ $# -le 1 ] || die 'usage: ada-brief status [<branch>]'
+	branch="${1:-}"
+	[ -z "$branch" ] || [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
 	need_gh
 	pol="$(policy)" || exit 2
 	p=(); while IFS= read -r line; do p+=("$line"); done <<<"$pol"   # no mapfile: macOS has bash 3.2
 	case "${p[0]}" in missing|none) echo 'not-needed'; exit 0 ;; esac
 	read -ra approvers <<<"${p[0]}"
-	pr="$(gh pr view --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
-	PR="$pr" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py - <<'PY'
+	pr="$(gh pr view ${branch:+"$branch"} --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
+	# The pushed branch, where the brief's last change is looked up.
+	if [ -n "$branch" ]; then pushed="origin/$branch"; else pushed='@{upstream}'; fi
+	PR="$pr" PUSHED="$pushed" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py - <<'PY'
 import json, os, re, subprocess, sys
 pr = json.loads(os.environ['PR'])
 approvers = os.environ['APPROVERS'].split()
@@ -178,7 +247,7 @@ if not m:
     print('not-submitted'); print(f"{pr['url']} has no ada-brief marker: submit with ada-brief submit"); sys.exit()
 brief = m.group(1)
 # When the brief last changed on the pushed branch: approval and comments count after this.
-since = subprocess.run(['git', 'log', '-1', '--format=%cI', '@{upstream}', '--', brief], capture_output=True, text=True).stdout.strip()
+since = subprocess.run(['git', 'log', '-1', '--format=%cI', os.environ['PUSHED'], '--', brief], capture_output=True, text=True).stdout.strip()
 if not since:
     print('not-submitted'); print(f'{brief} is not on the pushed branch'); sys.exit()
 from datetime import datetime
@@ -229,6 +298,6 @@ ready)
 	;;
 
 *)
-	die 'usage: ada-brief who | submit <task-id> <base-branch> | status | ready <title> <file> (see the header of this script)'
+	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | ready <title> <file> (see the header of this script)'
 	;;
 esac
