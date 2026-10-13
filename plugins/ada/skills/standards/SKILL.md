@@ -147,6 +147,23 @@ within a class it's tolerated, but it isn't the aim. Legacy code gets better as 
 Why: a function in two styles is harder to read than either, and "clean on the new lines" lets a
 legacy file stay legacy for ever.
 
+**P31. Shared software gets its version number at release, not before.** For PIE software used
+in more than one place and versioned with semantic versioning (a plugin or tool we distribute),
+a feature PR changes no version: not the plugin header, the `Stable tag`, the version in
+`plugin.json`, `package.json` or `composer.json`, or a changelog heading, and its commits and
+title carry no version number. Changelog entries go under `## Unreleased`. When next-release
+goes into main, the developer decides Major, Minor or Patch from everything under Unreleased,
+sets the version, renames the heading, and tags the main commit.
+
+- `PROJECT.md` says which kind a project is (Versioning). A single-instance project (a client's
+  own plugin or theme) isn't versioned this way: leave its version headers as they are unless
+  the brief says otherwise.
+- Not the same as a WooCommerce template override's `@version`, which tracks the template it
+  copies (P11).
+
+Why: several features land between releases, and the number a release gets depends on all of
+them together. A number chosen on a feature branch is a guess the next feature can make wrong.
+
 ## Data and boundaries
 
 **P24. Read REST input with the explicit getters.** `$request->get_url_params()`,

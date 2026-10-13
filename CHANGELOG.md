@@ -1,5 +1,18 @@
 # Changelog
 
+Entries go under Unreleased. The version is chosen when next-release goes into main (see
+Releasing in the README).
+
+## Unreleased
+
+- **P31: shared software gets its version number at release, not before.** For PIE software used
+  in more than one place and versioned with semantic versioning, feature PRs change no version
+  (headers, `plugin.json`, changelog headings, titles); entries go under Unreleased, and the
+  release decides Major, Minor or Patch and tags main. Single-instance client projects aren't
+  versioned this way. The `PROJECT.md` template says which kind a project is (Versioning).
+- **This repo follows it:** a Releasing section in the README, and 0.3.2, which was never
+  released on its own, is folded into 0.4.0 below.
+
 ## 0.4.0, 13 Oct 2026
 
 Small PRs make the PIE review short. Work too big for one PR is now planned as several, each
@@ -55,7 +68,7 @@ with its own brief, branch and PR.
   `--archive-plan` archives it when every unit has shipped. `ada-onboard settings` allows
   `ada-plan` and `ada-size`.
 
-## 0.3.2, 12 Oct 2026
+### Also in 0.4.0: stop on a refused tool call (12 Oct)
 
 From V&Me, 12 Oct: auto mode's safety check refused Bob's shell edit to a docblock as "audit
 tampering". Bob then made the same edit with the Edit tool and only said so in his report. The
