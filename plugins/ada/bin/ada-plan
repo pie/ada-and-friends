@@ -287,7 +287,7 @@ elif cmd == 'status':
         num = f"#{pr['number']}" if pr else '-'
         note = '' if u['local'] or pr else '  (no branch yet: ada-plan branches)'
         if pr and pr['state'] != 'CLOSED' and 'Asana app for GitHub' not in (pr.get('body') or ''):
-            nxt += '; link the PR to its Asana task (Asana app for GitHub)'
+            nxt += '; link the PR in Asana (task, Apps, GitHub: Add GitHub pull request)'
         print(f"{u['id']:<4} {u['kind']:<8} {num:<6} {u['state']:<24} brief: {u['brief']}")
         print(f"     next: {nxt}")
         print(f"     {u['branch']}{note}")

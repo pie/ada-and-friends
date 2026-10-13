@@ -138,9 +138,10 @@ Then:
    `ada-brief submit <task id> <its base> <its branch>`, without checking the branch out. Each one
    carries the plan, so the approver sees the whole breakdown. A feature's parts are submitted
    once the feature's brief is approved; `ada-brief` refuses them before then.
-6. Ask the developer to link each PR to its Asana task with the Asana app for GitHub (give them
-   the pairs). That is how a PR and a card are linked; the app adds a block to the PR's
-   description, which `ada-brief` keeps when it replaces the description. `ada-plan status`
+6. Ask the developer to link each PR to its Asana task: on the task, under Apps, GitHub, paste
+   the PR's URL into "Add GitHub pull request". Give them each task with its PR URL. You can't do
+   it with the Asana tools. That is how a PR and a card are linked; the app adds a block to the
+   PR's description, which `ada-brief` keeps when it replaces the description. `ada-plan status`
    shows any PR not yet linked.
 7. Write `CHECKPOINT.md`, then work through the plan.
 
@@ -202,7 +203,7 @@ Confirm the brief with the developer.
 - `required <login>`: run `ada-brief submit <Asana task id> <the PR base from PROJECT.md>`. It
   commits the brief to `.claude/briefs/`, pushes the branch and opens a draft PR with the brief as
   its description. Set the brief's status to `awaiting approval`, give the developer the PR link
-  and ask them to link it to the Asana task with the Asana app for GitHub, write
+  and ask them to link it to the Asana task (Apps, GitHub, "Add GitHub pull request"), write
   `CHECKPOINT.md`, and **stop**. Nothing is built, and Tess and Bob are not spawned, until
   `ada-brief status` says `approved`. The developer carries on with `/ada:pickup` once the
   approver has looked. In a plan, submit every brief that can be submitted (top-level briefs, and
@@ -312,7 +313,8 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
      squash-merged, so the title becomes the commit on production: keep it short, imperative and
      specific.
    - If the PR isn't linked to its Asana task yet (no "Asana app for GitHub" block at the end of
-     its description), ask the developer to link it with the app.
+     its description), ask the developer to paste the PR's URL into the task's Apps, GitHub,
+     "Add GitHub pull request".
 5. Write `CHECKPOINT.md`.
 
 The PR is the gate. Nothing is merged by this team.

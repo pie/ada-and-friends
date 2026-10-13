@@ -46,7 +46,8 @@ with its own brief, branch and PR.
   (or the short `after A, B`).
 - **Asana links stay.** A PR is linked to its card with the Asana app for GitHub, which appends
   a block to the PR's description. `ada-brief` keeps that block whenever it replaces the
-  description (submit again, ready). Ada asks the developer to link each PR, and
+  description (submit again, ready). Ada asks the developer to link each PR (on the task: Apps, GitHub, "Add GitHub pull
+  request"; the Asana tools can't), and
   `ada-plan status` says which aren't linked yet.
 - **Branches are updated twice:** by merge when a unit's build starts, and before it's merged.
 - The brief template has `PR into:`, `Plan:` and `Ships:` lines; the checkpoint and PR template
