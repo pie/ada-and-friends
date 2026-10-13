@@ -16,6 +16,8 @@ Nothing yet.
   versioned this way. The `PROJECT.md` template says which kind a project is (Versioning).
 - **This repo follows it:** a Releasing section in the README, and 0.3.2, which was never
   released on its own, is folded into 0.4.0 below.
+- **Tags drop the `v`**, to match PIE's other repos: `0.4.1`, not `v0.4.1`. The earlier tags were
+  replaced (`v0.1.0` to `v0.4.0` are now `0.1.0` to `0.4.0`, on the same commits).
 
 ## 0.4.0, 13 Oct 2026
 

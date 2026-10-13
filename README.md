@@ -83,8 +83,8 @@ under Unreleased, then:
 1. set `version` in `plugins/ada/.claude-plugin/plugin.json`;
 2. rename `## Unreleased` to `## <version>, <date>` and start a new empty Unreleased;
 3. update the Status line at the top of this README;
-4. once that's on `main`, tag the release commit: `git tag -a v<version> -m "ada <version>"`,
-   then push the tag.
+4. once that's on `main`, tag the release commit with the plain version, as PIE's other repos
+   do: `git tag -a <version> -m "ada <version>"`, then push the tag.
 
 `main` is what the `pie` marketplace installs, so a release reaches everyone who updates.
 
