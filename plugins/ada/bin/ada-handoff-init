@@ -7,6 +7,10 @@
 #   ada-handoff-init --archive <name>    when a step is finished: move its handoff files to
 #                                        .claude/handoff/archive/<name>/, then copy in fresh
 #                                        templates. <name> is e.g. 2026-10-12-zero-adjustment-note.
+#                                        A plan in .claude/handoff/plan/ stays.
+#   ada-handoff-init --archive-plan <name>
+#                                        when every unit of a plan has shipped: move
+#                                        .claude/handoff/plan/ to .claude/handoff/archive/<name>/plan/.
 set -euo pipefail
 die() { echo "ada-handoff-init: $*" >&2; exit 2; }
 src="$(cd "$(dirname "$0")/../templates/handoff" && pwd)"
@@ -26,8 +30,18 @@ if [ "${1:-}" = '--archive' ]; then
 		mv "$f" "$to/"; moved=$((moved + 1))
 	done
 	echo "archived $moved file(s) to .claude/handoff/archive/$name/"
+elif [ "${1:-}" = '--archive-plan' ]; then
+	name="${2:-}"
+	[[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || die 'usage: ada-handoff-init --archive-plan <name> (letters, digits, . _ -)'
+	[ -d "$dest/plan" ] || die 'no .claude/handoff/plan/ to archive'
+	to="$dest/archive/$name"
+	[ -e "$to/plan" ] && die "archive/$name/plan already exists"
+	mkdir -p "$to"
+	mv "$dest/plan" "$to/plan"
+	echo "archived the plan to .claude/handoff/archive/$name/plan/"
+	exit 0
 elif [ $# -gt 0 ]; then
-	die 'usage: ada-handoff-init [--archive <name>]'
+	die 'usage: ada-handoff-init [--archive <name> | --archive-plan <name>]'
 fi
 
 for f in "$src"/*.md; do
