@@ -5,7 +5,11 @@ Releasing in the README).
 
 ## Unreleased
 
-Nothing yet.
+- **README brought up to date:** the draft PR format, Asana linking and the dry-run switch under
+  Brief approval; `ada-plan` and `ada-size` among the pre-allowed commands; the release workflow
+  and CHANGELOG in the layout; bash 3.2 tested for all the scripts, Python so far only on 3.12; a
+  broken sentence in Releasing fixed. The finished "Work to 0.1.0" list is gone: the CHANGELOG
+  has that history.
 
 ## 0.4.1, 13 Oct 2026
 
@@ -193,4 +197,4 @@ From the review of the first full `/ada:begin` dry run (V&Me, 12 Oct).
 ## 0.0.1, 10 Oct 2026
 
 - Imported the team from pie/vandme as it stood after its first full `/begin` run (PR #545)
-  and the lessons from it (PR #547). Not yet generalised; see "Work to 0.1.0" in the README.
+  and the lessons from it (PR #547). Not yet generalised; that came in 0.0.2 to 0.1.0 above.

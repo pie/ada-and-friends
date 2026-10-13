@@ -31,6 +31,15 @@ developer carries on with `/ada:pickup`. `bin/ada-brief` does the checking: only
 an approver, after the brief last changed, counts. A changed brief is approved again. The draft
 PR becomes the work's PR at the end. It needs `gh`, logged in.
 
+The draft PR shows only what the approver checks: what to check and the expected review size,
+then the outcome, decisions, out of scope and Definition of Done. The builder's constraints and
+build order are folded away, and the full brief is committed on the branch. Ada asks the
+developer to link each PR to its Asana task (on the task: Apps, GitHub, "Add GitHub pull
+request"); `ada-brief` keeps the block the Asana app adds when it replaces a PR's description.
+
+To try the approval flow as an approver, run Claude with `ADA_BRIEF_REQUIRE=1`: your briefs then
+need approval, and your own label counts.
+
 ## Plans: work too big for one PR
 
 The PIE review of a PR is the final gate, and small PRs get better reviews. When a piece of work
@@ -47,22 +56,21 @@ brief, branch and PR:
 - Each unit ships **independently**, or **after** others: a unit after another is built once
   that one is in production; a part after another, once that one is in the feature branch.
 
-All the briefs and branches are made at planning time. Each brief is approved on its own, in a
-draft PR that shows only what the approver checks: the outcome, decisions, scope and Definition
-of Done, with the builder's details and the plan (a short units table and why this breakdown)
-folded away. Units are always "Unit B", never "B" alone, and every mention of another unit links
-to its PR. A feature's brief is approved
-before its parts' briefs are submitted. The team then works through the units as they're
-approved and unblocked, one PR each. `bin/ada-plan` reads the plan
-(`.claude/handoff/plan/PLAN.md`, committed as `.claude/briefs/<Epic id>-plan.md`), drafts the
-briefs, creates the branches and reports each unit's state.
+All the briefs and branches are made at planning time. Each brief is approved on its own, in its
+draft PR, with the plan (a short units table and why this breakdown) folded in, so the approver
+sees where the unit fits. Units are always "Unit B", never "B" alone, and every mention of
+another unit links to its PR. A feature's brief is approved before its parts' briefs are
+submitted. The team then works through the units as they're approved and unblocked, one PR
+each. `bin/ada-plan` reads the plan (`.claude/handoff/plan/PLAN.md`, committed as
+`.claude/briefs/<Epic id>-plan.md`), drafts the briefs, creates the branches and reports each
+unit's state.
 
 What fits one PR is judged by what the reviewer has to understand (one behaviour change, a small
 set of functions, at most one fragile area), not by a line count. At the PR gate `bin/ada-size`
 estimates the review time, weighing lines by what they cost to read (changed code most, moved
-and generated code almost nothing), and the PR opens with that estimate and where the review is. The reviewer adds the actual
-review time; compare the two after a dozen or so PRs and tune the rates at the top of
-`bin/ada-size`.
+and generated code almost nothing), and the PR opens with that estimate and where the review is.
+The reviewer adds the actual review time; compare the two after a dozen or so PRs and tune the
+rates at the top of `bin/ada-size`.
 
 ## Credit in commits and PRs
 
@@ -92,18 +100,18 @@ PIE's other repos. When it's merged, the Release workflow (`.github/workflows/re
 
 A PR into `main` without a label releases nothing. A labelled PR with nothing under Unreleased
 fails before changing anything. There's no zip or `update.json`, unlike PIE's WordPress plugins:
-
 the `pie` marketplace installs straight from `main`, so a release reaches everyone who updates.
 
 ## Platforms
 
 The helper scripts in `bin/` are bash with a little Python. They need bash 3.2 or later, Python
-3.8 or later, `git`, `gh` (logged in) and, for `prod-wp`, `ssh`.
+3.8 or later, `git`, `gh` (logged in) and, for `prod-wp`, `ssh`. The Python is written for 3.8
+but has only been run on 3.12 so far.
 
 | Platform | Status |
 |---|---|
 | Linux | Used daily. |
-| macOS | Tested under bash 3.2.57, the version macOS ships. Python 3 comes with Apple's command line tools, which `git` already needs. |
+| macOS | All the scripts are tested under bash 3.2.57, the version macOS ships. Python 3 comes with Apple's command line tools, which `git` already needs. |
 | Windows | Expected to work in Git Bash, which Claude Code uses on Windows; **not yet tested**. The scripts find Python as `python3`, `python` or `py -3`, skipping the Microsoft Store shortcut. First time on a PC: run `ada-onboard check` and `ada-brief who`, and report what breaks. WSL also works. |
 
 ## Install
@@ -117,9 +125,9 @@ Then `/ada:begin` in a project that has been onboarded with `/ada:onboard`.
 
 **The first time you run `claude` in a project, it asks whether to trust the folder. Say yes.**
 Until a folder is trusted, Claude Code ignores the project's `.claude/settings.json` permission
-rules, so the team's pre-allowed commands (`prod-wp`, `ada-brief`, the read-only git and grep
-commands) would all ask for permission instead. Claude Code also offers to install the `ada`
-plugin that the project's settings name: say yes to that too.
+rules, so the team's pre-allowed commands (`prod-wp`, `ada-brief`, `ada-plan`, `ada-size`, the
+read-only git and grep commands) would all ask for permission instead. Claude Code also offers
+to install the `ada` plugin that the project's settings name: say yes to that too.
 
 To try a local checkout instead, start Claude with `claude --plugin-dir ~/path/to/ada-and-friends/plugins/ada`.
 
@@ -127,6 +135,9 @@ To try a local checkout instead, start Claude with `claude --plugin-dir ~/path/t
 
 ```
 .claude-plugin/marketplace.json   the "pie" marketplace
+.github/workflows/release.yml     makes a release when a labelled PR is merged into main
+.github/scripts/release-bump.py   sets the version in plugin.json and the CHANGELOG, for it
+CHANGELOG.md                      what changed in each release; new entries under Unreleased
 plugins/ada/
   .claude-plugin/plugin.json      the "ada" plugin: commands are /ada:...
   skills/begin/                   Ada's playbook (/ada:begin)
@@ -153,56 +164,9 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   - **Templates** are copied into the repo by a `bin/` script.
 - A plugin can't ship permissions. `/ada:onboard` writes them into the project's `.claude/settings.json`.
 
-## Work to 0.1.0
+## History
 
-Done in 0.0.2:
-- Ada's playbook is `/ada:begin`. It reads the project's `PROJECT.md` instead of naming V&Me.
-- The standards are split. The PIE rules are P1–P29 in the `standards` skill, with the same numbers
-  as V&Me's old S rules, so existing citations still hold. Project rules stay in each repo as S
-  numbers.
-- The agents are generic. They have the standards preloaded, read `PROJECT.md`, and have the
-  effort set: Bob high, Claudia xhigh, Tess high. Tess is on Opus to write tests, and Ada starts
-  her on Sonnet to run them.
-- `ada-handoff-init` copies the handoff templates in without overwriting.
-- There's a `PROJECT.md` template.
-
-Done in 0.0.3:
-- `/ada:bughunt` is generic. It reads `PROJECT.md` for the known-issues project, the fragile areas
-  and the classes never to construct on production.
-- `bin/prod-wp` reads `.claude/team/prod.env`: the SSH host, table prefix, logs path and
-  never-query list. The file is parsed, never executed, and each value is checked before use.
-  Inspector scripts come from the project's own `tools/bughunt/`.
-- The repo templates use `{{PLACEHOLDERS}}` for `/ada:onboard` to fill: `PROJECT_NAME`,
-  `PACKAGE`, `NAMESPACE`, `TEXT_DOMAIN`, `TIMEZONE`, `CODE_DIR`, `PROD_SSH`, `PROD_PREFIX` and
-  `PROD_LOGS`.
-
-Done in 0.0.4:
-- `/ada:onboard`: checks the layout, gathers the facts, drafts the knowledge from the code with
-  *(unverified)* marks, and hands over for the developer to correct.
-- `bin/ada-onboard`:
-  - `files` copies the templates, never overwriting, and fills the placeholders;
-  - `gitignore` adds the team's ignore lines;
-  - `settings` merges the plugin, the marketplace, the permissions and the SSH denies into
-    `.claude/settings.json`, keeping what's there;
-  - `check` lists what's missing or still a draft.
-- Skeleton templates for `CLAUDE.md`, `SYSTEM.md`, `API.md`, `STANDARDS.md` (S100 onwards),
-  `TEST-AREAS.md`, `tests/README.md` and `tools/bughunt/README.md`.
-
-Still to do:
-1. ~~`/ada:bughunt` and `bin/prod-wp`~~ (done in 0.0.3).
-2. ~~Write `/ada:onboard`~~ (done in 0.0.4, see below). It was to:
-   - write the project's `.claude/settings.json`: enable the plugin, allow `Bash(prod-wp *)` and
-     `Bash(ada-handoff-init*)`, and deny direct SSH;
-   - copy `templates/repo/`;
-   - draft `PROJECT.md`, `SYSTEM.md`, `API.md` and `TEST-AREAS.md` for the developer to correct.
-3. ~~Smoke test~~ (done for 0.1.0). `/ada:onboard` and `/ada:begin` ran on a scratch clone with
-   `--plugin-dir`. The one failure was Claude Code fetching the `pie` marketplace that onboarding
-   writes into `.claude/settings.json`, before the repo existed. Publishing fixes it.
-4. **Convert V&Me** in a PR to its holding branch:
-   - Add `PROJECT.md` and enable the plugin.
-   - Keep only its S rules (S14, S22, and the V&Me parts of S5, S6, S13, S15 and S25) with a note
-     that S1–S29 otherwise map to P1–P29.
-   - Remove the local copies of the agents and skills.
+What changed in each release, from 0.0.1, is in the [CHANGELOG](CHANGELOG.md).
 
 ## Licence
 
