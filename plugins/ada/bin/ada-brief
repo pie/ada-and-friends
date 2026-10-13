@@ -23,6 +23,9 @@
 #   ada-brief status [<branch>]
 #       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
 #       who approved, or the approvers' comments since the brief was last submitted.
+#   ada-brief body <task-id> [<branch>]
+#       Prints the draft PR description submit writes for the brief committed on the branch:
+#       what the approver checks, with the builder's details and the plan folded away.
 #   ada-brief ready <title> <description-file>
 #       At the end of the step: gives the branch's PR its final title and description and takes
 #       it out of draft.
@@ -96,6 +99,203 @@ me() { gh api user -q .login | tr 'A-Z' 'a-z'; }
 repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
 # The PR for a branch (the current one when none is given).
 pr_number() { gh pr view ${1:+"$1"} --json number -q .number 2>/dev/null; }
+
+# The draft PR's description for a brief: what the approver checks, not the whole brief. The
+# outcome, decisions, scope and Definition of Done in full; the builder's constraints and build
+# order, and the plan, folded away. The full brief stays in .claude/briefs/ on the branch.
+# render_body <brief path in repo> <branch>
+render_body() {
+	local ref="$2"
+	git rev-parse --verify -q "refs/heads/$ref" >/dev/null || ref="origin/$2"
+	BRIEF="$1" REF="$ref" MARK="$MARK" LABEL="$LABEL" py - <<'PY'
+import json, os, re, subprocess
+ref, brief_path, mark, label = os.environ['REF'], os.environ['BRIEF'], os.environ['MARK'], os.environ['LABEL']
+
+def show(path):
+    r = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True, text=True)
+    return re.sub(r'<!--.*?-->\n?', '', r.stdout, flags=re.S) if r.returncode == 0 else None
+
+def split(text):
+    head, secs, cur = [], {}, None
+    for line in text.splitlines():
+        m = re.match(r'^## (.+?)\s*$', line)
+        if m:
+            cur = m.group(1).strip().lower(); secs[cur] = []
+        elif cur is None:
+            head.append(line)
+        else:
+            secs[cur].append(line)
+    return head, {k: '\n'.join(v).strip() for k, v in secs.items()}
+
+def field(head, name):
+    for line in head:
+        m = re.match(r'^' + name + r':\s*(.*)$', line)
+        if m:
+            return m.group(1).strip()
+    return ''
+
+def bullets(text):
+    """Top-level '- ' items, each with its continuation lines."""
+    items = []
+    for line in text.splitlines():
+        if line.startswith('- '):
+            items.append(line)
+        elif items and (line.startswith('  ') or not line.strip()):
+            items[-1] += '\n' + line
+    return [i.rstrip() for i in items]
+
+def table_rows(text):
+    rows = [l for l in text.splitlines() if l.strip().startswith('|')]
+    out = []
+    for l in rows[2:]:
+        cells = [c.strip() for c in l.strip().strip('|').split('|')]
+        if any(cells) and not all(c.startswith('<') or not c for c in cells):
+            out.append(cells)
+    return out
+
+brief = show(brief_path) or ''
+head, sec = split(brief)
+title = re.sub(r'^#\s*Brief[^:]*:\s*', '', head[0]) if head else brief_path
+asana = field(head, 'Asana')
+asana_url = (re.search(r'https?://\S+', asana) or [None])[0] if asana else None
+plan_line = field(head, 'Plan')
+ships = field(head, 'Ships')
+
+constraints = bullets(sec.get('constraints', ''))
+def take(name):
+    for b in constraints:
+        if b.startswith(f'- {name}:'):
+            constraints.remove(b)
+            return re.sub(r'\s+', ' ', b[len(name) + 3:]).strip()
+    return ''
+out_of_scope = take('Out of scope')
+expected = take('Expected review')
+dod = [b for b in bullets(sec.get('definition of done', '')) if re.match(r'- \[.\]\s*\S', b)]
+amendments = table_rows(sec.get('amendments', ''))
+
+# The plan, if this brief is a unit of one.
+plan_path, unit, plan = '', '', None
+m = re.match(r'(\.claude/briefs/\S+-plan\.md)(?:,\s*[Uu]nit\s+(\w+))?', plan_line)
+if m:
+    plan_path, unit = m.group(1), m.group(2) or ''
+    plan = show(plan_path)
+units, prs, urls = [], {}, {}
+if plan:
+    phead, psec = split(plan)
+    epic_title = re.sub(r'^#\s*Plan:\s*', '', phead[0]) if phead else 'the plan'
+    epic_url = field(phead, 'Epic')
+    for c in table_rows(psec.get('units', '')):
+        if len(c) == 6:
+            units.append(dict(id=c[0], title=c[1], branch=c[3], parent=c[4], ships=c[5]))
+    for u in units:
+        r = subprocess.run(['gh', 'pr', 'list', '--head', u['branch'], '--state', 'all', '--limit', '1',
+                            '--json', 'number,url'], capture_output=True, text=True)
+        items = json.loads(r.stdout or '[]') if r.returncode == 0 else []
+        prs[u['id']] = f"#{items[0]['number']}" if items else ''
+        if items and u['id'] != unit:
+            urls[u['id']] = items[0]['url']
+
+def ships_text(s):
+    m = re.match(r'after\s+([\w,\s]+?)(?::|$)', s)  # "after A, B" or "after Unit A, Unit B"
+    if not m:
+        return 'ships independently' if s.startswith('independent') else (f'ships {s}' if s else '')
+    ids = [re.sub(r'^unit\s+', '', x.strip(), flags=re.I) for x in re.split(r',|\band\b', m.group(1)) if x.strip()]
+    return 'ships after ' + ', '.join(f"Unit {x} ({prs[x]})" if prs.get(x) else f'Unit {x}' for x in ids)
+
+# Other units named in the text link to their PRs: "unit C", "units B and C", "A's", "B and C",
+# "(E)", "**A**". A bare capital letter is left alone: it's usually the word "a".
+def link(text):
+    if not urls or not text:
+        return text
+    ids = '|'.join(sorted(map(re.escape, {u['id'] for u in units}), key=len, reverse=True))
+    one = lambda x: f'[{x}]({urls[x]})' if x in urls else x
+    def many(m):
+        found = re.findall(r'\b(?:' + ids + r')\b', m.group(0))
+        if len(found) == 1 and m.group(0).lower().startswith('unit') and found[0] in urls:
+            return f'[{m.group(0)}]({urls[found[0]]})'
+        return re.sub(r'\b(' + ids + r')\b', lambda n: one(n.group(1)), m.group(0))
+    lst = r'(?:' + ids + r')(?:(?:,\s*|\s+and\s+|\s+or\s+)(?:' + ids + r'))*'
+    pats = [
+        r'(?i:\bunits?)\s+' + lst + r'\b',                              # Unit C, units B and C
+        r'\b(?:' + ids + r')(?:,\s*|\s+and\s+|\s+or\s+)' + lst + r'\b',  # B and C, B, C and D
+        r'\b(?:' + ids + r")(?=['’]s\b)",                                 # A's
+        r'(?<=\()' + lst + r'(?=\))',                                     # (E)
+        r'(?<=\*\*)(?:(?i:unit)\s+)?(?:' + ids + r')(?=\*\*)',             # **A**, **Unit A**
+    ]
+    parts = re.split(r'(`[^`]*`|\[[^\]]*\]\([^)]*\))', text)              # leave code and links alone
+    for i in range(0, len(parts), 2):
+        for pat in pats:
+            parts[i] = re.sub(pat, many, parts[i])
+    return ''.join(parts)
+
+out = [f'{mark} {brief_path} -->',
+       f'> **Brief for approval.** Add the `{label}` label to approve it, or comment to ask for changes.',
+       '> Nothing is built until it is approved. Check that the outcome is what is wanted, the decisions',
+       '> fit the system, the scope is right, and each Definition of Done item can be checked.']
+if expected:
+    m = re.match(r'(small|medium|large)\b[.:,;]?\s*(.*)', expected, re.I)
+    exp = f'**{m.group(1).lower()}**' + (f'. {m.group(2)}' if m.group(2) else '') if m else expected
+    out.append(f'> Expected review once built: {exp}')
+out.append('')
+where = []
+if plan and unit:
+    where.append(f"**Unit {unit} of {len(units)}** in " + (f'[{epic_title}]({epic_url})' if epic_url else epic_title))
+st = ships_text(ships)
+if st:
+    where.append(st)
+if asana_url:
+    where.append(f'[Asana task]({asana_url})')
+if where:
+    out += [' · '.join(where), '']
+out += ['## Outcome', '', link(sec.get('outcome', '')), '', '## Decisions', '', link(sec.get('decisions', '')), '']
+if out_of_scope:
+    # "a; b (c; d); e" -> one bullet per item, splitting only outside brackets.
+    items, depth, cur = [], 0, ''
+    for ch in out_of_scope:
+        depth += ch in '([{'; depth -= ch in ')]}'
+        if ch == ';' and depth == 0:
+            items.append(cur); cur = ''
+        else:
+            cur += ch
+    items = [i.strip().rstrip('.') for i in items + [cur] if i.strip()]
+    out += ['## Out of scope', ''] + [f'- {link(i)}' for i in items] + ['']
+out += ['## Definition of done', ''] + [link(d) for d in dod] + ['']
+if amendments:
+    out += ['## Amendments', '', '| Date | What changed | Why | Agreed by |', '|---|---|---|---|']
+    out += ['| ' + ' | '.join(c) + ' |' for c in amendments] + ['']
+builder = '\n'.join(constraints).strip()
+order = sec.get('build order', '').strip()
+if builder or order:
+    out += ['<details><summary>For the builder: constraints and build order</summary>', '']
+    if builder:
+        out += [link(builder), '']
+    if order:
+        out += ['**Build order**', '', link(order), '']
+    out += ['</details>', '']
+if plan:
+    out += [f'<details><summary>The plan: {len(units)} units</summary>', '']
+    if psec.get('outcome'):
+        out += [link(psec['outcome']), '']
+    def full_ids(text):
+        # "after A, B" -> "after Unit A, Unit B"
+        ids = '|'.join(map(re.escape, (v['id'] for v in units)))
+        return re.sub(r'(?i)(?<!unit )\b(' + ids + r')\b', r'Unit \1', text)
+    out += ['| | Unit | Ships | PR |', '|---|---|---|---|']
+    for u in units:
+        name = ('↳ ' if u['parent'] else '') + u['title']
+        pr = 'this PR' if u['id'] == unit else prs.get(u['id']) or '-'
+        if u['id'] == unit:
+            out.append(f"| **{u['id']}** | **{name}** | {full_ids(u['ships'])} | {pr} |")
+        else:
+            out.append(f"| {u['id']} | {name} | {full_ids(u['ships'])} | {pr} |")
+    out.append('')
+    if psec.get('why this breakdown'):
+        out += ['**Why this breakdown**', '', link(psec['why this breakdown']), '']
+    out += [f'The full plan is `{plan_path}`.', '', '</details>', '']
+out.append(f'The full brief is `{brief_path}` on this branch.')
+print('\n'.join(out))
+PY
+}
 
 # Commits one or more files to a branch that isn't checked out, without touching the working
 # tree: commit_to <branch> <message> <path-in-repo>=<source-file>...
@@ -192,25 +392,7 @@ submit)
 
 	gh label create "$LABEL" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
 	body="$(mktemp)"; trap 'rm -f "$body"' EXIT
-	{
-		echo "$MARK $file -->"
-		echo '> **Brief for approval.** Nothing is built until an approver adds the `brief-approved` label.'
-		echo '> To ask for changes, leave review comments or a comment here. The brief is'
-		echo "> \`$file\` on this branch."
-		[ -n "$plan" ] && echo "> It is one unit of a plan (\`$plan\`, at the end): approving it approves its place in the plan."
-		echo
-		git show "$branch:$file"
-		if [ -n "$plan" ] && git cat-file -e "$branch:$plan" 2>/dev/null; then
-			echo
-			echo '---'
-			echo
-			echo "<details open><summary>The plan: <code>$plan</code></summary>"
-			echo
-			git show "$branch:$plan"
-			echo
-			echo '</details>'
-		fi
-	} >"$body"
+	render_body "$file" "$branch" >"$body"
 	if n="$(pr_number "$branch")"; then
 		r="$(repo)"
 		url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
@@ -290,6 +472,15 @@ print(pr['url'])
 PY
 	;;
 
+body)
+	[ $# -ge 1 ] && [ $# -le 2 ] || die 'usage: ada-brief body <task-id> [<branch>]'
+	[[ "$1" =~ ^[A-Za-z0-9_-]+$ ]] || die "task id must be letters, digits, - or _: $1"
+	branch="${2:-$(git branch --show-current)}"
+	[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
+	need_gh
+	render_body ".claude/briefs/$1.md" "$branch"
+	;;
+
 ready)
 	[ $# -eq 2 ] || die 'usage: ada-brief ready <title> <description-file>'
 	[ -f "$2" ] || die "no file $2"
@@ -301,6 +492,6 @@ ready)
 	;;
 
 *)
-	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | ready <title> <file> (see the header of this script)'
+	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | body <task-id> [<branch>] | ready <title> <file> (see the header of this script)'
 	;;
 esac

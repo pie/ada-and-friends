@@ -34,6 +34,16 @@ with its own brief, branch and PR.
   level, and asks the developer before opening a PR that came out a level bigger. The PR
   template's "For the reviewer" opens with the estimate and says where the review is, and asks
   the reviewer for the actual review time, so the rates can be tuned.
+- **The draft PR shows what the approver checks**, not the whole brief: what to check and the
+  expected review level, the unit's place (Unit B of 6, ships after Unit A, with PR links), then
+  the Outcome, Decisions, Out of scope and Definition of done in full. The builder's constraints
+  and build order, and the plan (its outcome, a short units table with PR links, and why this
+  breakdown), are folded away. No template guidance, empty sections or team-only lines; the full
+  brief stays committed. `ada-brief body <task-id> [<branch>]` prints it.
+- **Units are always "Unit D", never "D" alone**, in the plan, briefs, PRs, Asana and talk. The
+  draft PRs link each mention of another unit ("Unit C", "Unit A's", "Units B and C", "**Unit A**")
+  to its PR. The scripts' own output says "Unit A" too, and Ships accepts `after Unit A, Unit B`
+  (or the short `after A, B`).
 - **Branches are updated twice:** by merge when a unit's build starts, and before it's merged.
 - The brief template has `PR into:`, `Plan:` and `Ships:` lines; the checkpoint and PR template
   say which unit of which plan. `ada-handoff-init --archive` leaves a plan in place;

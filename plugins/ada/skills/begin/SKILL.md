@@ -140,6 +140,10 @@ Then:
    once the feature's brief is approved; `ada-brief` refuses them before then.
 6. Write `CHECKPOINT.md`, then work through the plan.
 
+**Name units in full.** In the plan, the briefs, the PRs, Asana and when you talk to the
+developer, another unit is "Unit D", never "D" alone. The draft PRs link "Unit D" to its PR; a
+bare letter doesn't link, and "A" reads as a word.
+
 The plan is agreed like a brief: changing a unit (adding, splitting, merging, dropping or
 reordering) needs the developer's yes, goes under the plan's Amendments, and the briefs it
 touches are submitted again.

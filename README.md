@@ -47,8 +47,11 @@ brief, branch and PR:
 - Each unit ships **independently**, or **after** others: a unit after another is built once
   that one is in production; a part after another, once that one is in the feature branch.
 
-All the briefs and branches are made at planning time. Each brief is approved on its own; the
-plan goes with each one, so the approver sees the whole breakdown. A feature's brief is approved
+All the briefs and branches are made at planning time. Each brief is approved on its own, in a
+draft PR that shows only what the approver checks: the outcome, decisions, scope and Definition
+of Done, with the builder's details and the plan (a short units table and why this breakdown)
+folded away. Units are always "Unit B", never "B" alone, and every mention of another unit links
+to its PR. A feature's brief is approved
 before its parts' briefs are submitted. The team then works through the units as they're
 approved and unblocked, one PR each. `bin/ada-plan` reads the plan
 (`.claude/handoff/plan/PLAN.md`, committed as `.claude/briefs/<Epic id>-plan.md`), drafts the

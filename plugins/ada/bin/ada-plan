@@ -123,7 +123,7 @@ byid = {u['id']: u for u in units}
 if not epic:
     problems.append('the Epic line has no Asana task URL (it names the committed plan file)')
 for u in units:
-    w = f"unit {u['id']}"
+    w = f"Unit {u['id']}"
     if not re.fullmatch(r'[A-Za-z0-9]+', u['id']):
         problems.append(f'{w}: ID must be letters and digits')
     if not re.fullmatch(r'[A-Za-z0-9_-]+', u['task']):
@@ -133,23 +133,23 @@ for u in units:
     if u['parent']:
         p = byid.get(u['parent'])
         if not p:
-            problems.append(f"{w}: Parent {u['parent']} isn't a unit")
+            problems.append(f"{w}: Parent {u['parent']} isn't in the table")
         elif p['parent']:
-            problems.append(f"{w}: Parent {u['parent']} is itself a part (two levels at most)")
+            problems.append(f"{w}: Parent Unit {u['parent']} is itself a part (two levels at most)")
     s = u['ships']
     if s == 'independent':
         u['after'] = []
     else:
         a = re.fullmatch(r'after\s+(.+)', s)
-        u['after'] = [x.strip() for x in a.group(1).split(',')] if a else None
+        u['after'] = [re.sub(r'^unit\s+', '', x.strip(), flags=re.I) for x in re.split(r',|\band\b', a.group(1)) if x.strip()] if a else None
         if u['after'] is None:
-            problems.append(f"{w}: Ships must be 'independent' or 'after <IDs>', not '{s}'")
+            problems.append(f"{w}: Ships must be 'independent' or 'after Unit <ID>, ...', not '{s}'")
             u['after'] = []
         for x in u['after']:
             if x not in byid:
-                problems.append(f"{w}: ships after {x}, which isn't a unit")
+                problems.append(f"{w}: ships after Unit {x}, which isn't in the table")
             elif byid[x]['parent'] != u['parent']:
-                problems.append(f"{w}: ships after {x}, which isn't at its level (top-level after top-level, a part after a part of the same feature)")
+                problems.append(f"{w}: ships after Unit {x}, which isn't at its level (top-level after top-level, a part after a part of the same feature)")
 for key in ('id', 'task', 'branch'):
     seen = [u[key] for u in units]
     for x in sorted({x for x in seen if seen.count(x) > 1}):
@@ -180,7 +180,7 @@ def git(*a):
 if cmd == 'check':
     print(f'plan {plan_file}: {len(units)} units')
     for u in units:
-        after = 'after ' + ', '.join(u['after']) if u['after'] else 'independent'
+        after = 'after ' + ', '.join('Unit ' + x for x in u['after']) if u['after'] else 'independent'
         print(f"{u['id']:<4} {u['kind']:<8} {u['branch']}  ({u['base']} -> {u['into']}; {after})  {u['title']}")
 
 elif cmd == 'briefs':
@@ -193,15 +193,15 @@ elif cmd == 'briefs':
         b = re.sub(r'^# Brief.*$', f"# Brief — {u['id']}: {u['title']}", b, count=1, flags=re.M)
         b = re.sub(r'^Asana:.*$', f"Asana: <task URL> (task {u['task']})", b, count=1, flags=re.M)
         b = re.sub(r'^Branch:.*$', f"Branch: {u['branch']}", b, count=1, flags=re.M)
-        b = re.sub(r'^Plan:.*$', f"Plan: {plan_file}, unit {u['id']}", b, count=1, flags=re.M)
+        b = re.sub(r'^Plan:.*$', f"Plan: {plan_file}, Unit {u['id']}", b, count=1, flags=re.M)
         b = re.sub(r'^PR into:.*$', f"PR into: {u['into']}", b, count=1, flags=re.M)
         if u['after']:
             how = 'once that is merged into ' + u['into'] if u['parent'] else 'once that is in ' + prod
-            ships = f"after {', '.join(u['after'])}: built {how}"
+            ships = f"after {', '.join('Unit ' + x for x in u['after'])}: built {how}"
         else:
             ships = 'independent'
         if u['parts']:
-            ships += '\nParts: ' + ', '.join(f"{p['id']} ({p['branch']})" for p in u['parts']) + \
+            ships += '\nParts: ' + ', '.join(f"Unit {p['id']} ({p['branch']})" for p in u['parts']) + \
                      f"; each PRs into {u['branch']}, which PRs into {u['into']} when they're all in"
         b = re.sub(r'^Ships:.*$', lambda _: f'Ships: {ships}', b, count=1, flags=re.M)
         b = b.replace('\r\n', '\n')
@@ -268,16 +268,16 @@ elif cmd == 'status':
         elif pr and not pr['isDraft']:
             nxt = 'with the PIE reviewer'
         elif parent and not ok(parent['brief']):
-            nxt = f"waiting for {parent['id']}'s brief to be approved"
+            nxt = f"waiting for Unit {parent['id']}'s brief to be approved"
         elif u['brief'] == 'not-submitted':
             nxt = 'brief to submit'
         elif not ok(u['brief']):
             nxt = f"brief {u['brief']}"
         elif held:
-            nxt = f"build waits for {', '.join(held)} to be in {prod} ({parent['id']} ships after)"
+            nxt = f"build waits for {', '.join('Unit ' + x for x in held)} to be in {prod} (Unit {parent['id']} ships after)"
         elif blockers:
             where = f"merged into {u['into']}" if u['parent'] else f'in {prod}'
-            nxt = f"build waits for {', '.join(blockers)} to be {where}"
+            nxt = f"build waits for {', '.join('Unit ' + x for x in blockers)} to be {where}"
         elif u['parts']:
             left = [p['id'] for p in u['parts'] if not p['shipped']]
             nxt = f"parts to merge: {', '.join(left)}" if left else f"ready: smoke test, then the PR into {u['into']}"
