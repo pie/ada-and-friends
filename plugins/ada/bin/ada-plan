@@ -271,8 +271,10 @@ elif cmd == 'status':
             nxt = f"waiting for Unit {parent['id']}'s brief to be approved"
         elif u['brief'] == 'not-submitted':
             nxt = 'brief to submit'
+        elif u['brief'] == 'changes-requested':
+            nxt = 'changes requested: go through them with the developer, then submit the brief again'
         elif not ok(u['brief']):
-            nxt = f"brief {u['brief']}"
+            nxt = 'waiting for the brief to be approved' if u['brief'] == 'waiting' else f"brief {u['brief']}"
         elif held:
             nxt = f"build waits for {', '.join('Unit ' + x for x in held)} to be in {prod} (Unit {parent['id']} ships after)"
         elif blockers:
