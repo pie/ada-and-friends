@@ -73,6 +73,19 @@ trailers, in place of Claude Code's default line (switched off in the project's 
 and `Co-Authored-By: Ada (Claude Code)` on briefs and onboarding. PRs end with "Built by Bob,
 reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
 
+## Releasing
+
+Work has no version number until it's released (P31). Feature branches and PRs don't bump
+`plugin.json`, don't put a version in their titles, and add their CHANGELOG entries under
+`## Unreleased`. When `next-release` goes into `main`, decide Major, Minor or Patch from what's
+under Unreleased, then:
+
+1. set `version` in `plugins/ada/.claude-plugin/plugin.json`;
+2. rename `## Unreleased` to `## <version>, <date>` and start a new empty Unreleased;
+3. tag the release commit on `main`: `git tag -a v<version> -m "ada <version>"`, then push the tag.
+
+`main` is what the `pie` marketplace installs, so a release reaches everyone who updates.
+
 ## Platforms
 
 The helper scripts in `bin/` are bash with a little Python. They need bash 3.2 or later, Python

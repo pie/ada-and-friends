@@ -17,6 +17,8 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 - **Branch from:** `production`. **PR into:** `next-release`. **Test on:** merge into `review`.
   (Change if this project differs from the PIE workflow.)
 - **Branch names:** `<type>/<slug>/<Asana task URL without https://>`
+- **Versioning:** <`semver at release` (used in more than one place: no version numbers until
+  next-release goes into main, P31) | `none` (a single-instance project)>
 
 ## Brief approval
 
