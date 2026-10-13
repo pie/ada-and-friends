@@ -12,6 +12,14 @@ Releasing in the README).
   versioned this way. The `PROJECT.md` template says which kind a project is (Versioning).
 - **This repo follows it:** a Releasing section in the README, and 0.3.2, which was never
   released on its own, is folded into 0.4.0 below.
+- **Tags drop the `v`**, to match PIE's other repos: `0.4.1`, not `v0.4.1`. The earlier tags were
+  replaced (`v0.1.0` to `v0.4.0` are now `0.1.0` to `0.4.0`, on the same commits).
+- **Releases are made by a workflow**, as on PIE's other repos: label the next-release → main PR
+  `release:major`, `release:minor` or `release:patch`. `.github/workflows/release.yml` sets the
+  version in `plugin.json`, moves the Unreleased entries under it, tags `main` and creates a
+  GitHub release with those entries as notes, then recreates `next-release`. No zip or
+  `update.json`: the marketplace installs from `main`. Its actions are pinned to commit SHAs.
+- The README's Status line no longer carries a version; it points to the latest release.
 
 ## 0.4.0, 13 Oct 2026
 
