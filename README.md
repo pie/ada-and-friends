@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.4.0.** Plans: work too big for one PR is broken into units, each with its own brief, branch and PR.
+Status: **0.4.1.** Plans: work too big for one PR is broken into units, each with its own brief, branch and PR (0.4.0). Version numbers are set only at release (P31).
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -82,7 +82,9 @@ under Unreleased, then:
 
 1. set `version` in `plugins/ada/.claude-plugin/plugin.json`;
 2. rename `## Unreleased` to `## <version>, <date>` and start a new empty Unreleased;
-3. tag the release commit on `main`: `git tag -a v<version> -m "ada <version>"`, then push the tag.
+3. update the Status line at the top of this README;
+4. once that's on `main`, tag the release commit: `git tag -a v<version> -m "ada <version>"`,
+   then push the tag.
 
 `main` is what the `pie` marketplace installs, so a release reaches everyone who updates.
 

@@ -5,6 +5,10 @@ Releasing in the README).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.4.1, 13 Oct 2026
+
 - **P31: shared software gets its version number at release, not before.** For PIE software used
   in more than one place and versioned with semantic versioning, feature PRs change no version
   (headers, `plugin.json`, changelog headings, titles); entries go under Unreleased, and the
