@@ -1,0 +1,90 @@
+# Releases ada when a PR into main is labelled release:major, release:minor or release:patch,
+# as PIE's other repos do (pie/.github's release.yaml). Without a label, nothing is released.
+#
+# Unlike a WordPress plugin there's no zip and no update.json: the pie marketplace installs the
+# plugin straight from this repo. A release here sets the version in plugin.json, moves the
+# CHANGELOG's Unreleased entries under the version, tags main with the plain version (no "v"),
+# and creates a GitHub release whose notes are that CHANGELOG section.
+#
+# Merging next-release into main deletes next-release (the repo deletes merged head branches),
+# so the last job puts it back, from main after the version commit.
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Works out the next version from the merged PR's label and the latest GitHub release, without
+  # releasing anything: the version is set in the files before the tag is made.
+  check_for_release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - id: next
+        name: Work out the next version
+        uses: rymndhng/release-on-push-action@aebba2bbce07a9474bf95e8710e5ee8a9e922fe2 # v0.28.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          bump_version_scheme: norelease
+          tag_prefix: ""
+          dry_run: true
+
+  create_release:
+    needs: check_for_release
+    if: needs.check_for_release.outputs.version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check_for_release.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Set the version in plugin.json and the CHANGELOG
+        run: python3 .github/scripts/release-bump.py "$VERSION" "$RUNNER_TEMP/notes.md"
+
+      - name: Commit and tag
+        run: |
+          git config user.name "Github Actions"
+          git config user.email "<>"
+          git add plugins/ada/.claude-plugin/plugin.json CHANGELOG.md
+          git commit -m "Release $VERSION"
+          git tag -a "$VERSION" -m "ada $VERSION"
+          git push origin HEAD:main "refs/tags/$VERSION"
+
+      - name: Create the GitHub release
+        run: gh release create "$VERSION" --verify-tag --title "ada $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+
+  # Runs after every push to main, released or not.
+  restore_next_release:
+    needs: [check_for_release, create_release]
+    if: always() && needs.create_release.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Put next-release back if the merge deleted it
+        run: |
+          if git ls-remote --exit-code --heads origin next-release >/dev/null; then
+            echo "next-release exists; leaving it as it is"
+          else
+            git push origin HEAD:refs/heads/next-release
+            echo "next-release recreated from main at $(git rev-parse --short HEAD)"
+          fi

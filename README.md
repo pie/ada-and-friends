@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.4.0.** Plans: work too big for one PR is broken into units, each with its own brief, branch and PR.
+Status: in use on V&Me. The current version is the [latest release](https://github.com/pie/ada-and-friends/releases/latest); what changed is in the [CHANGELOG](CHANGELOG.md).
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -75,16 +75,25 @@ reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
 
 ## Releasing
 
-Work has no version number until it's released (P31). Feature branches and PRs don't bump
-`plugin.json`, don't put a version in their titles, and add their CHANGELOG entries under
-`## Unreleased`. When `next-release` goes into `main`, decide Major, Minor or Patch from what's
-under Unreleased, then:
+Work has no version number until it's released (P31). Feature branches and PRs don't touch the
+version in `plugin.json`, don't put a version in their titles, and add their CHANGELOG entries
+under `## Unreleased`.
 
-1. set `version` in `plugins/ada/.claude-plugin/plugin.json`;
-2. rename `## Unreleased` to `## <version>, <date>` and start a new empty Unreleased;
-3. tag the release commit on `main`: `git tag -a v<version> -m "ada <version>"`, then push the tag.
+To release, open a PR from `next-release` into `main`, decide Major, Minor or Patch from what's
+under Unreleased, and label the PR `release:major`, `release:minor` or `release:patch`, as on
+PIE's other repos. When it's merged, the Release workflow (`.github/workflows/release.yml`):
 
-`main` is what the `pie` marketplace installs, so a release reaches everyone who updates.
+1. works out the version from the label and the latest GitHub release;
+2. sets it in `plugins/ada/.claude-plugin/plugin.json`, moves the Unreleased entries under
+   `## <version>, <date>`, and commits that to `main`;
+3. tags the commit with the plain version (`0.4.1`, no `v`, as PIE's other repos do) and creates
+   a GitHub release with those CHANGELOG entries as its notes;
+4. recreates `next-release` from `main`, since merging deletes it.
+
+A PR into `main` without a label releases nothing. A labelled PR with nothing under Unreleased
+fails before changing anything. There's no zip or `update.json`, unlike PIE's WordPress plugins:
+
+the `pie` marketplace installs straight from `main`, so a release reaches everyone who updates.
 
 ## Platforms
 
