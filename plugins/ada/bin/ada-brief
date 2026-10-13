@@ -9,16 +9,29 @@
 #         approver <login>                exempt; can approve others
 #         trusted <login>                 exempt; can't approve others
 #         required <login>                this developer's briefs need an approver's label
-#   ada-brief submit <task-id> <base-branch>
+#       With ADA_BRIEF_REQUIRE=1 in the environment, an approver or trusted developer gets
+#       "required" too: for a dry run of the approval flow. An approver's own label still counts.
+#   ada-brief submit <task-id> <base-branch> [<branch>]
 #       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
 #       opens a draft PR into <base-branch> with the brief as its description (or updates the
 #       branch's PR). Removes any brief-approved label, so a changed brief is approved again.
-#   ada-brief status
-#       For the current branch's PR: approved, changes-requested or waiting, with who approved,
-#       or the approvers' comments since the brief was last submitted.
+#       With <branch> (a planned unit's branch that isn't checked out), the brief is
+#       .claude/handoff/plan/<task-id>.md and is committed to <branch> without a checkout.
+#       A brief whose "Plan:" line names a plan file takes .claude/handoff/plan/PLAN.md with it,
+#       committed there and shown under the brief. A brief whose <base-branch> has its own brief
+#       PR (a part of a larger unit) can't be submitted until that brief is approved.
+#   ada-brief status [<branch>]
+#       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
+#       who approved, or the approvers' comments since the brief was last submitted.
+#   ada-brief body <task-id> [<branch>]
+#       Prints the draft PR description submit writes for the brief committed on the branch:
+#       what the approver checks, with the builder's details and the plan folded away.
 #   ada-brief ready <title> <description-file>
 #       At the end of the step: gives the branch's PR its final title and description and takes
 #       it out of draft.
+#
+# Replacing a PR's description (submit again, ready) keeps the block the Asana app for GitHub
+# appends when a task is linked to the PR.
 #
 # PR edits go through the REST API: `gh pr edit` fails on gh before 2.50 (it still asks for
 # classic Projects, which GitHub has retired).
@@ -87,7 +100,247 @@ need_gh() {
 me() { gh api user -q .login | tr 'A-Z' 'a-z'; }
 
 repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
-pr_number() { gh pr view --json number -q .number 2>/dev/null; }
+# The PR for a branch (the current one when none is given).
+pr_number() { gh pr view ${1:+"$1"} --json number -q .number 2>/dev/null; }
+
+# The draft PR's description for a brief: what the approver checks, not the whole brief. The
+# outcome, decisions, scope and Definition of Done in full; the builder's constraints and build
+# order, and the plan, folded away. The full brief stays in .claude/briefs/ on the branch.
+# render_body <brief path in repo> <branch>
+render_body() {
+	local ref="$2"
+	git rev-parse --verify -q "refs/heads/$ref" >/dev/null || ref="origin/$2"
+	BRIEF="$1" REF="$ref" MARK="$MARK" LABEL="$LABEL" py - <<'PY'
+import json, os, re, subprocess
+ref, brief_path, mark, label = os.environ['REF'], os.environ['BRIEF'], os.environ['MARK'], os.environ['LABEL']
+
+def show(path):
+    r = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True, text=True)
+    return re.sub(r'<!--.*?-->\n?', '', r.stdout, flags=re.S) if r.returncode == 0 else None
+
+def split(text):
+    head, secs, cur = [], {}, None
+    for line in text.splitlines():
+        m = re.match(r'^## (.+?)\s*$', line)
+        if m:
+            cur = m.group(1).strip().lower(); secs[cur] = []
+        elif cur is None:
+            head.append(line)
+        else:
+            secs[cur].append(line)
+    return head, {k: '\n'.join(v).strip() for k, v in secs.items()}
+
+def field(head, name):
+    for line in head:
+        m = re.match(r'^' + name + r':\s*(.*)$', line)
+        if m:
+            return m.group(1).strip()
+    return ''
+
+def bullets(text):
+    """Top-level '- ' items, each with its continuation lines."""
+    items = []
+    for line in text.splitlines():
+        if line.startswith('- '):
+            items.append(line)
+        elif items and (line.startswith('  ') or not line.strip()):
+            items[-1] += '\n' + line
+    return [i.rstrip() for i in items]
+
+def table_rows(text):
+    rows = [l for l in text.splitlines() if l.strip().startswith('|')]
+    out = []
+    for l in rows[2:]:
+        cells = [c.strip() for c in l.strip().strip('|').split('|')]
+        if any(cells) and not all(c.startswith('<') or not c for c in cells):
+            out.append(cells)
+    return out
+
+brief = show(brief_path) or ''
+head, sec = split(brief)
+title = re.sub(r'^#\s*Brief[^:]*:\s*', '', head[0]) if head else brief_path
+asana = field(head, 'Asana')
+asana_url = (re.search(r'https?://\S+', asana) or [None])[0] if asana else None
+plan_line = field(head, 'Plan')
+ships = field(head, 'Ships')
+
+constraints = bullets(sec.get('constraints', ''))
+def take(name):
+    for b in constraints:
+        if b.startswith(f'- {name}:'):
+            constraints.remove(b)
+            return re.sub(r'\s+', ' ', b[len(name) + 3:]).strip()
+    return ''
+out_of_scope = take('Out of scope')
+expected = take('Expected review')
+dod = [b for b in bullets(sec.get('definition of done', '')) if re.match(r'- \[.\]\s*\S', b)]
+amendments = table_rows(sec.get('amendments', ''))
+
+# The plan, if this brief is a unit of one.
+plan_path, unit, plan = '', '', None
+m = re.match(r'(\.claude/briefs/\S+-plan\.md)(?:,\s*[Uu]nit\s+(\w+))?', plan_line)
+if m:
+    plan_path, unit = m.group(1), m.group(2) or ''
+    plan = show(plan_path)
+units, prs, urls = [], {}, {}
+if plan:
+    phead, psec = split(plan)
+    epic_title = re.sub(r'^#\s*Plan:\s*', '', phead[0]) if phead else 'the plan'
+    epic_url = field(phead, 'Epic')
+    for c in table_rows(psec.get('units', '')):
+        if len(c) == 6:
+            units.append(dict(id=c[0], title=c[1], branch=c[3], parent=c[4], ships=c[5]))
+    for u in units:
+        r = subprocess.run(['gh', 'pr', 'list', '--head', u['branch'], '--state', 'all', '--limit', '1',
+                            '--json', 'number,url'], capture_output=True, text=True)
+        items = json.loads(r.stdout or '[]') if r.returncode == 0 else []
+        prs[u['id']] = f"#{items[0]['number']}" if items else ''
+        if items and u['id'] != unit:
+            urls[u['id']] = items[0]['url']
+
+def ships_text(s):
+    m = re.match(r'after\s+([\w,\s]+?)(?::|$)', s)  # "after A, B" or "after Unit A, Unit B"
+    if not m:
+        return 'ships independently' if s.startswith('independent') else (f'ships {s}' if s else '')
+    ids = [re.sub(r'^unit\s+', '', x.strip(), flags=re.I) for x in re.split(r',|\band\b', m.group(1)) if x.strip()]
+    return 'ships after ' + ', '.join(f"Unit {x} ({prs[x]})" if prs.get(x) else f'Unit {x}' for x in ids)
+
+# Other units named in the text link to their PRs: "unit C", "units B and C", "A's", "B and C",
+# "(E)", "**A**". A bare capital letter is left alone: it's usually the word "a".
+def link(text):
+    if not urls or not text:
+        return text
+    ids = '|'.join(sorted(map(re.escape, {u['id'] for u in units}), key=len, reverse=True))
+    one = lambda x: f'[{x}]({urls[x]})' if x in urls else x
+    def many(m):
+        found = re.findall(r'\b(?:' + ids + r')\b', m.group(0))
+        if len(found) == 1 and m.group(0).lower().startswith('unit') and found[0] in urls:
+            return f'[{m.group(0)}]({urls[found[0]]})'
+        return re.sub(r'\b(' + ids + r')\b', lambda n: one(n.group(1)), m.group(0))
+    lst = r'(?:' + ids + r')(?:(?:,\s*|\s+and\s+|\s+or\s+)(?:' + ids + r'))*'
+    pats = [
+        r'(?i:\bunits?)\s+' + lst + r'\b',                              # Unit C, units B and C
+        r'\b(?:' + ids + r')(?:,\s*|\s+and\s+|\s+or\s+)' + lst + r'\b',  # B and C, B, C and D
+        r'\b(?:' + ids + r")(?=['’]s\b)",                                 # A's
+        r'(?<=\()' + lst + r'(?=\))',                                     # (E)
+        r'(?<=\*\*)(?:(?i:unit)\s+)?(?:' + ids + r')(?=\*\*)',             # **A**, **Unit A**
+    ]
+    parts = re.split(r'(`[^`]*`|\[[^\]]*\]\([^)]*\))', text)              # leave code and links alone
+    for i in range(0, len(parts), 2):
+        for pat in pats:
+            parts[i] = re.sub(pat, many, parts[i])
+    return ''.join(parts)
+
+out = [f'{mark} {brief_path} -->',
+       f'> **Brief for approval.** Add the `{label}` label to approve it, or comment to ask for changes.',
+       '> Nothing is built until it is approved. Check that the outcome is what is wanted, the decisions',
+       '> fit the system, the scope is right, and each Definition of Done item can be checked.']
+if expected:
+    m = re.match(r'(small|medium|large)\b[.:,;]?\s*(.*)', expected, re.I)
+    exp = f'**{m.group(1).lower()}**' + (f'. {m.group(2)}' if m.group(2) else '') if m else expected
+    out.append(f'> Expected review once built: {exp}')
+out.append('')
+where = []
+if plan and unit:
+    where.append(f"**Unit {unit} of {len(units)}** in " + (f'[{epic_title}]({epic_url})' if epic_url else epic_title))
+st = ships_text(ships)
+if st:
+    where.append(st)
+if asana_url:
+    where.append(f'[Asana task]({asana_url})')
+if where:
+    out += [' · '.join(where), '']
+out += ['## Outcome', '', link(sec.get('outcome', '')), '', '## Decisions', '', link(sec.get('decisions', '')), '']
+if out_of_scope:
+    # "a; b (c; d); e" -> one bullet per item, splitting only outside brackets.
+    items, depth, cur = [], 0, ''
+    for ch in out_of_scope:
+        depth += ch in '([{'; depth -= ch in ')]}'
+        if ch == ';' and depth == 0:
+            items.append(cur); cur = ''
+        else:
+            cur += ch
+    items = [i.strip().rstrip('.') for i in items + [cur] if i.strip()]
+    out += ['## Out of scope', ''] + [f'- {link(i)}' for i in items] + ['']
+out += ['## Definition of done', ''] + [link(d) for d in dod] + ['']
+if amendments:
+    out += ['## Amendments', '', '| Date | What changed | Why | Agreed by |', '|---|---|---|---|']
+    out += ['| ' + ' | '.join(c) + ' |' for c in amendments] + ['']
+builder = '\n'.join(constraints).strip()
+order = sec.get('build order', '').strip()
+if builder or order:
+    out += ['<details><summary>For the builder: constraints and build order</summary>', '']
+    if builder:
+        out += [link(builder), '']
+    if order:
+        out += ['**Build order**', '', link(order), '']
+    out += ['</details>', '']
+if plan:
+    out += [f'<details><summary>The plan: {len(units)} units</summary>', '']
+    if psec.get('outcome'):
+        out += [link(psec['outcome']), '']
+    def full_ids(text):
+        # "after A, B" -> "after Unit A, Unit B"
+        ids = '|'.join(map(re.escape, (v['id'] for v in units)))
+        return re.sub(r'(?i)(?<!unit )\b(' + ids + r')\b', r'Unit \1', text)
+    out += ['| | Unit | Ships | PR |', '|---|---|---|---|']
+    for u in units:
+        name = ('↳ ' if u['parent'] else '') + u['title']
+        pr = 'this PR' if u['id'] == unit else prs.get(u['id']) or '-'
+        if u['id'] == unit:
+            out.append(f"| **{u['id']}** | **{name}** | {full_ids(u['ships'])} | {pr} |")
+        else:
+            out.append(f"| {u['id']} | {name} | {full_ids(u['ships'])} | {pr} |")
+    out.append('')
+    if psec.get('why this breakdown'):
+        out += ['**Why this breakdown**', '', link(psec['why this breakdown']), '']
+    out += [f'The full plan is `{plan_path}`.', '', '</details>', '']
+out.append(f'The full brief is `{brief_path}` on this branch.')
+print('\n'.join(out))
+PY
+}
+
+# The Asana app for GitHub links a task by appending a block to the PR's description ("To see the
+# specific tasks where the Asana app for GitHub is being used..."). Replacing the description
+# would drop it, so it's carried over: keep_asana <pr number> <new description file>
+keep_asana() {
+	local old
+	old="$(gh pr view "$1" --json body -q .body 2>/dev/null)" || return 0
+	OLD="$old" py - "$2" <<'PY'
+import os, sys
+old = os.environ['OLD'].replace('\r\n', '\n')
+marker = 'To see the specific tasks where the Asana app for GitHub is being used'
+new = open(sys.argv[1], encoding='utf-8').read()
+if marker not in old or marker in new:
+    sys.exit()
+lines = old.split('\n')
+i = next(n for n, l in enumerate(lines) if marker in l)
+j = i - 1
+while j >= 0 and not lines[j].strip():
+    j -= 1
+start = j if j >= 0 and lines[j].strip() == '---' else i
+block = '\n'.join(lines[start:]).strip('\n')
+open(sys.argv[1], 'w', encoding='utf-8', newline='\n').write(new.rstrip('\n') + '\n\n' + block + '\n')
+PY
+}
+
+# Commits one or more files to a branch that isn't checked out, without touching the working
+# tree: commit_to <branch> <message> <path-in-repo>=<source-file>...
+commit_to() {
+	local branch="$1" msg="$2"; shift 2
+	local idx old tree commit pair blob
+	old="$(git rev-parse --verify -q "refs/heads/$branch")" || die "no local branch $branch"
+	idx="$(mktemp -d)/index"   # git won't read an empty index file, so a fresh path
+	GIT_INDEX_FILE="$idx" git read-tree "$old"
+	for pair in "$@"; do
+		blob="$(git hash-object -w "${pair#*=}")"
+		GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "100644,$blob,${pair%%=*}"
+	done
+	tree="$(GIT_INDEX_FILE="$idx" git write-tree)"; rm -rf "$(dirname "$idx")"
+	[ "$tree" = "$(git rev-parse "$old^{tree}")" ] && return 0
+	commit="$(git commit-tree "$tree" -p "$old" -m "$msg" -m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>')"
+	git update-ref "refs/heads/$branch" "$commit" "$old"
+}
 
 in_list() { local x="$1"; shift; for y in "$@"; do [ "$x" = "$y" ] && return 0; done; return 1; }
 
@@ -104,66 +357,95 @@ who)
 	need_gh
 	read -ra approvers <<<"${p[0]}"; read -ra trusted <<<"${p[1]:-}"
 	login="$(me)"
-	if in_list "$login" "${approvers[@]}"; then echo "approver $login"
+	if [ "${ADA_BRIEF_REQUIRE:-}" = 1 ]; then echo "required $login"
+	elif in_list "$login" "${approvers[@]}"; then echo "approver $login"
 	elif [ ${#trusted[@]} -gt 0 ] && in_list "$login" "${trusted[@]}"; then echo "trusted $login"
 	else echo "required $login"
 	fi
 	;;
 
 submit)
-	[ $# -eq 2 ] || die 'usage: ada-brief submit <task-id> <base-branch>'
+	[ $# -eq 2 ] || [ $# -eq 3 ] || die 'usage: ada-brief submit <task-id> <base-branch> [<branch>]'
 	task="$1"; base="$2"
+	current="$(git branch --show-current)"; branch="${3:-$current}"
 	[[ "$task" =~ ^[A-Za-z0-9_-]+$ ]] || die "task id must be letters, digits, - or _: $task"
 	[[ "$base" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad base branch: $base"
-	need_gh
-	[ -f .claude/handoff/BRIEF.md ] || die 'no .claude/handoff/BRIEF.md to submit'
-	branch="$(git branch --show-current)"
 	[ -n "$branch" ] || die 'not on a branch'
+	[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
 	[ "$branch" != "$base" ] || die "on the base branch $base: create the feature branch first"
 	case "$branch" in production|next-release|review|main|master) die "won't push a brief to $branch" ;; esac
+	if [ "$branch" = "$current" ]; then src='.claude/handoff/BRIEF.md'; else src=".claude/handoff/plan/$task.md"; fi
+	[ -f "$src" ] || die "no $src to submit"
+	need_gh
+
+	# A part of a larger unit: the unit's brief, on its feature branch, is approved first.
+	if pr_number "$base" >/dev/null; then
+		st="$("$0" status "$base" | head -1)"
+		case "$st" in
+		approved*|not-needed|not-submitted) ;;
+		*) die "the brief on $base is $st; it's approved before its parts' briefs are submitted" ;;
+		esac
+	fi
 
 	file=".claude/briefs/$task.md"
-	mkdir -p .claude/briefs
-	cp .claude/handoff/BRIEF.md "$file"
-	title="$(sed -n '1s/^#[[:space:]]*Brief[^:]*:[[:space:]]*//p' "$file")"
-	[ -n "$title" ] || title="$(head -1 "$file" | sed 's/^#*[[:space:]]*//')"
-	git add "$file"
-	if ! git diff --cached --quiet -- "$file"; then
-		git commit -q -m "Brief for approval: $title" \
-			-m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>' -- "$file"
+	title="$(sed -n '1s/^#[[:space:]]*Brief[^:]*:[[:space:]]*//p' "$src")"
+	[ -n "$title" ] || title="$(head -1 "$src" | sed 's/^#*[[:space:]]*//')"
+	# The plan this brief is part of, if any, goes with it.
+	plan="$(sed -n 's/^Plan:[[:space:]]*\(\.claude\/briefs\/[A-Za-z0-9_-]*-plan\.md\).*/\1/p' "$src" | head -1)"
+	plan_src=''
+	[ -n "$plan" ] && [ -f .claude/handoff/plan/PLAN.md ] && plan_src='.claude/handoff/plan/PLAN.md'
+
+	if [ "$branch" = "$current" ]; then
+		mkdir -p .claude/briefs
+		cp "$src" "$file"
+		paths=("$file")
+		if [ -n "$plan_src" ]; then cp "$plan_src" "$plan"; paths+=("$plan"); fi
+		git add -- "${paths[@]}"
+		if ! git diff --cached --quiet -- "${paths[@]}"; then
+			git commit -q -m "Brief for approval: $title" \
+				-m 'Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>' -- "${paths[@]}"
+		fi
+		out="$(git push -q -u origin HEAD 2>&1)" || die "push failed: $out"
+	else
+		# Committing to a branch checked out elsewhere would leave that worktree behind its branch.
+		if git worktree list --porcelain | grep -qx "branch refs/heads/$branch"; then
+			die "$branch is checked out in another worktree: submit from there"
+		fi
+		pairs=("$file=$src")
+		[ -n "$plan_src" ] && pairs+=("$plan=$plan_src")
+		commit_to "$branch" "Brief for approval: $title" "${pairs[@]}"
+		out="$(git push -q -u origin "$branch" 2>&1)" || die "push failed: $out"
 	fi
-	out="$(git push -q -u origin HEAD 2>&1)" || die "push failed: $out"
 
 	gh label create "$LABEL" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
 	body="$(mktemp)"; trap 'rm -f "$body"' EXIT
-	{
-		echo "$MARK $file -->"
-		echo '> **Brief for approval.** Nothing is built until an approver adds the `brief-approved` label.'
-		echo '> To ask for changes, leave review comments or a comment here. The brief is'
-		echo "> \`$file\` on this branch."
-		echo
-		cat "$file"
-	} >"$body"
-	if n="$(pr_number)"; then
+	render_body "$file" "$branch" >"$body"
+	if n="$(pr_number "$branch")"; then
 		r="$(repo)"
+		keep_asana "$n" "$body"
 		url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
 		gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
 		echo "updated  $url (approval reset)"
 	else
-		url="$(gh pr create --draft --base "$base" --title "$title" --body-file "$body" 2>/dev/null)" ||
+		url="$(gh pr create --draft --base "$base" --head "$branch" --title "$title" --body-file "$body" 2>/dev/null)" ||
 			die "couldn't open the draft PR into $base"
 		echo "opened   $url"
 	fi
 	;;
 
 status)
+	[ $# -le 1 ] || die 'usage: ada-brief status [<branch>]'
+	branch="${1:-}"
+	[ -z "$branch" ] || [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
 	need_gh
 	pol="$(policy)" || exit 2
 	p=(); while IFS= read -r line; do p+=("$line"); done <<<"$pol"   # no mapfile: macOS has bash 3.2
 	case "${p[0]}" in missing|none) echo 'not-needed'; exit 0 ;; esac
 	read -ra approvers <<<"${p[0]}"
-	pr="$(gh pr view --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
-	PR="$pr" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py - <<'PY'
+	pr="$(gh pr view ${branch:+"$branch"} --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
+	# The pushed branch, where the brief's last change is looked up.
+	if [ -n "$branch" ]; then pushed="origin/$branch"; else pushed='@{upstream}'; fi
+	PR="$pr" PUSHED="$pushed" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py - <<'PY'
 import json, os, re, subprocess, sys
 pr = json.loads(os.environ['PR'])
 approvers = os.environ['APPROVERS'].split()
@@ -178,7 +460,7 @@ if not m:
     print('not-submitted'); print(f"{pr['url']} has no ada-brief marker: submit with ada-brief submit"); sys.exit()
 brief = m.group(1)
 # When the brief last changed on the pushed branch: approval and comments count after this.
-since = subprocess.run(['git', 'log', '-1', '--format=%cI', '@{upstream}', '--', brief], capture_output=True, text=True).stdout.strip()
+since = subprocess.run(['git', 'log', '-1', '--format=%cI', os.environ['PUSHED'], '--', brief], capture_output=True, text=True).stdout.strip()
 if not since:
     print('not-submitted'); print(f'{brief} is not on the pushed branch'); sys.exit()
 from datetime import datetime
@@ -218,17 +500,29 @@ print(pr['url'])
 PY
 	;;
 
+body)
+	[ $# -ge 1 ] && [ $# -le 2 ] || die 'usage: ada-brief body <task-id> [<branch>]'
+	[[ "$1" =~ ^[A-Za-z0-9_-]+$ ]] || die "task id must be letters, digits, - or _: $1"
+	branch="${2:-$(git branch --show-current)}"
+	[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
+	need_gh
+	render_body ".claude/briefs/$1.md" "$branch"
+	;;
+
 ready)
 	[ $# -eq 2 ] || die 'usage: ada-brief ready <title> <description-file>'
 	[ -f "$2" ] || die "no file $2"
 	need_gh
 	n="$(pr_number)" || die 'no PR for this branch'
-	url="$(gh api -X PATCH "repos/$(repo)/pulls/$n" -f "title=$1" -F "body=@$2" -q .html_url)"
+	desc="$(mktemp)"; trap 'rm -f "$desc"' EXIT
+	cp "$2" "$desc"
+	keep_asana "$n" "$desc"
+	url="$(gh api -X PATCH "repos/$(repo)/pulls/$n" -f "title=$1" -F "body=@$desc" -q .html_url)"
 	gh pr ready "$n" >/dev/null 2>&1 || echo "ada-brief: couldn't take $url out of draft; the developer can press 'Ready for review'" >&2
 	echo "ready    $url"
 	;;
 
 *)
-	die 'usage: ada-brief who | submit <task-id> <base-branch> | status | ready <title> <file> (see the header of this script)'
+	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | body <task-id> [<branch>] | ready <title> <file> (see the header of this script)'
 	;;
 esac

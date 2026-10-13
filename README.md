@@ -1,6 +1,6 @@
 # Ada and friends
 
-Status: **0.3.1.** Fixes from the first full dry run, and the efficiency skill. V&Me is the first project to use it.
+Status: **0.4.0.** Plans: work too big for one PR is broken into units, each with its own brief, branch and PR.
 
 A Claude Code team for working on a project, from PIE Code:
 
@@ -30,6 +30,39 @@ adds the `brief-approved` label to approve, or leaves review comments to ask for
 developer carries on with `/ada:pickup`. `bin/ada-brief` does the checking: only a label added by
 an approver, after the brief last changed, counts. A changed brief is approved again. The draft
 PR becomes the work's PR at the end. It needs `gh`, logged in.
+
+## Plans: work too big for one PR
+
+The PIE review of a PR is the final gate, and small PRs get better reviews. When a piece of work
+won't fit one PR, Ada recommends a plan and agrees it with the developer before writing any
+brief. The work is an Epic in Asana. It is broken into **units**, each a subtask with its own
+brief, branch and PR:
+
+- **A unit** ships on its own: production still works if the next unit never comes. It branches
+  from production and PRs into next-release.
+- **A feature** is a unit that only works whole but is too big for one PR. Its branch, from
+  production, holds its brief. Its **parts** branch from it and PR back into it, each with its
+  own brief. When every part is in, the feature branch PRs into next-release, and that PR gets a
+  functional smoke test, like a release, not a code review.
+- Each unit ships **independently**, or **after** others: a unit after another is built once
+  that one is in production; a part after another, once that one is in the feature branch.
+
+All the briefs and branches are made at planning time. Each brief is approved on its own, in a
+draft PR that shows only what the approver checks: the outcome, decisions, scope and Definition
+of Done, with the builder's details and the plan (a short units table and why this breakdown)
+folded away. Units are always "Unit B", never "B" alone, and every mention of another unit links
+to its PR. A feature's brief is approved
+before its parts' briefs are submitted. The team then works through the units as they're
+approved and unblocked, one PR each. `bin/ada-plan` reads the plan
+(`.claude/handoff/plan/PLAN.md`, committed as `.claude/briefs/<Epic id>-plan.md`), drafts the
+briefs, creates the branches and reports each unit's state.
+
+What fits one PR is judged by what the reviewer has to understand (one behaviour change, a small
+set of functions, at most one fragile area), not by a line count. At the PR gate `bin/ada-size`
+estimates the review time, weighing lines by what they cost to read (changed code most, moved
+and generated code almost nothing), and the PR opens with that estimate and where the review is. The reviewer adds the actual
+review time; compare the two after a dozen or so PRs and tune the rates at the top of
+`bin/ada-size`.
 
 ## Credit in commits and PRs
 
@@ -81,8 +114,9 @@ plugins/ada/
   skills/standards/               the PIE rules (P1 onwards), preloaded into the agents, not a command
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
-  bin/                            on the Bash PATH while enabled: ada-brief, ada-handoff-init, ada-onboard, prod-wp
+  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp
   templates/handoff/              the files the roles hand over through
+  templates/plan/                 the plan, for work too big for one PR
   templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
 ```
 

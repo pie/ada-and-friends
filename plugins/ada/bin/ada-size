@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# How big a step is to review, by what it costs to read rather than by raw lines. Ada runs it at
+# the PR gate; a developer can too. Run from inside the project repo.
+#
+#   ada-size <base-branch>
+#       Measures this branch's changes since it left <base-branch>, including the working tree
+#       and new files not yet added (nothing is staged or changed: a throwaway index is used).
+#       Prints, for each kind of file, lines added and removed:
+#         code        everything not below; of which comment lines, counted separately
+#         moved       lines moved, not changed (git's --color-moved); left out of the others
+#         tests       tests/, test/, *Test.php, *.test.*, *.spec.*
+#         docs        Markdown, text, and everything under .claude/
+#         generated   lock files, minified files, source maps, vendor/, node_modules/, binaries
+#       then the code files, biggest first, and the estimated review time and effort level:
+#       the line that goes in the PR. The breakdown is for Ada; the reviewer gets the estimate.
+#
+# The estimate is minutes of reading at the rates in RATES below, plus a couple of minutes per
+# code file for getting into it. The code rate is the review literature's (about 300 lines an
+# hour for careful review); the others are starting guesses, cheaper because those lines are.
+# Tune them against real reviews: the PR template asks the reviewer for the actual time. The script doesn't know which code is fragile: Ada raises the
+# estimate for a fragile area and says why.
+#
+# Blank lines aren't counted. Comments are recognised by how the line starts, so a comment after
+# code on the same line counts as code. Moved code is found only in blocks git can match (about
+# 20 or more letters and digits); a small move shows as a removal and an addition.
+
+set -euo pipefail
+
+die() { echo "ada-size: $*" >&2; exit 2; }
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+cd "$root"
+[ $# -eq 1 ] || die 'usage: ada-size <base-branch>'
+base="$1"
+[[ "$base" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad base branch: $base"
+if git rev-parse --verify -q "origin/$base" >/dev/null; then ref="origin/$base"
+elif git rev-parse --verify -q "$base" >/dev/null; then ref="$base"
+else die "no branch $base (or origin/$base)"
+fi
+mb="$(git merge-base "$ref" HEAD)" || die "no common history with $ref"
+
+# Python 3.8+, found as in ada-brief.
+PY=()
+for c in python3 python 'py -3'; do
+	read -ra try <<<"$c"
+	if "${try[@]}" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+		PY=("${try[@]}"); break
+	fi
+done
+[ ${#PY[@]} -gt 0 ] || die 'Python 3.8 or later is needed (as python3, python or py -3)'
+
+# A throwaway copy of the index with the new files marked intent-to-add, so they're diffed (and
+# moves into them found) without touching the real index.
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+cp "$(git rev-parse --git-path index)" "$tmp/index" 2>/dev/null || true
+export GIT_INDEX_FILE="$tmp/index"
+new=()
+while IFS= read -r -d '' f; do new+=("$f"); done < <(git ls-files -z --others --exclude-standard)
+if [ ${#new[@]} -gt 0 ]; then git add -N -- "${new[@]}"; fi
+
+# Moved lines in their own colours (blue, magenta), so they can be told apart from ordinary
+# additions (green) and removals (red).
+git -c color.diff.new=green -c color.diff.old=red \
+	-c color.diff.newMoved=blue -c color.diff.newMovedAlternative=blue \
+	-c color.diff.oldMoved=magenta -c color.diff.oldMovedAlternative=magenta \
+	-c color.diff.newMovedDimmed=blue -c color.diff.newMovedAlternativeDimmed=blue \
+	-c color.diff.oldMovedDimmed=magenta -c color.diff.oldMovedAlternativeDimmed=magenta \
+	-c color.diff.whitespace=normal -c core.quotepath=off \
+	diff --no-ext-diff --no-textconv -M --color=always --color-moved=zebra \
+	--color-moved-ws=allow-indentation-change "$mb" >"$tmp/diff"
+git diff --no-ext-diff --numstat -M "$mb" >"$tmp/numstat"
+
+BASE="$base" MB="$(git rev-parse --short "$mb")" "${PY[@]}" - "$tmp/diff" "$tmp/numstat" <<'PY' | tr -d '\r'
+import os, re, sys
+
+# Minutes of review per line, by kind of change.
+RATES = {
+    'code added': 0.2,        # new or changed logic: about 300 lines an hour
+    'code removed': 0.05,     # checking nothing still needs it
+    'comments': 0.05,
+    'moved': 0.01,
+    'tests': 0.02,            # skimmed: the reviewer trusts Tess's report more than reads the tests
+    'docs': 0.05,
+    'generated': 0,
+}
+PER_CODE_FILE = 2             # getting into a file
+LEVELS = ((15, 'small'), (45, 'medium'), (90, 'large'))   # over the last: too big for one sitting
+from collections import defaultdict
+
+ansi = re.compile(r'\x1b\[[0-9;]*m')
+GREEN, RED, BLUE, MAGENTA = '32', '31', '34', '35'
+
+def kind(path):
+    p = path.lower()
+    name = p.rsplit('/', 1)[-1]
+    if (name in ('composer.lock', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml')
+            or re.search(r'\.min\.(js|css)$|\.map$', name)
+            or re.search(r'(^|/)(vendor|node_modules)/', p)):
+        return 'generated'
+    if (re.search(r'(^|/)tests?/', p) or re.search(r'test\.php$', name)
+            or re.search(r'\.(test|spec)\.[a-z]+$', name)):
+        return 'tests'
+    if p.startswith('.claude/') or re.search(r'\.(md|markdown|txt|rst)$', name):
+        return 'docs'
+    return 'code'
+
+def is_comment(text, path):
+    t = text.strip()
+    if t.startswith(('//', '/*', '*', '<!--', '-->', '{{--')):
+        return True
+    ext = path.rsplit('.', 1)[-1].lower() if '.' in path else ''
+    return t.startswith('#') and not t.startswith('#[') and ext in ('php', 'py', 'sh', 'yml', 'yaml', 'rb', 'conf', 'ini')
+
+totals = defaultdict(lambda: [0, 0])     # kind -> [added, removed]
+comments = [0, 0]
+moved = 0
+files = defaultdict(set)
+per_file = defaultdict(lambda: [0, 0])   # code file -> [added, removed], comments included
+path = None
+for raw in open(sys.argv[1], encoding='utf-8', errors='replace'):
+    line = raw.rstrip('\n')
+    plain = ansi.sub('', line)
+    m = re.match(r'diff --git a/(.*) b/(.*)$', plain)
+    if m:
+        path = m.group(2); continue
+    if path is None or plain.startswith(('+++', '---')):
+        continue
+    m = re.match(r'\x1b\[(?:[0-9;]*;)?(3[0-9])m', line)
+    colour = m.group(1) if m else ''
+    if not plain[:1] in ('+', '-'):
+        continue
+    text = plain[1:]
+    if not text.strip():
+        continue
+    k = kind(path)
+    if colour in (BLUE, MAGENTA):
+        if plain[0] == '+':
+            moved += 1
+        files['moved'].add(path)
+        continue
+    i = 0 if plain[0] == '+' else 1
+    totals[k][i] += 1
+    files[k].add(path)
+    if k == 'code':
+        per_file[path][i] += 1
+        if is_comment(text, path):
+            comments[i] += 1
+
+# Binary files have no lines; count them as generated.
+for l in open(sys.argv[2], encoding='utf-8', errors='replace'):
+    a, r, p = l.rstrip('\n').split('\t', 2)
+    if a == '-':
+        files['generated'].add(p)
+
+def n(k):
+    c = len(files[k])
+    return f"{c} file{'s' if c != 1 else ''}"
+
+print(f"ada-size: against {os.environ['BASE']} (from {os.environ['MB']}), working tree and new files included")
+for k, note in (('code', ''), ('tests', ''), ('docs', ''), ('generated', '  skim or skip')):
+    a, r = totals[k]
+    if k == 'code' or a or r or files[k]:
+        print(f"{k:<10} +{a:<5} −{r:<5} {n(k)}{note}")
+        if k == 'code':
+            print(f"  of which comments  +{comments[0]} −{comments[1]}")
+            print(f"moved      {moved} lines in {n('moved')}, not counted above")
+if per_file:
+    print('code files, by lines changed:')
+    for p, (a, r) in sorted(per_file.items(), key=lambda x: -(x[1][0] + x[1][1])):
+        print(f"  +{a:<5} −{r:<5} {p}")
+ca, cr = totals['code']
+mins = ((ca - comments[0]) * RATES['code added'] + (cr - comments[1]) * RATES['code removed']
+        + sum(comments) * RATES['comments'] + moved * RATES['moved']
+        + sum(totals['tests']) * RATES['tests'] + sum(totals['docs']) * RATES['docs']
+        + sum(totals['generated']) * RATES['generated'] + len(per_file) * PER_CODE_FILE)
+mins = max(5, int(round(mins / 5.0)) * 5)
+level = next((name for top, name in LEVELS if mins <= top), 'too big for one sitting')
+print(f"Review: about {mins} minutes ({level})")
+PY

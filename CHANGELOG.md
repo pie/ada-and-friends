@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.4.0, 13 Oct 2026
+
+Small PRs make the PIE review short. Work too big for one PR is now planned as several, each
+with its own brief, branch and PR.
+
+- **Plans.** Ada decides whether work fits one PR by what the reviewer has to hold in their
+  head: one behaviour change or concern, a short description to check the diff against, a small
+  set of functions, at most one fragile area. Not by a line count: there's no code yet at
+  planning time, and lines differ in what they cost to review. If not, she recommends breaking the Epic into **units**, each shippable on
+  its own: a branch from production and a PR into next-release. A unit too big for one PR but
+  only useful whole is a **feature**: its branch holds its brief, and its **parts** branch from it
+  and PR back into it, then the feature PRs into next-release after a functional smoke test. Two
+  levels at most. Each unit ships `independent` or `after` others: after a top-level unit means
+  once it's in production; after a part means once it's in the feature branch. Units and parts
+  are Asana subtasks of the Epic.
+- **New `ada-plan`:** `init`, `check` (validates the Units table: IDs, tasks, branches, two
+  levels, order without cycles), `briefs` (drafts a brief per unit with its branch, base, plan
+  and order filled in), `branches` (creates every branch without a checkout) and `status` (each
+  unit's PR, approval, whether it has shipped, and what's ready next).
+- **`ada-brief submit <task> <base> <branch>`** commits a planned brief to its branch without
+  checking it out, and takes the plan with it: committed as `.claude/briefs/<Epic id>-plan.md`
+  and shown under the brief in the draft PR. A part's brief is refused until its feature's brief
+  is approved. `ada-brief status <branch>` checks any branch's brief.
+- **New `ada-size <base>`** estimates how long a step takes to review: small (up to 15
+  minutes), medium (45), large (90), or too big for one sitting. It weighs lines by what they
+  cost to read: changed code most (about 300 lines an hour), then removals, comments and docs,
+  then tests (skimmed: the reviewer relies on Tess's report); moved code (git's
+  `--color-moved`) almost nothing, generated files nothing. The rates
+  are in one place in the script, to be tuned against real reviews. It shows Ada the breakdown
+  and includes the working tree and new files, through a throwaway index. At the PR gate Ada
+  raises the estimate for a fragile area, checks it against the brief's new `Expected review:`
+  level, and asks the developer before opening a PR that came out a level bigger. The PR
+  template's "For the reviewer" opens with the estimate and says where the review is, and asks
+  the reviewer for the actual review time, so the rates can be tuned.
+- **The draft PR shows what the approver checks**, not the whole brief: what to check and the
+  expected review level, the unit's place (Unit B of 6, ships after Unit A, with PR links), then
+  the Outcome, Decisions, Out of scope and Definition of done in full. The builder's constraints
+  and build order, and the plan (its outcome, a short units table with PR links, and why this
+  breakdown), are folded away. No template guidance, empty sections or team-only lines; the full
+  brief stays committed. `ada-brief body <task-id> [<branch>]` prints it.
+- **Units are always "Unit D", never "D" alone**, in the plan, briefs, PRs, Asana and talk. The
+  draft PRs link each mention of another unit ("Unit C", "Unit A's", "Units B and C", "**Unit A**")
+  to its PR. The scripts' own output says "Unit A" too, and Ships accepts `after Unit A, Unit B`
+  (or the short `after A, B`).
+- **Asana links.** A PR is linked to its card with the Asana app for GitHub: on the task, Apps,
+  GitHub, "Add GitHub pull request". The Asana tools can't do it, so Ada asks the developer, with
+  each task and its PR URL, and checks the link is there: the task gets an attachment whose URL
+  is the PR. The app may also append a block to the PR's description; `ada-brief` keeps it
+  whenever it replaces the description (submit again, ready).
+- **Branches are updated twice:** by merge when a unit's build starts, and before it's merged.
+- The brief template has `PR into:`, `Plan:` and `Ships:` lines; the checkpoint and PR template
+  say which unit of which plan. `ada-handoff-init --archive` leaves a plan in place;
+  `--archive-plan` archives it when every unit has shipped. `ada-onboard settings` allows
+  `ada-plan` and `ada-size`.
+
 ## 0.3.2, 12 Oct 2026
 
 From V&Me, 12 Oct: auto mode's safety check refused Bob's shell edit to a docblock as "audit

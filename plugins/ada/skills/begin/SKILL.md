@@ -31,12 +31,17 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
    - **Its step is finished** (its PR is merged or closed, or it says the step was shelved): say
      so in one line ("previous step finished: PR #N merged; archiving it") and run
      `ada-handoff-init --archive <date>-<slug of that step>`. That moves the old handoff files to
-     `.claude/handoff/archive/` and puts fresh templates in place. Don't wait; carry on to 7. If
-     it lists leftovers on the local site (test orders, a changed clock, a frozen queue), tell the
-     developer: they're cleared before anything runs on the site.
+     `.claude/handoff/archive/` and puts fresh templates in place; a plan in
+     `.claude/handoff/plan/` stays. Don't wait; carry on to 7. If it lists leftovers on the local
+     site (test orders, a changed clock, a frozen queue), tell the developer: they're cleared
+     before anything runs on the site.
    - **Its step is still open:** report in one paragraph where we stopped, what was decided, the
      next action and any open questions. **Stop and wait** for the developer to confirm.
-7. Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
+7. If `.claude/handoff/plan/PLAN.md` exists and its status isn't `done`, a plan is under way:
+   run `ada-plan status`, report which units are done, which are waiting and on what, and which
+   is ready next (**Working through a plan**, below). **Stop and wait** for the developer to say
+   which to take.
+   Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
    the task if you can. Don't ask them to explain the system; read the `SYSTEM.md` sections for
    the area involved and `API.md` for what exists.
 8. Check the working tree is yours before you touch branches. Run `git status` and
@@ -48,7 +53,7 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
    the developer repoints the site at the worktree as `PROJECT.md` says, and points it back
    afterwards; that goes on the checkout's leftovers list until it's done.
 9. Check the branch. If it is the production or review branch, create the feature branch, named
-   and based as `PROJECT.md` says. If the developer names a different base, use it, and record it
+   and based as `PROJECT.md` says; for a unit of a plan, `ada-plan branches` creates it. If the developer names a different base, use it, and record it
    in the brief. If an unrelated feature branch is checked out, say so and stop.
 
 ## Your three jobs
@@ -79,6 +84,104 @@ severity of a review finding.
 
 ### 2. Direct Bob, Claudia and Tess
 
+**One brief, or a plan.** Before you write a brief, decide whether the work fits one PR. The
+final gate is a PIE review, and a PR is the right size when the reviewer can hold all of it in
+their head. Judge that by what they have to understand, not by lines; there is no code yet, so a
+line count would be a guess. A PR fits when it has:
+
+- one behaviour change, or one concern;
+- a description the reviewer can check the diff against in a few sentences;
+- a small, nameable set of functions it changes, and at most one fragile area (`PROJECT.md`).
+
+Split when the work changes more than one behaviour, touches more than one fragile area, or
+mixes a refactor with a change. Size counts by what it costs to review: changed logic, above all
+in a fragile area, is the expensive part; new code next to it is cheaper; removed code, moved
+code, comments, tests and docs are cheaper still, and generated files cost nothing. Ten lines of
+date arithmetic can need more review than three hundred lines of a new admin screen. Aim for
+small or medium (`ada-size`, at the PR gate), and write the level you expect on the brief's
+`Expected review:` line.
+
+If the work doesn't fit, recommend a plan, show the developer the breakdown, and agree it before
+any brief is written:
+
+- **Units ship on their own.** Merged and released, production works and makes sense if the next
+  unit never comes. Additive first (data, functions, settings), callers next, what the customer
+  sees last, or behind a setting that is off. A refactor is its own unit, before the change that
+  needs it.
+- **A unit small enough for one PR** is top-level: its own brief, its own branch from the
+  production branch, one PR into the release branch (`PROJECT.md` names both).
+- **A unit that only works whole but is too big for one PR is a feature.** Its branch, from
+  production, holds its brief. Its **parts** branch from it and PR back into it, each with its
+  own brief, each small and reviewable alone; they needn't ship alone, because the feature
+  branch keeps them out of the release branch. When every part is in, the feature branch PRs
+  into the release branch. Two levels at most: a part that needs splitting means the plan is
+  wrong.
+- **Each unit ships `independent`, or `after` others.** A top-level unit after another is built
+  once that one is in production; a part after another, once that one is merged into the feature
+  branch. Prefer independent: every `after` is a wait.
+- **Each unit and part is an Asana task:** the work is an Epic, units are its subtasks, a
+  feature's parts are subtasks of the feature's task. Creating tasks is the developer's call:
+  with their yes, create them with the Asana tools if you have them; otherwise give them the list
+  and ask for the task IDs.
+
+Then:
+
+1. `ada-plan init`, and fill in `.claude/handoff/plan/PLAN.md`: the Outcome, why this breakdown,
+   and the Units table. `ada-plan check` until it's clean.
+2. `ada-plan briefs` drafts a brief per unit, `.claude/handoff/plan/<task id>.md`, with its
+   branch, base, plan and order filled in. Write each one as **The brief** below says. A
+   feature's Build order is its parts, and its Definition of Done is what the smoke test checks
+   when they're all in.
+3. Confirm the plan and the briefs with the developer.
+4. `ada-plan branches` creates every unit's branch.
+5. Approval, if the project needs it (below): submit each top-level brief with
+   `ada-brief submit <task id> <its base> <its branch>`, without checking the branch out. Each one
+   carries the plan, so the approver sees the whole breakdown. A feature's parts are submitted
+   once the feature's brief is approved; `ada-brief` refuses them before then.
+6. Ask the developer to link each PR to its Asana task: on the task, under Apps, GitHub, paste
+   the PR's URL into "Add GitHub pull request". Give them each task with its PR URL. You can't do
+   it with the Asana tools, but you can check: a linked task has an attachment whose URL is the
+   PR (`get_attachments` on the task). The app may also add a block to the end of the PR's
+   description; `ada-brief` keeps it when it replaces the description.
+7. Write `CHECKPOINT.md`, then work through the plan.
+
+**Name units in full.** In the plan, the briefs, the PRs, Asana and when you talk to the
+developer, another unit is "Unit D", never "D" alone. The draft PRs link "Unit D" to its PR; a
+bare letter doesn't link, and "A" reads as a word.
+
+The plan is agreed like a brief: changing a unit (adding, splitting, merging, dropping or
+reordering) needs the developer's yes, goes under the plan's Amendments, and the briefs it
+touches are submitted again.
+
+**Working through a plan.** One unit at a time in a checkout. Units that are ready at the same
+time can be built in parallel only in separate worktrees, one session each, if the developer
+asks.
+
+1. `ada-plan status` says what's ready: approved (or no approval needed), and not waiting on
+   another unit. Pick with the developer.
+2. Check the working tree (Session start, 8), and check out the unit's branch. Bring it up to
+   date: merge `origin/<production>` into a top-level unit's branch, or the feature branch into a
+   part's. Merge, never rebase: the branch is pushed. A conflict in code is Bob's, as the first
+   item of the build.
+3. Copy the approved brief, `.claude/briefs/<task id>.md` on the branch (or the plan's draft if
+   no approval was needed), to `.claude/handoff/BRIEF.md`. From here it is an ordinary step, with
+   the unit's ID as step N: Tess, Bob, Claudia, Tess, and the PR gate. The PR goes into the
+   brief's `PR into:` branch.
+4. After its PR: archive the step (`ada-handoff-init --archive <date>-<unit slug>`; the plan
+   stays), write the checkpoint, and go back to 1.
+
+**A feature's last PR.** When every part is merged into the feature branch, merge
+`origin/<production>` into it, then spawn Tess in run mode on the feature's brief as a smoke test:
+the Definition of Done, all the parts together. Claudia doesn't review it; she reviewed each
+part. PIE treats it like a release: a functional smoke test, not a code review. Its PR description
+lists the parts' PRs and the smoke-test result, then `ada-brief ready` as usual.
+
+When every unit has shipped, set the plan's status to `done` and archive it:
+`ada-handoff-init --archive-plan <date>-<Epic slug>`.
+
+**Branches are updated twice:** when their build starts, and before they are merged. The
+developer usually does the second in GitHub; a conflict comes back to you as a fix round.
+
 Write the brief, then spawn the others with the Agent tool. They start with a clean context and
 know only what their role file and the handoff files tell them, so the brief is the contract.
 They are plugin agents: spawn them as `ada:tess`, `ada:bob` and `ada:claudia`. The plain names
@@ -99,10 +202,13 @@ Confirm the brief with the developer.
   why, on the brief's `Approval:` line (e.g. "not needed: @login is trusted") and carry on.
 - `required <login>`: run `ada-brief submit <Asana task id> <the PR base from PROJECT.md>`. It
   commits the brief to `.claude/briefs/`, pushes the branch and opens a draft PR with the brief as
-  its description. Set the brief's status to `awaiting approval`, give the developer the PR link,
-  write `CHECKPOINT.md`, and **stop**. Nothing is built, and Tess and Bob are not spawned, until
+  its description. Set the brief's status to `awaiting approval`, give the developer the PR link
+  and ask them to link it to the Asana task (Apps, GitHub, "Add GitHub pull request"), write
+  `CHECKPOINT.md`, and **stop**. Nothing is built, and Tess and Bob are not spawned, until
   `ada-brief status` says `approved`. The developer carries on with `/ada:pickup` once the
-  approver has looked.
+  approver has looked. In a plan, submit every brief that can be submitted (top-level briefs, and
+  the parts of an approved feature) before you stop, with the branch as the third argument;
+  `ada-brief status <branch>` checks each one, and `ada-plan status` checks them all.
 - If `ada-brief` says `gh` is missing or not logged in, the developer has to fix that first; the
   brief can't be approved without it.
 
@@ -175,11 +281,17 @@ the decision in a function the unit bootstrap can load (the project's business-r
 
 When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
 
-1. Summarise for the developer in a short paragraph: what was built, what the review found and how
+1. Run `ada-size <the PR's base>`. It ends with an estimated review time and level (small up to
+   15 minutes, medium up to 45, large up to 90, then too big for one sitting). It doesn't know
+   what's fragile: if the change is in a fragile area, raise the estimate and say why. Compare it
+   with the brief's `Expected review:` line. If the step came out a level bigger than expected,
+   or too big for one sitting, say so and ask the developer before going on: split it now, or
+   ship it as it is with the reason in the PR.
+2. Summarise for the developer in a short paragraph: what was built, what the review found and how
    it was resolved, which tests are supplied, what was verified and what was not, and whether
    `SYSTEM.md` / `API.md` were updated (or why none was needed).
-2. Ask: open the PR?
-3. On yes:
+3. Ask: open the PR?
+4. On yes:
    - Update `BUILD-LOG.md`.
    - Commit, credited as in **Commits and credit** below. Every commit says what changed and
      what was verified (P20).
@@ -187,15 +299,23 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
    - Write the PR description to `.claude/handoff/PR.md`, following
      `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
      Rules are cited by number. Not-verified items and known gaps are listed so the PIE reviewer
-     can see them.
-   - Open the PR into the branch `PROJECT.md` names, with `gh pr create` if `gh` is available.
-     If the brief's draft PR already exists, use it instead:
+     can see them. The Review line is the estimate from step 1, not the breakdown; leave the
+     Actual review time line for the reviewer; and "For
+     the reviewer" says where the review is: the changed logic, and any fragile area, by file
+     and function.
+   - Open the PR into the brief's `PR into:` branch (the one `PROJECT.md` names, or a part's
+     feature branch), with `gh pr create` if `gh` is available.
+     If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the
+     Asana app's block):
      `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
      `Approval:` line. Without `gh`, give the developer the compare link and the description to
      paste. PRs are
      squash-merged, so the title becomes the commit on production: keep it short, imperative and
      specific.
-4. Write `CHECKPOINT.md`.
+   - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
+     PR), ask the developer to paste the PR's URL into the task's Apps, GitHub, "Add GitHub pull
+     request".
+5. Write `CHECKPOINT.md`.
 
 The PR is the gate. Nothing is merged by this team.
 
@@ -225,7 +345,8 @@ Code." Trim it to the roles that took part.
 
 ## Anti-drift
 
-- One step at a time. Step N+1 does not start until step N has a PR or has been shelved.
+- One step at a time. Step N+1 does not start until step N has a PR or has been shelved. In a
+  plan, a step is a unit; the next unit starts once this one has its PR.
 - Out-of-scope items go in `BUILD-LOG.md` under Known Gaps and into the PR description. Do not
   expand the step. Known gaps become tasks in the project's tracker; that is PIE's call.
 - Update `BUILD-LOG.md` the moment a decision is made, not at the end.
