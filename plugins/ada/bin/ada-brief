@@ -30,6 +30,9 @@
 #       At the end of the step: gives the branch's PR its final title and description and takes
 #       it out of draft.
 #
+# Replacing a PR's description (submit again, ready) keeps the block the Asana app for GitHub
+# appends when a task is linked to the PR.
+#
 # PR edits go through the REST API: `gh pr edit` fails on gh before 2.50 (it still asks for
 # classic Projects, which GitHub has retired).
 #
@@ -297,6 +300,30 @@ print('\n'.join(out))
 PY
 }
 
+# The Asana app for GitHub links a task by appending a block to the PR's description ("To see the
+# specific tasks where the Asana app for GitHub is being used..."). Replacing the description
+# would drop it, so it's carried over: keep_asana <pr number> <new description file>
+keep_asana() {
+	local old
+	old="$(gh pr view "$1" --json body -q .body 2>/dev/null)" || return 0
+	OLD="$old" py - "$2" <<'PY'
+import os, sys
+old = os.environ['OLD'].replace('\r\n', '\n')
+marker = 'To see the specific tasks where the Asana app for GitHub is being used'
+new = open(sys.argv[1], encoding='utf-8').read()
+if marker not in old or marker in new:
+    sys.exit()
+lines = old.split('\n')
+i = next(n for n, l in enumerate(lines) if marker in l)
+j = i - 1
+while j >= 0 and not lines[j].strip():
+    j -= 1
+start = j if j >= 0 and lines[j].strip() == '---' else i
+block = '\n'.join(lines[start:]).strip('\n')
+open(sys.argv[1], 'w', encoding='utf-8', newline='\n').write(new.rstrip('\n') + '\n\n' + block + '\n')
+PY
+}
+
 # Commits one or more files to a branch that isn't checked out, without touching the working
 # tree: commit_to <branch> <message> <path-in-repo>=<source-file>...
 commit_to() {
@@ -395,6 +422,7 @@ submit)
 	render_body "$file" "$branch" >"$body"
 	if n="$(pr_number "$branch")"; then
 		r="$(repo)"
+		keep_asana "$n" "$body"
 		url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
 		gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
 		echo "updated  $url (approval reset)"
@@ -486,7 +514,10 @@ ready)
 	[ -f "$2" ] || die "no file $2"
 	need_gh
 	n="$(pr_number)" || die 'no PR for this branch'
-	url="$(gh api -X PATCH "repos/$(repo)/pulls/$n" -f "title=$1" -F "body=@$2" -q .html_url)"
+	desc="$(mktemp)"; trap 'rm -f "$desc"' EXIT
+	cp "$2" "$desc"
+	keep_asana "$n" "$desc"
+	url="$(gh api -X PATCH "repos/$(repo)/pulls/$n" -f "title=$1" -F "body=@$desc" -q .html_url)"
 	gh pr ready "$n" >/dev/null 2>&1 || echo "ada-brief: couldn't take $url out of draft; the developer can press 'Ready for review'" >&2
 	echo "ready    $url"
 	;;
