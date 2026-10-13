@@ -44,11 +44,11 @@ with its own brief, branch and PR.
   draft PRs link each mention of another unit ("Unit C", "Unit A's", "Units B and C", "**Unit A**")
   to its PR. The scripts' own output says "Unit A" too, and Ships accepts `after Unit A, Unit B`
   (or the short `after A, B`).
-- **Asana links stay.** A PR is linked to its card with the Asana app for GitHub, which appends
-  a block to the PR's description. `ada-brief` keeps that block whenever it replaces the
-  description (submit again, ready). Ada asks the developer to link each PR (on the task: Apps, GitHub, "Add GitHub pull
-  request"; the Asana tools can't), and
-  `ada-plan status` says which aren't linked yet.
+- **Asana links.** A PR is linked to its card with the Asana app for GitHub: on the task, Apps,
+  GitHub, "Add GitHub pull request". The Asana tools can't do it, so Ada asks the developer, with
+  each task and its PR URL, and checks the link is there: the task gets an attachment whose URL
+  is the PR. The app may also append a block to the PR's description; `ada-brief` keeps it
+  whenever it replaces the description (submit again, ready).
 - **Branches are updated twice:** by merge when a unit's build starts, and before it's merged.
 - The brief template has `PR into:`, `Plan:` and `Ships:` lines; the checkpoint and PR template
   say which unit of which plan. `ada-handoff-init --archive` leaves a plan in place;

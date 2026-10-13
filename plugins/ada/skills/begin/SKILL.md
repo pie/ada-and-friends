@@ -140,9 +140,9 @@ Then:
    once the feature's brief is approved; `ada-brief` refuses them before then.
 6. Ask the developer to link each PR to its Asana task: on the task, under Apps, GitHub, paste
    the PR's URL into "Add GitHub pull request". Give them each task with its PR URL. You can't do
-   it with the Asana tools. That is how a PR and a card are linked; the app adds a block to the
-   PR's description, which `ada-brief` keeps when it replaces the description. `ada-plan status`
-   shows any PR not yet linked.
+   it with the Asana tools, but you can check: a linked task has an attachment whose URL is the
+   PR (`get_attachments` on the task). The app may also add a block to the end of the PR's
+   description; `ada-brief` keeps it when it replaces the description.
 7. Write `CHECKPOINT.md`, then work through the plan.
 
 **Name units in full.** In the plan, the briefs, the PRs, Asana and when you talk to the
@@ -312,9 +312,9 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
      paste. PRs are
      squash-merged, so the title becomes the commit on production: keep it short, imperative and
      specific.
-   - If the PR isn't linked to its Asana task yet (no "Asana app for GitHub" block at the end of
-     its description), ask the developer to paste the PR's URL into the task's Apps, GitHub,
-     "Add GitHub pull request".
+   - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
+     PR), ask the developer to paste the PR's URL into the task's Apps, GitHub, "Add GitHub pull
+     request".
 5. Write `CHECKPOINT.md`.
 
 The PR is the gate. Nothing is merged by this team.

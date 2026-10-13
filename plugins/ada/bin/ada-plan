@@ -18,8 +18,7 @@
 #       Pushing is ada-brief submit's job.
 #   ada-plan status
 #       Each unit's PR, brief approval, whether it has shipped, and what happens next: which
-#       units are ready to build, and what the others are waiting for. A PR not yet linked to
-#       its task with the Asana app for GitHub says so.
+#       units are ready to build, and what the others are waiting for.
 #
 # The production and release branches are the "Branch from" and "PR into" names in
 # .claude/team/PROJECT.md.
@@ -237,7 +236,7 @@ elif cmd == 'status':
         return s.startswith('approved') or s == 'not-needed'
     for u in units:
         r = run('gh', 'pr', 'list', '--head', u['branch'], '--state', 'all', '--limit', '1',
-                '--json', 'number,state,isDraft,mergeCommit,url,body')
+                '--json', 'number,state,isDraft,mergeCommit,url')
         prs = json.loads(r.stdout or '[]') if r.returncode == 0 else []
         pr = u['pr'] = prs[0] if prs else None
         u['local'] = git('rev-parse', '--verify', '-q', f"refs/heads/{u['branch']}").returncode == 0
@@ -286,8 +285,6 @@ elif cmd == 'status':
             nxt = 'ready to build (or building)'
         num = f"#{pr['number']}" if pr else '-'
         note = '' if u['local'] or pr else '  (no branch yet: ada-plan branches)'
-        if pr and pr['state'] != 'CLOSED' and 'Asana app for GitHub' not in (pr.get('body') or ''):
-            nxt += '; link the PR in Asana (task, Apps, GitHub: Add GitHub pull request)'
         print(f"{u['id']:<4} {u['kind']:<8} {num:<6} {u['state']:<24} brief: {u['brief']}")
         print(f"     next: {nxt}")
         print(f"     {u['branch']}{note}")
