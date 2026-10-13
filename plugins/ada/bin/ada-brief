@@ -9,6 +9,8 @@
 #         approver <login>                exempt; can approve others
 #         trusted <login>                 exempt; can't approve others
 #         required <login>                this developer's briefs need an approver's label
+#       With ADA_BRIEF_REQUIRE=1 in the environment, an approver or trusted developer gets
+#       "required" too: for a dry run of the approval flow. An approver's own label still counts.
 #   ada-brief submit <task-id> <base-branch> [<branch>]
 #       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
 #       opens a draft PR into <base-branch> with the brief as its description (or updates the
@@ -128,7 +130,8 @@ who)
 	need_gh
 	read -ra approvers <<<"${p[0]}"; read -ra trusted <<<"${p[1]:-}"
 	login="$(me)"
-	if in_list "$login" "${approvers[@]}"; then echo "approver $login"
+	if [ "${ADA_BRIEF_REQUIRE:-}" = 1 ]; then echo "required $login"
+	elif in_list "$login" "${approvers[@]}"; then echo "approver $login"
 	elif [ ${#trusted[@]} -gt 0 ] && in_list "$login" "${trusted[@]}"; then echo "trusted $login"
 	else echo "required $login"
 	fi
