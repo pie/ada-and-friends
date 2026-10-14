@@ -12,7 +12,8 @@
 #   ada-onboard settings
 #       Merges the plugin, the marketplace and the team's permissions into .claude/settings.json,
 #       keeping whatever is there. Switches off Claude Code's default commit and PR attribution;
-#       the team adds its own. Reads the SSH host from .claude/team/prod.env to deny direct
+#       the team adds its own. Keeps Ada's prompt cache for an hour (promptCacheTtl), unless the
+#       project already sets it. Reads the SSH host from .claude/team/prod.env to deny direct
 #       SSH to it. Prints the result.
 #   ada-onboard check
 #       Lists what's still missing or still holds a placeholder.
@@ -94,6 +95,9 @@ data.setdefault('enabledPlugins', {})['ada@pie'] = True
 # The team credits each role in its own trailers (/ada:begin, Commits and credit), so Claude
 # Code's default attribution is switched off.
 data.setdefault('attribution', {}).update({'commit': '', 'pr': ''})
+# Ada waits on roles and the developer for longer than the default five-minute cache, and each
+# miss re-caches her whole context. An hour's cache costs more to write but is rarely missed.
+data.setdefault('promptCacheTtl', '1h')
 perms = data.setdefault('permissions', {})
 def add(kind, rules):
     lst = perms.setdefault(kind, [])
