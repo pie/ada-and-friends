@@ -1,176 +1,108 @@
 # Ada and friends
 
-Status: in use on V&Me. The current version is the [latest release](https://github.com/pie/ada-and-friends/releases/latest); what changed is in the [CHANGELOG](CHANGELOG.md).
+A team of Claude Code agents for work on PIE projects. You tell Ada what you need. The team
+builds it, reviews it and tests it, and gives you a pull request (PR) for PIE to review.
 
-A Claude Code team for working on a project, from PIE Code:
+[Latest release](https://github.com/pie/ada-and-friends/releases/latest) ·
+[What changed](CHANGELOG.md)
 
-| Who | Does |
+## The team
+
+| Who | What they do |
 |---|---|
-| **Ada** (architect, the main session) | Talks to the developer, writes the brief, runs the others, opens the PR. |
-| **Bob** (builder) | Builds exactly what the brief says. |
-| **Claudia** (reviewer) | Reviews against numbered standards and the project's traps. |
-| **Tess** (tester) | Writes tests from the brief, runs them, reports what was and wasn't verified. |
-| `/ada:bughunt` | Investigates a reported problem: production read-only, replication local. |
+| **Ada**, the architect | Talks to you. Writes the brief. Directs the others. Opens the PR. |
+| **Bob**, the builder | Builds what the brief says, and nothing more. |
+| **Claudia**, the reviewer | Reviews Bob's code against PIE's standards and the project's rules. |
+| **Tess**, the tester | Writes tests from the brief. Runs them. Reports what she checked and what she didn't. |
 
-The process lives here. **Each project's knowledge lives in its own repo**, in `.claude/team/`:
-`PROJECT.md`, `SYSTEM.md`, `API.md`, `STANDARDS.md` (project rules) and `TEST-AREAS.md`.
-
-## Brief approval
-
-On a project where people outside PIE write code, PIE can approve each brief before anything is
-built. The project's `PROJECT.md` has a "Brief approval" section with two lists of GitHub logins:
-
-- **Approvers** can approve anyone's brief and never need approval themselves.
-- **Trusted** developers don't need approval but can't approve.
-- **Everyone else** needs approval, so a new developer is covered by default.
-
-`Approvers: none` turns it off (an internal project). When approval is needed, Ada commits the
-agreed brief to `.claude/briefs/<task id>.md`, opens a draft PR with it, and stops. An approver
-adds the `brief-approved` label to approve, or leaves review comments to ask for changes; the
-developer carries on with `/ada:pickup`. `bin/ada-brief` does the checking: only a label added by
-an approver, after the brief last changed, counts. A changed brief is approved again. The draft
-PR becomes the work's PR at the end. It needs `gh`, logged in.
-
-The draft PR shows only what the approver checks: what to check and the expected review size,
-then the outcome, decisions, out of scope and Definition of Done. The builder's constraints and
-build order are folded away, and the full brief is committed on the branch. Ada asks the
-developer to link each PR to its Asana task (on the task: Apps, GitHub, "Add GitHub pull
-request"); `ada-brief` keeps the block the Asana app adds when it replaces a PR's description.
-
-To try the approval flow as an approver, run Claude with `ADA_BRIEF_REQUIRE=1`: your briefs then
-need approval, and your own label counts.
-
-## Plans: work too big for one PR
-
-The PIE review of a PR is the final gate, and small PRs get better reviews. When a piece of work
-won't fit one PR, Ada recommends a plan and agrees it with the developer before writing any
-brief. The work is an Epic in Asana. It is broken into **units**, each a subtask with its own
-brief, branch and PR:
-
-- **A unit** ships on its own: production still works if the next unit never comes. It branches
-  from production and PRs into next-release.
-- **A feature** is a unit that only works whole but is too big for one PR. Its branch, from
-  production, holds its brief. Its **parts** branch from it and PR back into it, each with its
-  own brief. When every part is in, the feature branch PRs into next-release, and that PR gets a
-  functional smoke test, like a release, not a code review.
-- Each unit ships **independently**, or **after** others: a unit after another is built once
-  that one is in production; a part after another, once that one is in the feature branch.
-
-All the briefs and branches are made at planning time. Each brief is approved on its own, in its
-draft PR, with the plan (a short units table and why this breakdown) folded in, so the approver
-sees where the unit fits. Units are always "Unit B", never "B" alone, and every mention of
-another unit links to its PR. A feature's brief is approved before its parts' briefs are
-submitted. The team then works through the units as they're approved and unblocked, one PR
-each. `bin/ada-plan` reads the plan (`.claude/handoff/plan/PLAN.md`, committed as
-`.claude/briefs/<Epic id>-plan.md`), drafts the briefs, creates the branches and reports each
-unit's state.
-
-What fits one PR is judged by what the reviewer has to understand (one behaviour change, a small
-set of functions, at most one fragile area), not by a line count. At the PR gate `bin/ada-size`
-estimates the review time, weighing lines by what they cost to read (changed code most, moved
-and generated code almost nothing), and the PR opens with that estimate and where the review is.
-The reviewer adds the actual review time; compare the two after a dozen or so PRs and tune the
-rates at the top of `bin/ada-size`.
-
-## Credit in commits and PRs
-
-The developer is the author of every commit. Ada makes the commits and credits the roles with
-trailers, in place of Claude Code's default line (switched off in the project's settings):
-`Co-Authored-By: Tess (Ada and friends, Claude Code)` on the tests,
-`Co-Authored-By: Bob (Ada and friends, Claude Code)` and `Reviewed-by: Claudia (…)` on the build,
-and `Co-Authored-By: Ada (Claude Code)` on briefs and onboarding. PRs end with "Built by Bob,
-reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
-
-## Releasing
-
-Work has no version number until it's released (P31). Feature branches and PRs don't touch the
-version in `plugin.json`, don't put a version in their titles, and add their CHANGELOG entries
-under `## Unreleased`.
-
-To release, open a PR from `next-release` into `main`, decide Major, Minor or Patch from what's
-under Unreleased, and label the PR `release:major`, `release:minor` or `release:patch`, as on
-PIE's other repos. When it's merged, the Release workflow (`.github/workflows/release.yml`):
-
-1. works out the version from the label and the latest GitHub release;
-2. sets it in `plugins/ada/.claude-plugin/plugin.json`, moves the Unreleased entries under
-   `## <version>, <date>`, and commits that to `main`;
-3. tags the commit with the plain version (`0.4.1`, no `v`, as PIE's other repos do) and creates
-   a GitHub release with those CHANGELOG entries as its notes;
-4. recreates `next-release` from `main`, since merging deletes it.
-
-A PR into `main` without a label releases nothing. A labelled PR with nothing under Unreleased
-fails before changing anything. There's no zip or `update.json`, unlike PIE's WordPress plugins:
-the `pie` marketplace installs straight from `main`, so a release reaches everyone who updates.
-
-## Platforms
-
-The helper scripts in `bin/` are bash with a little Python. They need bash 3.2 or later, Python
-3.8 or later, `git`, `gh` (logged in) and, for `prod-wp`, `ssh`. The Python is written for 3.8
-but has only been run on 3.12 so far.
-
-| Platform | Status |
-|---|---|
-| Linux | Used daily. |
-| macOS | All the scripts are tested under bash 3.2.57, the version macOS ships. Python 3 comes with Apple's command line tools, which `git` already needs. |
-| Windows | Expected to work in Git Bash, which Claude Code uses on Windows; **not yet tested**. The scripts find Python as `python3`, `python` or `py -3`, skipping the Microsoft Store shortcut. First time on a PC: run `ada-onboard check` and `ada-brief who`, and report what breaks. WSL also works. |
+You talk only to Ada. She gets the other agents to do their work.
 
 ## Install
 
-```sh
-claude plugin marketplace add pie/ada-and-friends
-claude plugin install ada@pie
-```
+1. Run:
 
-Then `/ada:begin` in a project that has been onboarded with `/ada:onboard`.
+   ```sh
+   claude plugin marketplace add pie/ada-and-friends
+   claude plugin install ada@pie
+   ```
 
-**The first time you run `claude` in a project, it asks whether to trust the folder. Say yes.**
-Until a folder is trusted, Claude Code ignores the project's `.claude/settings.json` permission
-rules, so the team's pre-allowed commands (`prod-wp`, `ada-brief`, `ada-plan`, `ada-size`, the
-read-only git and grep commands) would all ask for permission instead. Claude Code also offers
-to install the `ada` plugin that the project's settings name: say yes to that too.
+2. Start `claude` in the project.
+3. When Claude Code asks you to trust the folder, say yes. If you don't, the team's commands ask
+   for permission each time.
+4. When Claude Code asks you to install the `ada` plugin, say yes.
 
-To try a local checkout instead, start Claude with `claude --plugin-dir ~/path/to/ada-and-friends/plugins/ada`.
+The project must be set up for the team first. If it isn't, see [Set up a project](#set-up-a-project).
 
-## Layout
+## Use it
 
-```
-.claude-plugin/marketplace.json   the "pie" marketplace
-.github/workflows/release.yml     makes a release when a labelled PR is merged into main
-.github/scripts/release-bump.py   sets the version in plugin.json and the CHANGELOG, for it
-CHANGELOG.md                      what changed in each release; new entries under Unreleased
-plugins/ada/
-  .claude-plugin/plugin.json      the "ada" plugin: commands are /ada:...
-  skills/begin/                   Ada's playbook (/ada:begin)
-  skills/pickup/                  resume from the checkpoint (/ada:pickup)
-  skills/bughunt/                 read-only investigation (/ada:bughunt)
-  skills/onboard/                 set a repo up for the team (/ada:onboard)
-  skills/planning/                Ada's playbook for work too big for one PR, loaded only then, not a command
-  skills/standards/               the PIE rules (P1 onwards), preloaded into Bob and Claudia, not a command
-  skills/standards-tests/         P29, on tests, preloaded into all three agents, not a command
-  skills/efficiency/              how the team keeps its context down, preloaded, not a command
-  agents/                         bob, claudia, tess (spawned as ada:bob etc.)
-  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp
-  templates/handoff/              the files the roles hand over through
-  templates/plan/                 the plan, for work too big for one PR
-  templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
-```
+| Command | Use it to |
+|---|---|
+| `/ada:begin` | Start a piece of work. Give Ada the Asana task. |
+| `/ada:pickup` | Continue work from where you stopped. |
+| `/ada:bughunt` | Find the cause of a problem on the live site, before anything is built. |
+| `/ada:onboard` | Set up a project for the team. Do this once per project. |
 
-## How the plugin mechanics shape the design
+### What happens in a step
 
-Tested 10 Oct 2026 on Claude Code 2.1.296:
+1. **You agree the brief with Ada.** The brief says what to build and how to know it's done.
+2. **PIE approves the brief**, if the project needs it (see below).
+3. **The team builds it.** Tess writes the tests. Bob builds. Claudia reviews. Tess runs the tests.
+4. **You agree to open the PR.** Ada gives you a summary first. Nothing is merged by the team.
 
-- Agents are spawned by their prefixed name: `ada:bob`, never `bob`.
-- `bin/` is on the PATH, so `prod-wp` ships here; each project still allows it in its settings.
-- Reading files bundled in the plugin needs a permission rule, so the team avoids it:
-  - **Shared standards** are a non-invocable skill, preloaded into each agent (`skills:` in its frontmatter).
-  - **Templates** are copied into the repo by a `bin/` script.
-- A plugin can't ship permissions. `/ada:onboard` writes them into the project's `.claude/settings.json`.
+Ada asks you before she changes the brief. She also asks you about anything that changes what
+the customer sees or pays.
 
-## History
+**Start a new session when Ada tells you to.** She does this at the end of each stage. Run
+`/ada:pickup` in the new session. A new session uses fewer tokens than a long one.
 
-What changed in each release, from 0.0.1, is in the [CHANGELOG](CHANGELOG.md).
+### Large pieces of work
+
+A PR must be small enough to review in one sitting. If the work is too large, Ada makes a plan.
+The plan breaks the work into units. Each unit has its own brief, branch, PR and Asana subtask.
+You agree the plan before Ada writes the briefs.
+
+## Brief approval
+
+On some projects, people outside PIE write code. On those projects, PIE approves each brief
+before the team builds it. The project's `PROJECT.md` file lists:
+
+- **Approvers.** They approve briefs. They don't need approval.
+- **Trusted developers.** They don't need approval, and they can't approve.
+
+All other developers need approval.
+
+When a brief needs approval, Ada opens a draft PR that contains the brief. Then she stops.
+
+- **To approve**, an approver adds the `brief-approved` label to the draft PR.
+- **To ask for changes**, an approver adds review comments.
+
+When the approver has replied, run `/ada:pickup`. If the brief changes, it needs approval again.
+The draft PR becomes the PR for the work.
+
+Link each PR to its Asana task: on the task, open **Apps**, then **GitHub**, then
+**Add GitHub pull request**.
+
+## Set up a project
+
+1. Start `claude` in the project.
+2. Run `/ada:onboard`.
+3. Read the files that Ada writes in `.claude/team/`. Correct them.
+
+The team's knowledge of the project is in `.claude/team/`: what the project is, how it works,
+its rules and what to test. Keep those files correct. The team trusts them.
+
+## Requirements
+
+- Claude Code 2.1.242 or later.
+- `git`, and `gh` (the GitHub command line tool), logged in.
+- bash 3.2 or later, and Python 3.8 or later.
+- Linux or macOS. Windows with Git Bash or WSL is expected to work, but isn't tested yet.
+
+## For PIE developers
+
+To change the plugin or make a release, see [DEVELOPING.md](DEVELOPING.md).
 
 ## Licence
 
-MIT. The role structure is adapted from Three Man Team (MIT, Russell Aaron); both notices are in
-`LICENSE`.
+MIT. The team's structure comes from Three Man Team (MIT, Russell Aaron). Both notices are in
+[LICENSE](LICENSE).

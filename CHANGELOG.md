@@ -1,11 +1,15 @@
 # Changelog
 
 Entries go under Unreleased. The version is chosen when next-release goes into main (see
-Releasing in the README).
+Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **The README is for users**: what the team is for, how to install it, the commands, what
+  happens in a step, brief approval and setting up a project, in short, simple sentences.
+- **DEVELOPING.md is for PIE developers**: how the plugin fits together, trying a local checkout,
+  the layout, the plugin mechanics, the scripts behind approval, plans and PR size, credit in
+  commits, releasing and platforms.
 
 ## 0.5.0, 14 Oct 2026
 
