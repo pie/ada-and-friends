@@ -19,6 +19,16 @@ You talk only to Ada. She gets the other agents to do their work.
 
 ## Get started
 
+### 0. Check the requirements
+
+Each developer needs:
+
+- Claude Code 2.1.242 or later.
+- `git`, and `gh` (the GitHub command line tool), logged in.
+- bash 3.2 or later, and Python 3.8 or later.
+- PHP and Composer, for the tests and the code checks.
+- Linux or macOS. Windows with Git Bash or WSL is expected to work, but isn't tested yet.
+
 ### 1. Set up the repo: once per repo
 
 Do this only if the repo has no `.claude/team/PROJECT.md` file. If one developer has done it,
@@ -107,14 +117,6 @@ becomes the PR for the work. You need `gh`, logged in.
 
 Link each PR to its Asana task: on the task, open **Apps**, then **GitHub**, then
 **Add GitHub pull request**.
-
-## Requirements
-
-- Claude Code 2.1.242 or later.
-- `git`, and `gh` (the GitHub command line tool), logged in.
-- bash 3.2 or later, and Python 3.8 or later.
-- PHP and Composer, for the tests and the code checks.
-- Linux or macOS. Windows with Git Bash or WSL is expected to work, but isn't tested yet.
 
 ## For PIE developers
 
