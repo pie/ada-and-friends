@@ -23,6 +23,8 @@ Releasing in the README).
     names. Claudia has a re-review mode, on Sonnet, that checks the fixed items and the functions
     around them, and asks for a full review if the fix went further. Ada continues a role with
     `SendMessage` only when she comes back to it at once, while its cache is still warm.
+  - **Review items on the tests go to Tess**, on Sonnet, in a new Test fixes mode. Bob mustn't
+    edit tests, so before this a Should Fix on a test could reach `Ready for PR: YES` unfixed.
   - **Each role has only the tools it needs** (`tools:` in its agent file): read, write, Bash and
     search, with Edit for Bob. The connectors (Gmail, Asana, Chrome and the rest) are no longer
     loaded into them.
