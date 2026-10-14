@@ -6,6 +6,7 @@ effort: high
 disallowedTools: Agent
 skills:
   - ada:standards
+  - ada:standards-tests
   - ada:efficiency
 ---
 

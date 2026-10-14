@@ -1,6 +1,6 @@
 ---
 name: standards
-description: PIE's shared coding standards (P rules) for WordPress and WooCommerce work. Preloaded into Bob, Claudia and Tess; read it before building, reviewing or testing. A project's own rules (S numbers) are in its .claude/team/STANDARDS.md.
+description: PIE's shared coding standards (P rules) for WordPress and WooCommerce work. Preloaded into Bob and Claudia; read it before building or reviewing. A project's own rules (S numbers) are in its .claude/team/STANDARDS.md.
 user-invocable: false
 ---
 
@@ -17,6 +17,8 @@ tells you when a rule does and doesn't apply.
   takes the next free number. P numbers match the original V&Me S numbers, which is why P14 and P22
   are unused.
 - **Severity:** "Must fix" for a rule broken outright; "Should fix" for a judgement call.
+
+P29, on tests, is in the `ada:standards-tests` skill, preloaded alongside this one.
 
 Names below such as "the project's main classes" are filled in by the project's `API.md` and
 `SYSTEM.md`.
@@ -200,28 +202,3 @@ evicted under pressure; without one it can be deleted by the expired-transient c
 a repeat of some work (log throttles, cached reads). Idempotency records, locks-by-flag, "already
 sent" markers and anything else that prevents a double charge, double email or double write go in
 durable storage: meta on the owning object through its class (P25), or a table.
-
-## Tests
-
-**P29. Every PR arrives with tests for what it changes.** Each Definition of Done item has at least
-one test, of the strongest kind that can reach it:
-
-1. **PHPUnit** (`tests/unit/`) for business logic, and anything about dates or money. A unit test
-   fixes the clock (`set_now()`), so date edge cases are repeatable.
-2. **PressTest** (Playwright, `pie/presstest.io`) for front-end flows a browser can drive, if the
-   project has a suite (`PROJECT.md`).
-3. **A functional script** (`tests/functional/`) where neither reaches: admin screens, emails,
-   scheduled actions, exports. Written so someone who has never seen the change can run it and get
-   the same answer.
-
-As much as possible, not as little as passes: the regression next to the change gets a test too.
-Where no test is possible, the PR says which item and why. Applies to new and changed behaviour;
-existing code without tests is not a finding unless the diff changes it.
-
-A case that should be automated but can't be yet (no PressTest access, code that reads the system
-clock) is written as a functional script marked `Automate as: presstest` or `Automate as: unit`, so
-it can be ported later.
-
-Tests are written from the brief, not the code, by Tess; Bob does not edit them. A test that can't
-fail (asserts nothing, or asserts what the code happens to do rather than what the brief says) is
-not a test.

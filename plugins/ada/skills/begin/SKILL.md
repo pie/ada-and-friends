@@ -39,8 +39,8 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
      next action and any open questions. **Stop and wait** for the developer to confirm.
 7. If `.claude/handoff/plan/PLAN.md` exists and its status isn't `done`, a plan is under way:
    run `ada-plan status`, report which units are done, which are waiting and on what, and which
-   is ready next (**Working through a plan**, below). **Stop and wait** for the developer to say
-   which to take.
+   is ready next (load the `ada:planning` skill: Working through a plan). **Stop and wait** for
+   the developer to say which to take.
    Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
    the task if you can. Don't ask them to explain the system; read the `SYSTEM.md` sections for
    the area involved and `API.md` for what exists.
@@ -101,86 +101,9 @@ date arithmetic can need more review than three hundred lines of a new admin scr
 small or medium (`ada-size`, at the PR gate), and write the level you expect on the brief's
 `Expected review:` line.
 
-If the work doesn't fit, recommend a plan, show the developer the breakdown, and agree it before
-any brief is written:
-
-- **Units ship on their own.** Merged and released, production works and makes sense if the next
-  unit never comes. Additive first (data, functions, settings), callers next, what the customer
-  sees last, or behind a setting that is off. A refactor is its own unit, before the change that
-  needs it.
-- **A unit small enough for one PR** is top-level: its own brief, its own branch from the
-  production branch, one PR into the release branch (`PROJECT.md` names both).
-- **A unit that only works whole but is too big for one PR is a feature.** Its branch, from
-  production, holds its brief. Its **parts** branch from it and PR back into it, each with its
-  own brief, each small and reviewable alone; they needn't ship alone, because the feature
-  branch keeps them out of the release branch. When every part is in, the feature branch PRs
-  into the release branch. Two levels at most: a part that needs splitting means the plan is
-  wrong.
-- **Each unit ships `independent`, or `after` others.** A top-level unit after another is built
-  once that one is in production; a part after another, once that one is merged into the feature
-  branch. Prefer independent: every `after` is a wait.
-- **Each unit and part is an Asana task:** the work is an Epic, units are its subtasks, a
-  feature's parts are subtasks of the feature's task. Creating tasks is the developer's call:
-  with their yes, create them with the Asana tools if you have them; otherwise give them the list
-  and ask for the task IDs.
-
-Then:
-
-1. `ada-plan init`, and fill in `.claude/handoff/plan/PLAN.md`: the Outcome, why this breakdown,
-   and the Units table. `ada-plan check` until it's clean.
-2. `ada-plan briefs` drafts a brief per unit, `.claude/handoff/plan/<task id>.md`, with its
-   branch, base, plan and order filled in. Write each one as **The brief** below says. A
-   feature's Build order is its parts, and its Definition of Done is what the smoke test checks
-   when they're all in.
-3. Confirm the plan and the briefs with the developer.
-4. `ada-plan branches` creates every unit's branch.
-5. Approval, if the project needs it (below): submit each top-level brief with
-   `ada-brief submit <task id> <its base> <its branch>`, without checking the branch out. Each one
-   carries the plan, so the approver sees the whole breakdown. A feature's parts are submitted
-   once the feature's brief is approved; `ada-brief` refuses them before then.
-6. Ask the developer to link each PR to its Asana task: on the task, under Apps, GitHub, paste
-   the PR's URL into "Add GitHub pull request". Give them each task with its PR URL. You can't do
-   it with the Asana tools, but you can check: a linked task has an attachment whose URL is the
-   PR (`get_attachments` on the task). The app may also add a block to the end of the PR's
-   description; `ada-brief` keeps it when it replaces the description.
-7. Write `CHECKPOINT.md`, then work through the plan.
-
-**Name units in full.** In the plan, the briefs, the PRs, Asana and when you talk to the
-developer, another unit is "Unit D", never "D" alone. The draft PRs link "Unit D" to its PR; a
-bare letter doesn't link, and "A" reads as a word.
-
-The plan is agreed like a brief: changing a unit (adding, splitting, merging, dropping or
-reordering) needs the developer's yes, goes under the plan's Amendments, and the briefs it
-touches are submitted again.
-
-**Working through a plan.** One unit at a time in a checkout. Units that are ready at the same
-time can be built in parallel only in separate worktrees, one session each, if the developer
-asks.
-
-1. `ada-plan status` says what's ready: approved (or no approval needed), and not waiting on
-   another unit. Pick with the developer.
-2. Check the working tree (Session start, 8), and check out the unit's branch. Bring it up to
-   date: merge `origin/<production>` into a top-level unit's branch, or the feature branch into a
-   part's. Merge, never rebase: the branch is pushed. A conflict in code is Bob's, as the first
-   item of the build.
-3. Copy the approved brief, `.claude/briefs/<task id>.md` on the branch (or the plan's draft if
-   no approval was needed), to `.claude/handoff/BRIEF.md`. From here it is an ordinary step, with
-   the unit's ID as step N: Tess, Bob, Claudia, Tess, and the PR gate. The PR goes into the
-   brief's `PR into:` branch.
-4. After its PR: archive the step (`ada-handoff-init --archive <date>-<unit slug>`; the plan
-   stays), write the checkpoint, and go back to 1.
-
-**A feature's last PR.** When every part is merged into the feature branch, merge
-`origin/<production>` into it, then spawn Tess in run mode on the feature's brief as a smoke test:
-the Definition of Done, all the parts together. Claudia doesn't review it; she reviewed each
-part. PIE treats it like a release: a functional smoke test, not a code review. Its PR description
-lists the parts' PRs and the smoke-test result, then `ada-brief ready` as usual.
-
-When every unit has shipped, set the plan's status to `done` and archive it:
-`ada-handoff-init --archive-plan <date>-<Epic slug>`.
-
-**Branches are updated twice:** when their build starts, and before they are merged. The
-developer usually does the second in GitHub; a conflict comes back to you as a fix round.
+If the work doesn't fit, recommend a plan: load the `ada:planning` skill (Skill tool) and follow
+it. Show the developer the breakdown and agree it before any brief is written. Most steps fit
+one PR, so don't load it otherwise.
 
 Write the brief, then spawn the others with the Agent tool. They start with a clean context and
 know only what their role file and the handoff files tell them, so the brief is the contract.
@@ -233,29 +156,39 @@ Claudia escalates the difference.
 
 Then:
 
-1. **Tess, plan.** `Agent(subagent_type: "ada:tess", prompt: "Plan mode. Read .claude/handoff/BRIEF.md and write .claude/handoff/TEST-PLAN.md for step N.")`
-   Check every Definition of Done item has a test type, or a reason it can't have one.
-2. **Tess, write.** `Agent(subagent_type: "ada:tess", prompt: "Write mode. Write the tests in .claude/handoff/TEST-PLAN.md for step N.")`
-   This can run alongside Bob's plan, because the tests come from the brief, not the code. Bob
+**Continue a role rather than respawn it.** Each Agent result gives the role's agent ID. When
+the same role comes back in this step (Bob after his plan is approved, Bob and Claudia in a fix
+round, Tess after a gap in her plan), continue it with `SendMessage` to that ID: it keeps what it
+has already read, so it doesn't pay to read the brief, the standards and the code again. Spawn
+afresh only when the agent can't be reached (a new session, after `/ada:pickup`) or when the
+step says so.
+
+1. **Tess, plan and write.** `Agent(subagent_type: "ada:tess", prompt: "Plan and write mode. Read .claude/handoff/BRIEF.md, write .claude/handoff/TEST-PLAN.md for step N, then write the tests it calls for.")`
+   One spawn, so she reads the brief and `TEST-AREAS.md` once. Then check every Definition of
+   Done item has a test type, or a reason it can't have one; for a gap, continue her with what's
+   missing. The tests come from the brief, not the code, so this runs alongside Bob's plan. Bob
    builds against them and doesn't change them.
-3. **Bob.** `Agent(subagent_type: "ada:bob", prompt: "Build step N. Read .claude/handoff/BRIEF.md and follow your role file.")`
+2. **Bob.** `Agent(subagent_type: "ada:bob", prompt: "Build step N. Read .claude/handoff/BRIEF.md and follow your role file.")`
    For non-trivial work Bob writes a plan into the brief and stops. Read it; approve or redirect
-   in the brief; spawn Bob again. No code until you have approved.
-4. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`:
+   in the brief; continue Bob with "Plan approved; build it." No code until you have approved.
+3. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`:
    `Agent(subagent_type: "ada:claudia", prompt: "Review step N. Read .claude/handoff/REVIEW-REQUEST.md and follow your role file.")`
-5. **Loop.** Must Fix → spawn Bob with `"Fix the Must Fix items in .claude/handoff/REVIEW-FEEDBACK.md"`,
-   then Claudia again. Escalate → decide, or take it to the developer. Repeat until
-   `Ready for PR: YES`.
-6. **Tess, run.** `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Run mode. Execute .claude/handoff/TEST-PLAN.md for step N against the current branch and write TEST-REPORT.md.")`
-   Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a focused
-   Claudia pass on the fix, then Tess again.
+4. **Loop.** Must Fix → continue Bob with `"Fix the Must Fix items in .claude/handoff/REVIEW-FEEDBACK.md"`,
+   then continue Claudia with `"Re-review step N: follow Re-review in your role file."` If
+   Claudia can't be reached, spawn her for the re-review on Sonnet:
+   `Agent(subagent_type: "ada:claudia", model: "sonnet", prompt: "Re-review step N: follow Re-review in your role file.")`
+   A re-review checks only the fixed items. If she says a full review is needed (the fix went
+   beyond the items, or into a fragile area), spawn her as in 3, on her own model. Escalate →
+   decide, or take it to the developer. Repeat until `Ready for PR: YES`.
+5. **Tess, run.** `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Run mode. Execute .claude/handoff/TEST-PLAN.md for step N against the current branch and write TEST-REPORT.md.")`
+   Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a
+   Claudia re-review of the fix, then Tess again.
 
 Spawn them one at a time (you may keep talking with the developer while one runs), unless they
-are independent: Tess writing tests while Bob
-writes his plan is the only parallel case. If Bob says a test is wrong, decide from the brief:
-either the brief changes (with the developer's yes) and Tess rewrites the test, or the test
-stands. Models and effort are set in the agent files; override them only as above or when the
-developer asks.
+are independent: Tess planning and writing tests while Bob writes his plan is the only parallel
+case. If Bob says a test is wrong, decide from the brief: either the brief changes (with the
+developer's yes) and Tess rewrites the test, or the test stands. Models and effort are set in the
+agent files; override them only as above or when the developer asks.
 
 When a role reports an action that was refused (a declined permission prompt, a blocking hook, a
 safety check), the action doesn't go ahead. Don't perform it yourself and don't tell the role to
