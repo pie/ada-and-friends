@@ -17,35 +17,50 @@ builds it, reviews it and tests it, and gives you a pull request (PR) for PIE to
 
 You talk only to Ada. She gets the other agents to do their work.
 
-## Install
+## Get started
 
-1. Run:
+### 1. Set up the repo: once per repo
+
+Do this only if the repo has no `.claude/team/PROJECT.md` file. If one developer has done it,
+nobody does it again.
+
+1. Start `claude` in the repo.
+2. Run `/ada:onboard`. Ada writes the team's files and drafts what the team must know about the
+   project.
+3. Read the files in `.claude/team/`, and correct them. The team trusts them, so they must be
+   correct.
+4. Merge the onboarding PR. Then every developer gets the team's files with the repo.
+
+### 2. Set up your machine: once per developer
+
+1. Start `claude` in the repo.
+2. When Claude Code asks you to trust the folder, say yes. If you don't, the team's commands ask
+   for permission each time.
+3. When Claude Code asks you to install the `ada` plugin, say yes. If it doesn't ask, run:
 
    ```sh
    claude plugin marketplace add pie/ada-and-friends
-   claude plugin install ada@pie
+   claude plugin install ada@pie --scope project
    ```
 
-2. Start `claude` in the project.
-3. When Claude Code asks you to trust the folder, say yes. If you don't, the team's commands ask
-   for permission each time.
-4. When Claude Code asks you to install the `ada` plugin, say yes.
-
-The project must be set up for the team first. If it isn't, see [Set up a project](#set-up-a-project).
+4. Run `composer install -d tools`. This installs the tools that run the tests and the code
+   checks.
+5. If the project uses a local copy of the site, put your own paths in `.claude/team/local.env`.
+   `PROJECT.md` says what goes there. This file stays on your machine.
 
 ## Use it
 
 | Command | Use it to |
 |---|---|
+| `/ada:onboard` | Set up a repo for the team. Once per repo (see above). |
 | `/ada:begin` | Start a piece of work. Give Ada the Asana task. |
 | `/ada:pickup` | Continue work from where you stopped. |
 | `/ada:bughunt` | Find the cause of a problem on the live site, before anything is built. |
-| `/ada:onboard` | Set up a project for the team. Do this once per project. |
 
 ### What happens in a step
 
 1. **You agree the brief with Ada.** The brief says what to build and how to know it's done.
-2. **PIE approves the brief**, if the project needs it (see below).
+2. **An approver approves the brief**, if the project needs it (see below).
 3. **The team builds it.** Tess writes the tests. Bob builds. Claudia reviews. Tess runs the tests.
 4. **You agree to open the PR.** Ada gives you a summary first. Nothing is merged by the team.
 
@@ -63,39 +78,42 @@ You agree the plan before Ada writes the briefs.
 
 ## Brief approval
 
-On some projects, people outside PIE write code. On those projects, PIE approves each brief
-before the team builds it. The project's `PROJECT.md` file lists:
+On some projects, PIE approves each brief before the team builds anything. This makes sure that
+PIE agrees with the work before time is spent on it.
 
-- **Approvers.** They approve briefs. They don't need approval.
-- **Trusted developers.** They don't need approval, and they can't approve.
+The **Brief approval** section of `PROJECT.md` says who needs approval:
 
-All other developers need approval.
+| Who | Needs approval? | Can approve? |
+|---|---|---|
+| **Approvers** | No | Yes |
+| **Trusted** developers | No | No |
+| **All other developers** | Yes | No |
 
-When a brief needs approval, Ada opens a draft PR that contains the brief. Then she stops.
+A new developer is in the last group until someone adds them to a list. If the Approvers list is
+`none`, nobody needs approval.
 
-- **To approve**, an approver adds the `brief-approved` label to the draft PR.
-- **To ask for changes**, an approver adds review comments.
+When your brief needs approval:
 
-When the approver has replied, run `/ada:pickup`. If the brief changes, it needs approval again.
-The draft PR becomes the PR for the work.
+1. Ada opens a draft PR that contains the brief. Then she stops.
+2. Give the PR link to an approver.
+3. The approver reads the brief on GitHub, and does one of these:
+   - **Approve:** add the `brief-approved` label to the PR.
+   - **Ask for changes:** add review comments to the PR.
+4. Run `/ada:pickup`. If the brief is approved, the build starts. If the approver asked for
+   changes, Ada goes through them with you, changes the brief, and sends it for approval again.
+
+Only a label that an approver adds after the last change to the brief counts. The draft PR
+becomes the PR for the work. You need `gh`, logged in.
 
 Link each PR to its Asana task: on the task, open **Apps**, then **GitHub**, then
 **Add GitHub pull request**.
-
-## Set up a project
-
-1. Start `claude` in the project.
-2. Run `/ada:onboard`.
-3. Read the files that Ada writes in `.claude/team/`. Correct them.
-
-The team's knowledge of the project is in `.claude/team/`: what the project is, how it works,
-its rules and what to test. Keep those files correct. The team trusts them.
 
 ## Requirements
 
 - Claude Code 2.1.242 or later.
 - `git`, and `gh` (the GitHub command line tool), logged in.
 - bash 3.2 or later, and Python 3.8 or later.
+- PHP and Composer, for the tests and the code checks.
 - Linux or macOS. Windows with Git Bash or WSL is expected to work, but isn't tested yet.
 
 ## For PIE developers
