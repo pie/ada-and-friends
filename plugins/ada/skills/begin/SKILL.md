@@ -178,6 +178,9 @@ again if the developer had to be asked. No code until you have approved.
 4. **Loop.** Must Fix → spawn Bob: `Agent(subagent_type: "ada:bob", prompt: "Fix round for step N. Read only .claude/handoff/REVIEW-FEEDBACK.md (Must Fix) and the code it names; follow Fix rounds in your role file.")`
    Then spawn Claudia for the re-review, on Sonnet:
    `Agent(subagent_type: "ada:claudia", model: "sonnet", prompt: "Re-review step N: follow Re-review in your role file.")`
+   Items on the tests (under `tests/`), Must Fix or Should Fix, are Tess's, not Bob's: spawn
+   her for them, on Sonnet, alongside Bob if he has items too:
+   `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Test fixes for step N: follow Test fixes in your role file.")`
    A re-review checks only the fixed items. If she says a full review is needed (the fix went
    beyond the items, or into a fragile area), spawn her as in 3, on her own model. Escalate →
    decide, or take it to the developer. Repeat until `Ready for PR: YES`.
