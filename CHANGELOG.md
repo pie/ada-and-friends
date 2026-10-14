@@ -5,6 +5,10 @@ Releasing in the README).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.5.0, 14 Oct 2026
+
 - **README brought up to date:** the draft PR format, Asana linking and the dry-run switch under
   Brief approval; `ada-plan` and `ada-size` among the pre-allowed commands; the release workflow
   and CHANGELOG in the layout; bash 3.2 tested for all the scripts, Python so far only on 3.12; a
