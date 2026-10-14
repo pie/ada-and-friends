@@ -144,7 +144,9 @@ plugins/ada/
   skills/pickup/                  resume from the checkpoint (/ada:pickup)
   skills/bughunt/                 read-only investigation (/ada:bughunt)
   skills/onboard/                 set a repo up for the team (/ada:onboard)
-  skills/standards/               the PIE rules (P1 onwards), preloaded into the agents, not a command
+  skills/planning/                Ada's playbook for work too big for one PR, loaded only then, not a command
+  skills/standards/               the PIE rules (P1 onwards), preloaded into Bob and Claudia, not a command
+  skills/standards-tests/         P29, on tests, preloaded into all three agents, not a command
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
   bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp
