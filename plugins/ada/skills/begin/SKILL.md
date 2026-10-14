@@ -117,7 +117,8 @@ Definition of Done is observable: a thing Tess can see, not a feeling. For logic
 unit-tested, name the function and its signature, so Tess can write the test before Bob writes
 the code (P29).
 
-Confirm the brief with the developer.
+Confirm the brief with the developer. Once it's agreed and needs no approval, end the session
+(**Session end**); the build starts in a fresh one.
 
 **Then get it approved, if this project needs that.** Run `ada-brief who`:
 
@@ -156,12 +157,12 @@ Claudia escalates the difference.
 
 Then:
 
-**Continue a role rather than respawn it.** Each Agent result gives the role's agent ID. When
-the same role comes back in this step (Bob after his plan is approved, Bob and Claudia in a fix
-round, Tess after a gap in her plan), continue it with `SendMessage` to that ID: it keeps what it
-has already read, so it doesn't pay to read the brief, the standards and the code again. Spawn
-afresh only when the agent can't be reached (a new session, after `/ada:pickup`) or when the
-step says so.
+**Continue a role only straight away.** Each Agent result gives the role's agent ID. A role's
+context is cached for about five minutes; after that, picking it up again with `SendMessage`
+pays to cache its whole context again, which costs about as much as a fresh, focused spawn. So
+continue a role only when you come back to it at once (Tess filling a gap in her plan you've just
+found, Bob's plan when you approve it without waiting for the developer). Otherwise, and always
+for fix rounds, spawn afresh with a prompt that names only what to read.
 
 1. **Tess, plan and write.** `Agent(subagent_type: "ada:tess", prompt: "Plan and write mode. Read .claude/handoff/BRIEF.md, write .claude/handoff/TEST-PLAN.md for step N, then write the tests it calls for.")`
    One spawn, so she reads the brief and `TEST-AREAS.md` once. Then check every Definition of
@@ -170,12 +171,12 @@ step says so.
    builds against them and doesn't change them.
 2. **Bob.** `Agent(subagent_type: "ada:bob", prompt: "Build step N. Read .claude/handoff/BRIEF.md and follow your role file.")`
    For non-trivial work Bob writes a plan into the brief and stops. Read it; approve or redirect
-   in the brief; continue Bob with "Plan approved; build it." No code until you have approved.
+   in the brief; continue Bob with "Plan approved; build it." if you approve at once, or spawn him
+again if the developer had to be asked. No code until you have approved.
 3. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`:
    `Agent(subagent_type: "ada:claudia", prompt: "Review step N. Read .claude/handoff/REVIEW-REQUEST.md and follow your role file.")`
-4. **Loop.** Must Fix → continue Bob with `"Fix the Must Fix items in .claude/handoff/REVIEW-FEEDBACK.md"`,
-   then continue Claudia with `"Re-review step N: follow Re-review in your role file."` If
-   Claudia can't be reached, spawn her for the re-review on Sonnet:
+4. **Loop.** Must Fix → spawn Bob: `Agent(subagent_type: "ada:bob", prompt: "Fix round for step N. Read only .claude/handoff/REVIEW-FEEDBACK.md (Must Fix) and the code it names; follow Fix rounds in your role file.")`
+   Then spawn Claudia for the re-review, on Sonnet:
    `Agent(subagent_type: "ada:claudia", model: "sonnet", prompt: "Re-review step N: follow Re-review in your role file.")`
    A re-review checks only the fixed items. If she says a full review is needed (the fix went
    beyond the items, or into a fragile area), spawn her as in 3, on her own model. Escalate →
@@ -212,7 +213,8 @@ the decision in a function the unit bootstrap can load (the project's business-r
 
 ### 3. Own the PR gate
 
-When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`:
+When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the session
+(**Session end**). The PR gate runs in a fresh one:
 
 1. Run `ada-size <the PR's base>`. It ends with an estimated review time and level (small up to
    15 minutes, medium up to 45, large up to 90, then too big for one sitting). It doesn't know
@@ -290,3 +292,10 @@ Code." Trim it to the roles that took part.
 Write `.claude/handoff/CHECKPOINT.md` at the end of every session, whether or not the step is
 finished: where we stopped, what was decided, what is open, and a one-line resume prompt
 (`/ada:pickup`). The next session reads it first.
+
+**End the session at each phase break**: once the brief
+is agreed (and approved, if it needs approval), and once Claudia and Tess both say
+`Ready for PR: YES`. Write the checkpoint, then tell the developer: "Start a fresh session and run
+`/ada:pickup`; it's cheaper than carrying this one on." If they'd rather carry on, carry on. A session's context is re-read on every
+turn, so the build shouldn't carry the brief's discussion, and the PR gate shouldn't carry the
+build (`ada:efficiency`).
