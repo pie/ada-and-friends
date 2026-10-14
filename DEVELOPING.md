@@ -1,0 +1,134 @@
+# Developing Ada and friends
+
+For PIE developers who change the plugin or release it. Users start with the [README](README.md).
+
+## How it fits together
+
+The process lives in this plugin. **Each project's knowledge lives in its own repo**, in
+`.claude/team/`: `PROJECT.md`, `SYSTEM.md`, `API.md`, `STANDARDS.md` (the project's S rules) and
+`TEST-AREAS.md`. The PIE rules (P1 onwards) are in `skills/standards/` and
+`skills/standards-tests/`.
+
+The roles hand over through files in the project's `.claude/handoff/`, copied in from
+`templates/handoff/` by `ada-handoff-init`.
+
+## Try a local checkout
+
+```sh
+claude --plugin-dir ~/path/to/ada-and-friends/plugins/ada
+```
+
+If the project enables `ada@pie`, turn it off for the test, so the two copies don't clash. Put
+`"enabledPlugins": {"ada@pie": false}` in the project's `.claude/settings.local.json`.
+
+## Layout
+
+```
+.claude-plugin/marketplace.json   the "pie" marketplace
+.github/workflows/release.yml     makes a release when a labelled PR is merged into main
+.github/scripts/release-bump.py   sets the version in plugin.json and the CHANGELOG, for it
+CHANGELOG.md                      what changed in each release; new entries under Unreleased
+plugins/ada/
+  .claude-plugin/plugin.json      the "ada" plugin: commands are /ada:...
+  skills/begin/                   Ada's playbook (/ada:begin)
+  skills/pickup/                  resume from the checkpoint (/ada:pickup)
+  skills/bughunt/                 read-only investigation (/ada:bughunt)
+  skills/onboard/                 set a repo up for the team (/ada:onboard)
+  skills/planning/                Ada's playbook for work too big for one PR, loaded only then, not a command
+  skills/standards/               the PIE rules (P1 onwards), preloaded into Bob and Claudia, not a command
+  skills/standards-tests/         P29, on tests, preloaded into all three agents, not a command
+  skills/efficiency/              how the team keeps its context down, preloaded, not a command
+  agents/                         bob, claudia, tess (spawned as ada:bob etc.)
+  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp
+  templates/handoff/              the files the roles hand over through
+  templates/plan/                 the plan, for work too big for one PR
+  templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
+```
+
+## Plugin mechanics that shape the design
+
+Tested 10 Oct 2026 on Claude Code 2.1.296:
+
+- Agents are spawned by their prefixed name: `ada:bob`, never `bob`.
+- `bin/` is on the PATH, so `prod-wp` ships here. Each project still allows it in its settings.
+- Reading files bundled in the plugin needs a permission rule, so the team avoids it:
+  - **Shared standards** are non-invocable skills, preloaded into each agent (`skills:` in its
+    frontmatter).
+  - **Templates** are copied into the repo by a `bin/` script.
+- A plugin can't ship permissions or settings. `ada-onboard settings` writes them into the
+  project's `.claude/settings.json`, including `promptCacheTtl: "1h"` for Ada's cache.
+- Each agent has a `tools:` allowlist, so connectors (Gmail, Asana, Chrome) aren't loaded into
+  it. That keeps each role's starting context small.
+
+## Brief approval
+
+`bin/ada-brief` does the checking. Only a `brief-approved` label added by an approver, after the
+brief last changed, counts. It commits the brief to `.claude/briefs/<task id>.md` and opens the
+draft PR. The draft PR shows what the approver checks: what to check, the expected review size,
+the outcome, decisions, out of scope and Definition of Done. The constraints and build order are
+folded away. When `ada-brief` replaces a PR's description, it keeps the block the Asana app adds.
+
+To try the flow as an approver, run Claude with `ADA_BRIEF_REQUIRE=1`. Your briefs then need
+approval, and your own label counts.
+
+## Plans and PR size
+
+`bin/ada-plan` reads the plan (`.claude/handoff/plan/PLAN.md`, committed as
+`.claude/briefs/<Epic id>-plan.md`), drafts the briefs, creates the branches and reports each
+unit's state. A unit branches from production and PRs into next-release. A **feature** is a unit
+too big for one PR that only works whole: its parts PR into the feature branch, and the feature
+PRs into next-release after a smoke test.
+
+At the PR gate, `bin/ada-size` estimates the review time. It weighs lines by what they cost to
+read: changed code most, moved and generated code almost nothing. The reviewer records the actual
+time on the PR. After a dozen or so PRs, compare the two and tune the rates at the top of
+`bin/ada-size`.
+
+## Credit in commits and PRs
+
+The developer is the author of every commit. Ada makes the commits and credits the roles with
+trailers, in place of Claude Code's default line (switched off in the project's settings):
+
+- Tests: `Co-Authored-By: Tess (Ada and friends, Claude Code) <tess@ada.pie.co.de>`
+- The build: `Co-Authored-By: Bob (…)` and `Reviewed-by: Claudia (…)`
+- Briefs and onboarding: `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>`
+
+PRs end with "Built by Bob, reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
+
+## Releasing
+
+Work has no version number until it's released (P31). Feature branches and PRs don't change the
+version in `plugin.json` or put a version in their titles. Add CHANGELOG entries under
+`## Unreleased`. Feature PRs go into `next-release`.
+
+To release:
+
+1. Open a PR from `next-release` into `main`.
+2. Decide Major, Minor or Patch from the entries under Unreleased.
+3. Label the PR `release:major`, `release:minor` or `release:patch`.
+4. Merge it.
+
+The Release workflow (`.github/workflows/release.yml`) then:
+
+1. works out the version from the label and the latest GitHub release;
+2. sets it in `plugins/ada/.claude-plugin/plugin.json`, moves the Unreleased entries under
+   `## <version>, <date>`, and commits that to `main`;
+3. tags the commit with the plain version (`0.5.0`, no `v`) and creates a GitHub release with
+   those entries as its notes;
+4. recreates `next-release` from `main`, since merging deletes it.
+
+A PR into `main` without a label releases nothing. A labelled PR with nothing under Unreleased
+fails before it changes anything. There's no zip or `update.json`: the `pie` marketplace installs
+straight from `main`.
+
+## Platforms
+
+The scripts in `bin/` are bash with a little Python. They need bash 3.2 or later, Python 3.8 or
+later, `git`, `gh` (logged in) and, for `prod-wp`, `ssh`. The Python is written for 3.8 but has
+only been run on 3.12.
+
+| Platform | Status |
+|---|---|
+| Linux | Used daily. |
+| macOS | All the scripts are tested under bash 3.2.57, the version macOS ships. Python 3 comes with Apple's command line tools, which `git` already needs. |
+| Windows | Expected to work in Git Bash, which Claude Code uses on Windows. **Not yet tested.** The scripts find Python as `python3`, `python` or `py -3`, and skip the Microsoft Store shortcut. On a first run, try `ada-onboard check` and `ada-brief who`, and report what breaks. WSL also works. |
