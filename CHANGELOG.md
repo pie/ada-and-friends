@@ -11,14 +11,25 @@ Releasing in the README).
   broken sentence in Releasing fixed. The finished "Work to 0.1.0" list is gone: the CHANGELOG
   has that history.
 - **Each step uses fewer usage credits.** Every role still runs and every gate still applies.
+  Measured on the V&Me dry run (12 Oct 2026): Ada's one long session was 40% of the cost, review
+  and fix rounds about a quarter, and every role turn started from 37k tokens before reading
+  anything. Output, thinking included, was about 1%: the cost is re-reading context.
+  - **A fresh session per phase.** Ada ends the session once the brief is agreed and once Claudia
+    and Tess both say `Ready for PR: YES`, and the developer carries on with `/ada:pickup`.
+  - **An hour's prompt cache for Ada.** `ada-onboard settings` sets `promptCacheTtl` to `1h`
+    unless the project sets it. On usage credits the default is five minutes, and Ada's waits for
+    the roles and the developer were re-caching up to 150k tokens at a time.
+  - **Fix rounds are focused.** Bob is spawned fresh to read only the feedback and the code it
+    names. Claudia has a re-review mode, on Sonnet, that checks the fixed items and the functions
+    around them, and asks for a full review if the fix went further. Ada continues a role with
+    `SendMessage` only when she comes back to it at once, while its cache is still warm.
+  - **Each role has only the tools it needs** (`tools:` in its agent file): read, write, Bash and
+    search, with Edit for Bob. The connectors (Gmail, Asana, Chrome and the rest) are no longer
+    loaded into them.
+  - **Fewer turns.** The efficiency skill asks for independent calls in one turn, since each turn
+    re-reads the whole context. Tess, running local checks herself, scripts each check and runs
+    it in one call.
   - **Claudia's effort is `high`, not `xhigh`.** Her first full review of a step stays on Opus.
-  - **Fix rounds continue Bob and Claudia** with `SendMessage` instead of spawning them again, so
-    they don't read the brief, the standards and the code a second time. The same goes for Bob
-    after his plan is approved and for Tess after a gap in her plan. If the agent can't be reached
-    (a new session), Ada spawns it afresh.
-  - **Claudia has a re-review mode** for fix rounds: she checks the fixed items and the functions
-    around them, not the whole step. Spawned fresh for a re-review, she runs on Sonnet. If the fix
-    went beyond the items or into a fragile area, she asks for a full review.
   - **Tess plans and writes the tests in one spawn**, reading the brief and `TEST-AREAS.md` once.
     It still runs alongside Bob's plan.
   - **The plan playbook is its own skill, `ada:planning`**, loaded only when work is too big for
