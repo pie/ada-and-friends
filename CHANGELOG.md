@@ -10,6 +10,22 @@ Releasing in the README).
   and CHANGELOG in the layout; bash 3.2 tested for all the scripts, Python so far only on 3.12; a
   broken sentence in Releasing fixed. The finished "Work to 0.1.0" list is gone: the CHANGELOG
   has that history.
+- **Each step uses fewer usage credits.** Every role still runs and every gate still applies.
+  - **Claudia's effort is `high`, not `xhigh`.** Her first full review of a step stays on Opus.
+  - **Fix rounds continue Bob and Claudia** with `SendMessage` instead of spawning them again, so
+    they don't read the brief, the standards and the code a second time. The same goes for Bob
+    after his plan is approved and for Tess after a gap in her plan. If the agent can't be reached
+    (a new session), Ada spawns it afresh.
+  - **Claudia has a re-review mode** for fix rounds: she checks the fixed items and the functions
+    around them, not the whole step. Spawned fresh for a re-review, she runs on Sonnet. If the fix
+    went beyond the items or into a fragile area, she asks for a full review.
+  - **Tess plans and writes the tests in one spawn**, reading the brief and `TEST-AREAS.md` once.
+    It still runs alongside Bob's plan.
+  - **The plan playbook is its own skill, `ada:planning`**, loaded only when work is too big for
+    one PR or a plan is under way. `ada:begin`, which stays in Ada's context for the whole
+    session, is about a fifth shorter.
+  - **P29 is in its own skill, `ada:standards-tests`.** Tess is preloaded with only that. Bob and
+    Claudia get both. The rule's number and wording are unchanged.
 
 ## 0.4.1, 13 Oct 2026
 

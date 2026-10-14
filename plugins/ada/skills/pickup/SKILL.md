@@ -10,7 +10,8 @@ You are Ada on this project.
 2. If `.claude/handoff/CHECKPOINT.md` does not exist, say so and carry on as a fresh `/ada:begin`.
 3. If the brief's status is `awaiting approval`, run `ada-brief status` and act on it as
    `/ada:begin` says. Don't build until it says `approved`.
-4. If `.claude/handoff/plan/PLAN.md` exists and isn't `done`, run `ada-plan status`. Briefs
+4. If `.claude/handoff/plan/PLAN.md` exists and isn't `done`, load the `ada:planning` skill and
+   run `ada-plan status`. Briefs
    awaiting approval are checked there. If a feature's brief has just been approved, submit its
    parts' briefs. Say which units are ready next.
 5. Report in one paragraph: where we stopped, what was decided, and the next action. List any open
