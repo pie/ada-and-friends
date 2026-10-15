@@ -7,6 +7,9 @@ Releasing in DEVELOPING.md).
 
 - **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
   credits, into a new section of the PR description, so whoever merges can paste them.
+- **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
+  project's PR template with the plugin's newer one if it hasn't been edited, and shows the
+  developer the diff and asks if it has. `ada-onboard files` now records template hashes for this.
 
 ## 0.5.1, 14 Oct 2026
 
