@@ -93,6 +93,9 @@ trailers, in place of Claude Code's default line (switched off in the project's 
 - The build: `Co-Authored-By: Bob (…)` and `Reviewed-by: Claudia (…)`
 - Briefs and onboarding: `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>`
 
+The PR description carries a ready-made squash commit message with the same trailers, so the
+credit survives the squash merge.
+
 PRs end with "Built by Bob, reviewed by Claudia, tested by Tess. Ada and friends, Claude Code."
 
 ## Releasing

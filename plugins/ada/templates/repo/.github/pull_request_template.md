@@ -14,6 +14,33 @@ Actual review time: <the reviewer fills this in, so the estimates can be tuned>
 Three to five lines: where the review is (the changed logic, and any fragile area, by file and
 function), what is cheap to skim, and what wasn't verified.
 
+## Squash commit
+
+Paste these into the squash-merge dialog. The title is what goes on the production branch.
+
+**Title**
+
+```text
+<imperative title> (#<PR number>)
+```
+
+**Message**
+
+```text
+<what the change does and why, wrapped at 72>
+
+<where the logic lives; the tests that cover it>
+
+Verified: <…>
+Not verified: <…>
+
+Asana: <task URL>
+
+Co-authored-by: Bob (Ada and friends, Claude Code) <bob@ada.pie.co.de>
+Co-authored-by: Tess (Ada and friends, Claude Code) <tess@ada.pie.co.de>
+Reviewed-by: Claudia (Ada and friends, Claude Code) <claudia@ada.pie.co.de>
+```
+
 ## What changed and why
 
 ## Built
