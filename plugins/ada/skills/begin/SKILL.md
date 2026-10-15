@@ -241,6 +241,20 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
      Actual review time line for the reviewer; and "For
      the reviewer" says where the review is: the changed logic, and any fragile area, by file
      and function.
+   - Fill its `## Squash commit` section. It holds two fenced `text` blocks for the merger to
+     paste into the squash-merge dialog:
+     - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and
+       specific; it becomes the commit on production.
+     - **Message:** wrapped at 72 characters. Cover what the change does and why, as a few
+       lines or bullets. Then the functions or files where the logic lives and the tests that
+       cover them. Then one paragraph each starting `Verified:` and `Not verified:` (P20).
+       Then the `Asana:` link. End with the credit lines for every role that took part:
+       `Co-authored-by:` for Bob and Tess, `Reviewed-by:` for Claudia (the lines in Commits
+       and credit).
+
+     Write it as one commit covering the whole PR, not the step's commits pasted together.
+     A new PR has no number until it's opened, so add it to the title once it has one. If a
+     fix round changes what the PR does or what was verified, update this section too.
    - Open the PR into the brief's `PR into:` branch (the one `PROJECT.md` names, or a part's
      feature branch), with `gh pr create` if `gh` is available.
      If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the
@@ -248,8 +262,7 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
      `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
      `Approval:` line. Without `gh`, give the developer the compare link and the description to
      paste. PRs are
-     squash-merged, so the title becomes the commit on production: keep it short, imperative and
-     specific.
+     squash-merged; the `## Squash commit` section is the commit the merger pastes.
    - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
      PR), ask the developer to paste the PR's URL into the task's Apps, GitHub, "Add GitHub pull
      request".
