@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.6.0, 15 Oct 2026
+
 - **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
   credits, into a new section of the PR description, so whoever merges can paste them.
 - **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
