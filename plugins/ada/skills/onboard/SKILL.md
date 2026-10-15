@@ -58,7 +58,9 @@ ada-onboard settings
 ```
 
 - `files` never overwrites. Anything it reports as `kept` already existed: merge the template's
-  intent into it by hand, if it's needed at all.
+  intent into it by hand, if it's needed at all. It records a hash of each file it copies in
+  `.claude/team/.template-hashes`; commit that with the templates. When a later plugin version
+  changes the PR template, `/ada:begin` refreshes it from there (`ada-onboard refresh`).
 - `settings` changes what Claude may run in this repo. **Show the developer the printed result and
   get their yes before you commit it.** It enables the plugin, allows the read-only and lint
   commands, and denies pushes to the production and release branches and direct SSH to

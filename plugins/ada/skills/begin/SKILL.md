@@ -55,6 +55,12 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
 9. Check the branch. If it is the production or review branch, create the feature branch, named
    and based as `PROJECT.md` says; for a unit of a plan, `ada-plan branches` creates it. If the developer names a different base, use it, and record it
    in the brief. If an unrelated feature branch is checked out, say so and stop.
+10. Run `ada-onboard refresh`. It brings the PR template up to the plugin's. Say nothing if it
+    prints only `current` or `declined`. On `refreshed`, tell the developer in one line and
+    include the template and `.claude/team/.template-hashes` in the step's first commit. On
+    `edited` or `unknown`, show the diff and ask: take the new template
+    (`ada-onboard refresh --force`), merge it by hand, or keep theirs
+    (`ada-onboard refresh --decline`, so it isn't asked again until the template changes).
 
 ## Your three jobs
 

@@ -5,8 +5,17 @@
 #   ada-onboard files KEY=value [KEY=value ...]
 #       Copies the plugin's repo templates into the repo, never overwriting a file that exists,
 #       and fills {{KEY}} placeholders in the files it copies. Reports any placeholder left.
+#       Records a hash of each file it copies in .claude/team/.template-hashes, so refresh can
+#       tell an untouched copy from an edited one.
 #       Keys: PROJECT_NAME PACKAGE NAMESPACE TEXT_DOMAIN TIMEZONE CODE_DIR PROD_SSH PROD_PREFIX
 #       PROD_LOGS
+#   ada-onboard refresh [--force | --decline]
+#       Brings the project's PR template up to the plugin's. /ada:begin runs it, so a project
+#       picks up a new template on its first session after a plugin update. Prints one line per
+#       template: current; refreshed (an untouched copy, replaced); declined (the developer kept
+#       their own, asked again when the plugin's copy changes); or edited, or unknown (no hash
+#       recorded), followed by the diff, with the file left alone. --force takes the plugin's
+#       copy; --decline keeps the project's and records that.
 #   ada-onboard gitignore
 #       Adds the team's ignore lines to .gitignore if they're missing.
 #   ada-onboard settings
@@ -38,10 +47,37 @@ py() { "${PY[@]}" "$@" | tr -d '\r'; }
 
 cmd="${1:-}"; shift || true
 
+# .claude/team/.template-hashes has one line per template: "<copied|declined> <sha256> <path>".
+# copied is the hash of what was written into the project; declined, of the plugin's copy the
+# developer turned down. Hashes are of the text with LF line endings.
+HASHES_PY='
+import hashlib, os
+def norm(text):
+    return text.replace("\r\n", "\n")
+def sha(text):
+    return hashlib.sha256(norm(text).encode("utf-8")).hexdigest()
+def hashes_path(root):
+    return os.path.join(root, ".claude", "team", ".template-hashes")
+def read_hashes(root):
+    out = {}
+    if os.path.exists(hashes_path(root)):
+        for line in open(hashes_path(root), encoding="utf-8"):
+            parts = line.split(None, 2)
+            if len(parts) == 3:
+                out[parts[2].strip()] = (parts[0], parts[1])
+    return out
+def write_hashes(root, hashes):
+    os.makedirs(os.path.dirname(hashes_path(root)), exist_ok=True)
+    with open(hashes_path(root), "w", encoding="utf-8", newline="\n") as f:
+        for rel in sorted(hashes):
+            f.write(f"{hashes[rel][0]} {hashes[rel][1]} {rel}\n")
+'
+
 case "$cmd" in
 files)
-	ADA_SRC="$src" ADA_ROOT="$root" py - "$@" <<'PY'
+	ADA_SRC="$src" ADA_ROOT="$root" ADA_HASHES="$HASHES_PY" py - "$@" <<'PY'
 import os, re, sys
+exec(os.environ['ADA_HASHES'])
 src, root = os.environ['ADA_SRC'], os.environ['ADA_ROOT']
 keys = {'PROJECT_NAME','PACKAGE','NAMESPACE','TEXT_DOMAIN','TIMEZONE','CODE_DIR','PROD_SSH','PROD_PREFIX','PROD_LOGS'}
 values = {}
@@ -53,6 +89,7 @@ for arg in sys.argv[1:]:
         sys.exit(f'ada-onboard: bad value for {k}')
     values[k] = v
 left = set()
+hashes = read_hashes(root)
 for dirpath, _, files in os.walk(src):
     for name in sorted(files):
         s = os.path.join(dirpath, name)
@@ -67,11 +104,49 @@ for dirpath, _, files in os.walk(src):
             text = text.replace('{{' + k + '}}', v)
         open(d, 'w', encoding='utf-8', newline='\n').write(text)
         os.chmod(d, os.stat(s).st_mode & 0o777)
+        hashes[rel.replace(os.sep, '/')] = ('copied', sha(text))
         missing = sorted(set(re.findall(r'\{\{([A-Z_]+)\}\}', text)))
         print(f'created  {rel}' + (f'   (still to fill: {", ".join(missing)})' if missing else ''))
         left.update(missing)
+write_hashes(root, hashes)
 if left:
     print('\nPlaceholders left: ' + ', '.join(sorted(left)))
+PY
+	;;
+refresh)
+	mode="${1:-}"
+	case "$mode" in ''|--force|--decline) ;; *) die 'usage: ada-onboard refresh [--force | --decline]' ;; esac
+	ADA_SRC="$src" ADA_ROOT="$root" ADA_HASHES="$HASHES_PY" ADA_MODE="$mode" py - <<'PY'
+import difflib, os
+exec(os.environ['ADA_HASHES'])
+src, root, mode = os.environ['ADA_SRC'], os.environ['ADA_ROOT'], os.environ['ADA_MODE']
+# Only templates without {{KEY}} placeholders can be refreshed: refresh has no values to fill.
+REFRESH = ['.github/pull_request_template.md']
+hashes = read_hashes(root)
+changed = False
+for rel in REFRESH:
+    plugin = norm(open(os.path.join(src, rel), encoding='utf-8').read())
+    d = os.path.join(root, rel)
+    project = norm(open(d, encoding='utf-8').read()) if os.path.exists(d) else None
+    state, h = hashes.get(rel, (None, None))
+    if project == plugin:
+        print(f'current   {rel}')
+    elif mode == '--force' or project is None or (state == 'copied' and sha(project) == h):
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        open(d, 'w', encoding='utf-8', newline='\n').write(plugin)
+        hashes[rel] = ('copied', sha(plugin)); changed = True
+        print(f'refreshed {rel}')
+    elif mode == '--decline':
+        hashes[rel] = ('declined', sha(plugin)); changed = True
+        print(f'declined  {rel}')
+    elif state == 'declined' and h == sha(plugin):
+        print(f'declined  {rel}')
+    else:
+        print(f"{'unknown' if state is None else 'edited':<9} {rel}")
+        print(''.join(difflib.unified_diff(project.splitlines(True), plugin.splitlines(True),
+                                           f'project/{rel}', f'plugin/{rel}')), end='')
+if changed:
+    write_hashes(root, hashes)
 PY
 	;;
 gitignore)
@@ -105,7 +180,7 @@ def add(kind, rules):
         if r not in lst:
             lst.append(r)
 add('allow', [
-    'Bash(ada-handoff-init*)', 'Bash(prod-wp *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
+    'Bash(ada-handoff-init*)', 'Bash(ada-onboard refresh)', 'Bash(prod-wp *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
     'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',
@@ -151,6 +226,6 @@ check)
 	fi
 	;;
 *)
-	die 'usage: ada-onboard files KEY=value... | gitignore | settings | check (see the header of this script)'
+	die 'usage: ada-onboard files KEY=value... | refresh [--force | --decline] | gitignore | settings | check (see the header of this script)'
 	;;
 esac
