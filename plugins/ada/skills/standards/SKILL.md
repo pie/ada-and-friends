@@ -58,7 +58,7 @@ data is stored always counts as real (P25).
 
 **P7. Named constants for known values.** Types, statuses, contact details, cut-off hours, field
 keys, tab keys, status groups: define once, reference everywhere, including the admin help text that
-describes them.
+describes them. Exception: Hook names are string literals. Action, filter and Action Scheduler hook names are written out in full at every use (registration, firing, scheduling, unscheduling, querying), not held in a constant, so a search for the name as it appears in logs and Action Scheduler finds every place it's used. Prefix them with the project's prefix.
 
 **P8. Put code in the module that owns the data.** Code that changes a module's data belongs in that
 module, not in a front-end module or an integration. Don't reach into another module's stored data;
