@@ -5,7 +5,8 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
+  credits, into a new section of the PR description, so whoever merges can paste them.
 
 ## 0.5.1, 14 Oct 2026
 
