@@ -215,12 +215,16 @@ Traps:
   `create_release` didn't fail (`:75`). A labelled PR with nothing under Unreleased fails in
   `release-bump.py`, so `next-release` must then be put back by hand.
 - If `next-release` survives the merge (`:85-86`), it does not get the `Release x.y.z` commit, so
-  it and `main` differ in `plugin.json` and `CHANGELOG.md` *(unverified: whether that later
-  conflicts)*.
-- The version comes from the latest GitHub *release* (`DEVELOPING.md:121`), not tags
-  *(unverified: the action's behaviour, not traced in this repo)*.
-- The workflow pushes to `main` with `GITHUB_TOKEN` (`release.yml:67`), so `main` must allow that
-  *(unverified: branch protection settings aren't in the repo)*.
+  it and `main` differ in `plugin.json` and `CHANGELOG.md`, and the next release PR will conflict
+  in `CHANGELOG.md`. It normally doesn't survive: the repo deletes merged head branches
+  (`delete_branch_on_merge` is on, checked 16 Oct 2026).
+- The version comes from the latest GitHub *release* (`DEVELOPING.md:121`), not tags: the action
+  reads `releases/latest` (`rymndhng/release-on-push-action` at the pinned SHA,
+  `src/release_on_push_action/github.clj:56-64`, `core.clj:57-76`). A tag without a GitHub
+  release is ignored, so never delete or skip the release.
+- The workflow pushes to `main` with `GITHUB_TOKEN` (`release.yml:67`). That works because `main`
+  has no branch protection and the repo has no rulesets (checked 16 Oct 2026). Adding protection
+  to `main` will break releases unless the workflow is allowed to bypass it.
 - The date is the runner's (UTC) date (`release-bump.py:36`).
 
 ## Environments and flags
