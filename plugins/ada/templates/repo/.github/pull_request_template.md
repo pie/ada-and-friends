@@ -59,6 +59,14 @@ Rules checked (STANDARDS.md numbers), what was found, how it was resolved.
 - Not verified, and why:
 - Failed and left: none
 
+## Manual test steps
+
+Numbered steps a person can follow in the browser to check the change by hand: where to go,
+what to do, what they should see. Say when a step only works at certain times (e.g. after 12:00
+on a Friday, or on a Sunday). "None" if there is nothing to check by hand, and why.
+
+1.
+
 ## Surfaces checked
 
 - [ ] Checkout

@@ -32,6 +32,13 @@ Goes into the PR description so PIE can see it.
 |---|---|
 | | |
 
+## Manual test steps
+
+Goes into the PR description. Numbered steps a person can follow in the browser: where to go,
+what to do, what they should see. Include any day or time a step depends on.
+
+1.
+
 ## Escalate to Ada
 
 An expectation in doubt, an environment problem, missing tooling.

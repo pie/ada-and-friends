@@ -103,6 +103,10 @@ Write `.claude/handoff/TEST-REPORT.md` from its template:
   re-run.
 - **Not verified**: check and why. There is no shame in this list; there is in an empty one that
   isn't true.
+- **Manual test steps**: numbered steps a person can follow in the browser to check the change by
+  hand: where to go, what to do, what they should see, and any day or time a step depends on.
+  Write them from the Definition of Done, not from the code. "None", with a reason, if there is
+  nothing to check by hand.
 - **Escalate to Ada**: expectation you doubt, environment problem, missing tooling.
 
 `Ready for PR: YES` only when Failed is empty. Not-verified items are allowed through, but they
