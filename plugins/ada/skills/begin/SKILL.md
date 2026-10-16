@@ -243,10 +243,10 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
    - Write the PR description to `.claude/handoff/PR.md`, following
      `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
      Rules are cited by number. Not-verified items and known gaps are listed so the PIE reviewer
-     can see them. The Review line is the estimate from step 1, not the breakdown; leave the
-     Actual review time line for the reviewer; and "For
-     the reviewer" says where the review is: the changed logic, and any fragile area, by file
-     and function.
+     can see them. Copy the Manual test steps from TEST-REPORT.md. The Review line is the
+     estimate from step 1, not the breakdown; leave the Actual review time line for the
+     reviewer; and "For the reviewer" says where the review is: the changed logic, and any
+     fragile area, by file and function.
    - Fill its `## Squash commit` section. It holds two fenced `text` blocks for the merger to
      paste into the squash-merge dialog:
      - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and
