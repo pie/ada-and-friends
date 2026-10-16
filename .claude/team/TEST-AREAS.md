@@ -21,7 +21,6 @@ shell or Python tests, no shellcheck config, and the only workflow is the releas
 - **Skills and agents:** a dry run with `claude --plugin-dir <checkout>/plugins/ada` in a scratch
   or practice project, with `ada@pie` off in its `.claude/settings.local.json`
   (`DEVELOPING.md:15-22`). Observe the handoff files, commits and PR it produces.
-- **Functional scripts:** `tests/functional/NN-<area>/<slug>.md`, run by hand (`tests/README.md`).
 
 ## Dates and the clock
 
