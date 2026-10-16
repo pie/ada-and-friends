@@ -55,8 +55,9 @@ nobody does it again.
 
 4. Run `composer install -d tools`. This installs the tools that run the tests and the code
    checks.
-5. If the project uses a local copy of the site, put your own paths in `.claude/team/local.env`.
-   `PROJECT.md` says what goes there. This file stays on your machine.
+5. If the project uses a local copy of the site, put your own paths and the site's URL
+   (`LOCAL_URL`) in `.claude/team/local.env`. `PROJECT.md` says what goes there. This file stays
+   on your machine.
 
 ## Use it
 

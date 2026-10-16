@@ -9,7 +9,8 @@ Written by Tess from BRIEF.md and TEST-AREAS.md, before reading the code.
 ## Checks
 
 Kind: **terminal** (Tess runs it), **local** (developer runs it on the local site with these exact
-steps), **suite** (an automated test).
+steps, or Tess does, in the browser or with WP-CLI, if the developer asks), **suite** (an
+automated test).
 
 | # | Kind | Precondition | Action | Expected | Observe at |
 |---|---|---|---|---|---|

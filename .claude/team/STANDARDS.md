@@ -30,12 +30,12 @@ No classes. Each script owns its state, and nothing else writes it:
 **S100. Scripts run on bash 3.2 and Git Bash.** No `mapfile`, associative arrays, `${x,,}` or
 other bash 4+ features; guard `"${arr[@]}"` on possibly empty arrays under `set -u`. Use only
 POSIX-compatible `sed`/`grep` options that BSD tools also have. Evidence: the 0.3.0 Mac fix
-(`CHANGELOG.md:185-186`), `bin/ada-brief:352`, `DEVELOPING.md:134-142`.
+(`CHANGELOG.md:191-192`), `bin/ada-brief:352`, `DEVELOPING.md:140-148`.
 
 **S101. Python in scripts is 3.8+, found through the `PY` block.** Try `python3`, `python`,
 `py -3` with a version check; strip `\r` from output; write files with `newline='\n'`; read with
 `encoding='utf-8'`. No syntax or library newer than 3.8 (no `match`, no `str.removeprefix`, no
-`X | Y` types). Evidence: `bin/ada-brief:48-59`, `CHANGELOG.md:187-188`.
+`X | Y` types). Evidence: `bin/ada-brief:48-59`, `CHANGELOG.md:193-194`.
 
 **S102. Every script keeps the shared shape.** `set -euo pipefail`; a `die` that prints
 `<script>: <message>` to stderr and exits 2; `cd` to `git rev-parse --show-toplevel`; validate
@@ -51,10 +51,10 @@ another script reads (`API.md`) changes only with every reader in the same PR.
 **S105. A CHANGELOG entry under `## Unreleased` in every PR that changes behaviour.** One bullet,
 a bold lead naming the change, then what it means for a user. Replace `Nothing yet.` rather than
 adding under it. Versions come at release (P31; not repeated here). Evidence: `CHANGELOG.md:3-8`,
-`DEVELOPING.md:108-110`, `.github/scripts/release-bump.py:33-34`.
+`DEVELOPING.md:114-116`, `.github/scripts/release-bump.py:33-34`.
 
 **S106. Feature PRs go into `next-release`.** Only the release PR goes into `main`, and it is
-labelled `release:major|minor|patch` (`DEVELOPING.md:110-117`).
+labelled `release:major|minor|patch` (`DEVELOPING.md:116-123`).
 
 **S107. Docs, skills and agent files are in plain British English, short sentences.** One idea a
 sentence, active voice, no filler. The README is for users; plugin internals go in
