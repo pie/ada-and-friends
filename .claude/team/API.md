@@ -83,9 +83,9 @@ non-zero changing nothing if Unreleased is empty. Run by `release.yml` only.
 
 | Spawn as | Role | Tools |
 |---|---|---|
-| `ada:bob` | Builds from the brief | Read, Edit, Write, Bash, Grep, Glob (`agents/bob.md:7`) |
-| `ada:claudia` | Reviews; writes `REVIEW-FEEDBACK.md` | Read, Write, Bash, Grep, Glob (`agents/claudia.md:7`) |
-| `ada:tess` | Test plan, tests under `tests/`, test report | Read, Write, Bash, Grep, Glob (`agents/tess.md:7`) |
+| `ada:bob` | Builds from the brief | Read, Edit, Write, Bash, Grep, Glob (`agents/bob.md:6`) |
+| `ada:claudia` | Reviews; writes `REVIEW-FEEDBACK.md` | Read, Write, Bash, Grep, Glob (`agents/claudia.md:6`) |
+| `ada:tess` | Test plan, tests under `tests/`, test report | Read, Write, Bash, Grep, Glob, ToolSearch, `mcp__claude-in-chrome__*` (`agents/tess.md:6`) |
 
 ## Logging
 
@@ -98,7 +98,7 @@ errors on stderr.
   without changing every reader (`/ada:begin`, `/ada:pickup`, `ada-plan`, `ada-onboard check`).
 - Edit a PR with `gh pr edit`: it fails before gh 2.50 (`bin/ada-brief:36-37`). Use `gh api`.
 - Use `mapfile`/`readarray`, `declare -A`, `${var,,}` or other bash 4+ features in `bin/`
-  (macOS ships bash 3.2; `CHANGELOG.md:185-186`).
+  (macOS ships bash 3.2; `CHANGELOG.md:191-192`).
 - Call `python3` directly in `bin/`: use the `PY` discovery block, and strip `\r` from its output.
 - Write files without `newline='\n'` from Python, or with CRLF.
 - Rename brief or plan headings, field lines (`Plan:`, `Ships:`, `Asana:`, `Epic:`) or the Units
