@@ -1,2 +1,5 @@
 .DS_Store
 *.zip
+.claude/handoff/
+.claude/settings.local.json
+.claude/team/local.env
