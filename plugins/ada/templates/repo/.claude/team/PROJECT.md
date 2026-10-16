@@ -83,6 +83,10 @@ emails disabled. Say what a check should verify.>
 - **Running WP-CLI on the local site:** <how: e.g. Local's "Open site shell", or the command line
   with Local's PHP and MySQL socket>. Each developer's own paths go in `.claude/team/local.env`
   (git-ignored), never in this file.
+- **The local site's URL:** `LOCAL_URL` in `.claude/team/local.env`, set by each developer. It is
+  the only host Tess opens in Chrome. The developer logs in to its admin before Tess checks
+  anything in the browser. Tess sees a customer's view through the User Switching plugin's
+  "Switch To", so the local site needs User Switching active; without it those checks stay manual.
 - **Also checked before anything runs on the local site:** the background runners (Action
   Scheduler, WP-Cron) are frozen; the time WordPress reports from a web request is the intended
   time; nothing from an earlier run is left over (`.claude/handoff/CHECKPOINT.md`).
