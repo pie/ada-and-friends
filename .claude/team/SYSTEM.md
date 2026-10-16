@@ -15,13 +15,15 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
 - **The marketplace and the plugin.** `.claude-plugin/marketplace.json:2` names the marketplace
   `pie`; it lists one plugin, `ada`, at `./plugins/ada` (`marketplace.json:7-8`). The version lives
   only in `plugins/ada/.claude-plugin/plugin.json:3`; `marketplace.json` has none. The marketplace
-  installs straight from `main` (`DEVELOPING.md:128-130`, `release.yml:4-5`).
+  installs straight from `main` (`DEVELOPING.md:134-136`, `release.yml:4-5`).
 - **Skills** (`skills/*/SKILL.md`): `begin`, `pickup`, `bughunt`, `onboard` are commands
   (`/ada:begin` etc.); `planning`, `standards`, `standards-tests`, `efficiency` are loaded or
   preloaded, not commands (`DEVELOPING.md:33-40`).
 - **Agents** (`agents/*.md`): `bob`, `claudia`, `tess`, spawned as `ada:bob` etc.
   (`DEVELOPING.md:52`, `skills/begin/SKILL.md:116-117`). Each has a `tools:` allowlist
-  (`agents/bob.md:7`, `agents/claudia.md:7`, `agents/tess.md:7`).
+  (`agents/bob.md:6`, `agents/claudia.md:6`, `agents/tess.md:6`). Tess's also has `ToolSearch` and
+  the Claude in Chrome tools (`mcp__claude-in-chrome__*`), for local checks the developer asks her
+  to run (`agents/tess.md`, Running local checks yourself).
 - **Scripts** (`bin/`): on the Bash PATH while the plugin is enabled (`DEVELOPING.md:42,53`):
   `ada-brief`, `ada-plan`, `ada-size`, `ada-handoff-init`, `ada-onboard`, `prod-wp`. Each is bash
   with Python 3.8+ heredocs.
@@ -64,12 +66,12 @@ it, or (in this repo only) a push to `main` runs the Release workflow.
    resubmitted (`:159-160`).
 4. Build (`:173-195`): Tess plan-and-write, Bob (plan then build), Claudia review, fix rounds
    (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet.
-5. Session end at each phase break (`:312-323`): `CHECKPOINT.md`, then `/ada:pickup` in a fresh
+5. Session end at each phase break (`:323-334`): `CHECKPOINT.md`, then `/ada:pickup` in a fresh
    session.
-6. PR gate (`:223-277`): `ada-size <base>`; summary; on yes, commit with role trailers
-   (`:279-297`), push, `PR.md` from the PR template including the `## Squash commit` section, then
+6. PR gate (`:234-288`): `ada-size <base>`; summary; on yes, commit with role trailers
+   (`:290-307`), push, `PR.md` from the PR template including the `## Squash commit` section, then
    `gh pr create` or `ada-brief ready "<title>" .claude/handoff/PR.md` if a draft PR exists.
-   Nobody on the team merges (`:277`).
+   Nobody on the team merges (`:288`).
 
 **`/ada:pickup`** (`skills/pickup/SKILL.md:8-19`) runs begin's Session start, re-checks
 `ada-brief status` if the brief is `awaiting approval` (`:11-12`), and `ada-plan status` for a
@@ -218,7 +220,7 @@ Traps:
   it and `main` differ in `plugin.json` and `CHANGELOG.md`, and the next release PR will conflict
   in `CHANGELOG.md`. It normally doesn't survive: the repo deletes merged head branches
   (`delete_branch_on_merge` is on, checked 16 Oct 2026).
-- The version comes from the latest GitHub *release* (`DEVELOPING.md:121`), not tags: the action
+- The version comes from the latest GitHub *release* (`DEVELOPING.md:127`), not tags: the action
   reads `releases/latest` (`rymndhng/release-on-push-action` at the pinned SHA,
   `src/release_on_push_action/github.clj:56-64`, `core.clj:57-76`). A tag without a GitHub
   release is ignored, so never delete or skip the release.
@@ -229,9 +231,9 @@ Traps:
 
 ## Environments and flags
 
-- **Branches.** `main` is released and is what the marketplace installs (`DEVELOPING.md:128-130`).
-  Feature PRs go into `next-release` (`DEVELOPING.md:110`); releasing is the `next-release` →
-  `main` PR with a label (`DEVELOPING.md:112-117`). Feature branches are e.g.
+- **Branches.** `main` is released and is what the marketplace installs (`DEVELOPING.md:134-136`).
+  Feature PRs go into `next-release` (`DEVELOPING.md:116`); releasing is the `next-release` →
+  `main` PR with a label (`DEVELOPING.md:118-123`). Feature branches are e.g.
   `add/manual-test-steps`, `dev/ada-onboard/self` (from `git branch -a`).
 - **Which copy of a script runs.** `ada-brief` etc. on the PATH are the *installed* plugin's
   (`~/.claude/plugins/cache/pie/ada/<version>/bin`, `DEVELOPING.md:42,53`), not this checkout's.
@@ -242,7 +244,7 @@ Traps:
 - **Flags.** `ADA_BRIEF_REQUIRE=1` makes everyone `required` for a dry run (`bin/ada-brief:12-13`,
   `:360`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
   (`bin/prod-wp:17-24`). No production server exists for this repo, so `prod-wp` is never used here.
-- **Platforms** (`DEVELOPING.md:132-142`): bash 3.2+ (all scripts tested under 3.2.57), Python
+- **Platforms** (`DEVELOPING.md:138-148`): bash 3.2+ (all scripts tested under 3.2.57), Python
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:
   - Python is found as `python3`, `python` or `py -3`, each tried with a version check, which skips
@@ -251,7 +253,7 @@ Traps:
   - Python output has `\r` stripped (`bin/ada-brief:58-59`, `bin/ada-plan:81`, `bin/ada-size:72`);
     files are written with `newline='\n'`.
   - No `mapfile` (bash 3.2): a `while read` loop instead (`bin/ada-brief:352`, `:442`); CHANGELOG
-    0.3.0 records the bug this fixed (`CHANGELOG.md:185-186`).
+    0.3.0 records the bug this fixed (`CHANGELOG.md:191-192`).
   - Empty arrays are guarded before `"${arr[@]}"` under `set -u` (`bin/ada-brief:362`,
     `bin/ada-size:58`), which bash before 4.4 treats as unbound.
 

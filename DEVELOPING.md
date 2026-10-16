@@ -64,6 +64,12 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   project's `.claude/settings.json`, including `promptCacheTtl: "1h"` for Ada's cache.
 - Each agent has a `tools:` allowlist, so connectors (Gmail, Asana, Chrome) aren't loaded into
   it. That keeps each role's starting context small.
+- One exception: Tess has Claude in Chrome (`ToolSearch` and `mcp__claude-in-chrome__*`), only
+  for local checks the developer asks her to run, and only on the local site. It is in her own
+  role file rather than a second browser agent, so there is one set of testing rules to keep
+  current. When tool search is on, the Chrome tools are deferred behind `ToolSearch`, so only
+  their names are in her starting context. `ada-onboard settings` writes no Chrome permission:
+  the developer answers the prompts.
 
 ## Brief approval
 
