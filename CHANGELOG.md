@@ -14,6 +14,16 @@ Nothing yet.
 - **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
   project's PR template with the plugin's newer one if it hasn't been edited, and shows the
   developer the diff and asks if it has. `ada-onboard files` now records template hashes for this.
+- **Manual test steps in every PR:** the PR template has a section of numbered browser steps
+  (where to go, what to do, what to see, and any day or time they depend on). Tess ends
+  TEST-REPORT.md with them and Ada copies them into the PR. `ada-onboard refresh` offers the new
+  template to onboarded repos.
+- **Tess can check the local site in Chrome:** when the developer asks her to run the local
+  checks and Claude in Chrome is connected, she opens the local site (`LOCAL_URL` in
+  `.claude/team/local.env`), carries out the steps and records what she saw. The developer logs
+  in to the admin first; for a customer's view she uses the User Switching plugin's "Switch To"
+  and switches back after. She never types a password or opens another host. Without Chrome or
+  User Switching, those checks go back to the developer as manual steps. Tess alone has Chrome.
 
 ## 0.5.1, 14 Oct 2026
 

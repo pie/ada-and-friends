@@ -1,0 +1,54 @@
+{
+  "extraKnownMarketplaces": {
+    "pie": {
+      "source": {
+        "source": "github",
+        "repo": "pie/ada-and-friends"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ada@pie": true
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "promptCacheTtl": "1h",
+  "permissions": {
+    "allow": [
+      "Bash(ada-handoff-init*)",
+      "Bash(ada-onboard refresh)",
+      "Bash(ada-brief *)",
+      "Bash(ada-plan *)",
+      "Bash(ada-size *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Bash(git merge-base *)",
+      "Bash(git show *)",
+      "Bash(git rev-parse *)",
+      "Bash(git reflog*)",
+      "Bash(git worktree list*)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(cat *)",
+      "Bash(sed -n *)",
+      "Bash(which *)",
+      "Bash(gh pr view*)",
+      "Bash(gh api user*)",
+      "Edit(/.claude/handoff/**)",
+      "Edit(/tests/**)"
+    ],
+    "deny": [
+      "Bash(git push origin main*)",
+      "Bash(git push origin next-release*)",
+      "Bash(git push --force*)"
+    ]
+  }
+}

@@ -210,7 +210,18 @@ Never skip a role to save time or tokens. Never write the code yourself because 
 **When the developer asks Tess to run the local checks herself**, spawn her in run mode with
 "The developer has asked you to run the local checks yourself; follow Running local checks
 yourself in your role file." Before that, make sure the local site runs this step's code
-(`PROJECT.md`, Local copies). Copy her cleanup list into `CHECKPOINT.md`.
+(`PROJECT.md`, Local copies). For checks in the browser, also make sure that:
+
+- Chrome is connected (the developer runs `/chrome`);
+- `LOCAL_URL` is set in `.claude/team/local.env`;
+- the developer is logged in to the local admin in Chrome;
+- if a check needs a customer's view, the User Switching plugin is active on the local site. If
+  it isn't, those checks stay manual steps for the developer.
+
+Then add to her prompt "Chrome is connected; you may check the local site in the browser. You
+may switch to: <the user IDs the checks name, or none>." If Chrome isn't connected, say "Chrome
+is not connected" instead, and she gives the browser checks back as manual steps. Copy her
+cleanup list into `CHECKPOINT.md`.
 
 **A rule the developer sets for the team** (a new convention, a standard) goes into the project's
 `STANDARDS.md`, or to PIE as a proposed P rule, in its own PR. Never into your memory or the
@@ -243,10 +254,10 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
    - Write the PR description to `.claude/handoff/PR.md`, following
      `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
      Rules are cited by number. Not-verified items and known gaps are listed so the PIE reviewer
-     can see them. The Review line is the estimate from step 1, not the breakdown; leave the
-     Actual review time line for the reviewer; and "For
-     the reviewer" says where the review is: the changed logic, and any fragile area, by file
-     and function.
+     can see them. Copy the Manual test steps from TEST-REPORT.md. The Review line is the
+     estimate from step 1, not the breakdown; leave the Actual review time line for the
+     reviewer; and "For the reviewer" says where the review is: the changed logic, and any
+     fragile area, by file and function.
    - Fill its `## Squash commit` section. It holds two fenced `text` blocks for the merger to
      paste into the squash-merge dialog:
      - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and
