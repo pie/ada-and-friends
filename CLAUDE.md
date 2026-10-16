@@ -13,7 +13,7 @@ most); the detail lives in `.claude/team/` and is read on demand.
 | `.github/` | The Release workflow and `release-bump.py` |
 | `README.md`, `DEVELOPING.md`, `CHANGELOG.md` | For users; for PIE developers; what changed (entries under Unreleased) |
 | `.claude/team/` | The project knowledge: `PROJECT.md` first, then `SYSTEM.md`, `API.md`, `STANDARDS.md`, `TEST-AREAS.md`. |
-| `tests/` | Functional scripts, run by hand. `tests/README.md`. |
+| `tests/` | Notes on checking changes by hand: `tests/README.md`. No automated tests. |
 
 The `ada-*` commands on the PATH are the **installed** plugin's, not this checkout's. To run an
 edited script, call it by path (`plugins/ada/bin/ada-brief`) or use `claude --plugin-dir`.
