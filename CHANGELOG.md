@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.7.0, 21 Oct 2026
+
 - **Grace, the bug hunter**: `/ada:bughunt` now runs as Grace, named after Grace Hopper. The
   command is unchanged. The README introduces her with the team, and `FINDINGS.md` is signed by
   her.
