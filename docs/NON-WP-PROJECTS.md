@@ -26,6 +26,71 @@ Flavour: wordpress | slim
 don't change. Everything below hangs off that line. It follows the precedent of `Versioning:` and
 `PressTest suite:`, which are also free-text lines in PROJECT.md that scripts and prompts read.
 
+## Two more things a project varies on
+
+Flavour is not the only difference between projects. Two more are recorded in PROJECT.md, and
+the WordPress flavour needs both today.
+
+### Shape: what is in the repo
+
+A `wordpress` repo is one of:
+
+| Shape | Code lives in | Notes |
+|---|---|---|
+| Full site | `themes/<theme>/` and `plugins/<plugin>/` (one or several) | Today's assumption |
+| Theme only | The repo root is the theme, or `themes/<theme>/` | Needs `style.css` at the code root |
+| Plugin only | The repo root is the plugin, or `plugins/<plugin>/` | Needs the plugin header file at the code root |
+| Theme and plugin(s) | Both of the above, in one repo | Code dir is a list, not one path |
+
+Today `skills/onboard/SKILL.md:24-28` stops when the repo root *is* the theme or plugin, so the
+two single-item shapes can't be onboarded at all. The proposal: `ada-onboard` detects the shape
+(`style.css` and plugin headers at the root or under `themes/` and `plugins/`), records
+`Shape:` and a `Code dirs:` list in PROJECT.md, and uses that list wherever `CODE_DIR` stands
+alone now. That includes `phpcs.xml.dist`, which hardcodes `themes` and `plugins` (see the
+leftovers below). A `slim` project is always a single `src/`.
+
+Shape changes the rules that apply. A plugin-only or theme-only repo has no site around it, so
+P11 (WooCommerce templates), P23 (theme level) and the surfaces checklist apply only when that
+code is present, and "test on a local site" means a site the developer builds the code into.
+
+### Distribution: a single instance or released software
+
+Some projects are one client's site, deployed once. Others are themes or plugins PIE
+**distributes through GitHub releases**, installed on many sites. These differ in ways that
+matter to the team:
+
+| | Single instance | Distributed software |
+|---|---|---|
+| Versioning | None, or the project's own line | Semver. The version header (`Version:` in `style.css` or the plugin file), a readme and a changelog agree at release |
+| Release | Merge and deploy | Tag, GitHub release with an attached zip, and any update-checker manifest |
+| Change safety | One site's data | Every installed site: upgrade paths, option and database migrations, deprecations before removals, minimum WP, WC and PHP versions |
+| Test target | The one site's clone | A clean install and an upgrade from the previous release, on the supported version range |
+| PR rules | Per P31 and the project's `Versioning:` line | P31 and the existing rule of no version changes in feature PRs, with the version chosen at release |
+
+This is the line the existing `Versioning: semver at release | none` already draws, and it is
+the same rule this plugin follows for itself. The proposal is to make it a field with named
+consequences, not a free-text hint:
+
+```
+Distribution: instance | released
+```
+
+`released` adds to the onboarding drafts: a release section in PROJECT.md (how a release is
+cut, where the zip is built, the supported WP, WC and PHP ranges), a `STANDARDS.md` starter for
+upgrade and migration safety, a changelog and a release checklist template, and a Tess check
+that tests an upgrade as well as a clean install. Claudia's review adds backward-compatibility
+and "what breaks on an existing install" to the checks. It does not change PIE's rule that a
+feature PR carries no version number. Slim services can be either: most are `instance`, but a
+shared internal library or service image used by several projects is `released`.
+
+The three lines now read:
+
+```
+Flavour: wordpress | slim
+Shape: site | theme | plugin | theme+plugin   (wordpress only; detected)
+Distribution: instance | released
+```
+
 ## What a Slim project is
 
 The fixed answers the onboarding drafts from, so a developer corrects rather than invents:
@@ -58,7 +123,7 @@ Grouped by effort. Paths are under `plugins/ada/`.
   service has production access.
 - `settings` writes the `prod-wp *` allow rule for `wordpress` only. The phpcs, phpunit and
   `composer -d tools` rules and the push and SSH denies are generic and stay.
-- The skill's step 1 stops when the repo root *is* the theme or plugin. For `slim` the code is
+- (Shape is covered under "Two more things" above.) The skill's step 1 stops when the repo root *is* the theme or plugin. For `slim` the code is
   `src/` at the root; that stop is skipped. Step 2's fact table gets a Slim column (no
   `style.css`, no WP timezone in a database, no `wc-logs`).
 - `refresh` covers the PR template only; it grows to cover the flavour's PR template.
@@ -119,16 +184,21 @@ should say the plugin serves PHP projects, WordPress and Slim.
 
 Each is a PR into `next-release`, small enough to review alone (P30):
 
-1. **Flavour line, no behaviour change.** Add `Flavour:` to PROJECT.md's template and read it in
-   `ada-onboard`; `wordpress` stays the default. Move the WordPress templates under
+1. **Flavour, Shape and Distribution lines, no behaviour change.** Add the three lines to
+   PROJECT.md's template and read them in `ada-onboard`; `wordpress`, `site` and `instance` stay
+   the defaults. Move the WordPress templates under
    `flavours/wordpress/` and prove `ada-onboard files` output is byte-identical for an existing
    project.
-2. **Tag the P rules** by flavour. Docs only.
-3. **Slim templates and onboarding.** The `flavours/slim/` files, `--flavour slim`, the Slim
+2. **Tag the P rules** by flavour, shape and distribution. Docs only.
+3. **Shapes.** Detect and onboard theme-only, plugin-only and theme+plugin repos; replace the
+   hardcoded code paths with `Code dirs:`.
+4. **Released software.** The `Distribution: released` templates, review checks and release
+   checklist, for WordPress themes and plugins first.
+5. **Slim templates and onboarding.** The `flavours/slim/` files, `--flavour slim`, the Slim
    fact table in the skill, `check` and `settings`.
-4. **Agents.** Claudia's Slim review section; Tess's HTTP-based run mode; the `begin` wording.
-5. **Slim `bughunt`.**
-6. **Prove it on a real service.** Onboard one PIE micro service end to end with `/ada:begin`
+6. **Agents.** Claudia's Slim review section; Tess's HTTP-based run mode; the `begin` wording.
+7. **Slim `bughunt`.**
+8. **Prove it on a real service.** Onboard one PIE micro service end to end with `/ada:begin`
    on a throwaway change, and fix what that shows before calling the flavour done.
 
 ## How it gets checked
@@ -145,9 +215,14 @@ diff the output, then run `/ada:begin` on each. PR 1 is the regression guard for
    `production` assumes PIE's branch names. Do services use the same branches?
 3. **Static analysis level and PHP floor:** PHPStan 6 and PHP 8.1 are proposed; PIE may
    already have a preference.
-4. **Versioning:** services are one-off client deliverables or shared software? P31 and
-   `Versioning:` already distinguish these; the template should ask.
-5. **Database:** is a standard migration tool wanted (Phinx, Doctrine Migrations), or is that left
+4. **Versioning:** are Slim services ever `released`? And should `Distribution:` replace the
+   `Versioning:` line, or sit beside it with `Versioning:` derived from it?
+5. **Distributed WordPress software:** how are releases cut today (a workflow, or by hand), and
+   is there an update checker, or do sites update from the GitHub zip manually? The `released`
+   release template should copy what already works.
+6. **Several themes or plugins in one repo:** is the combined shape common enough to design for
+   now, or should the first PR cover site, theme only and plugin only?
+7. **Database:** is a standard migration tool wanted (Phinx, Doctrine Migrations), or is that left
    to each service?
 
 ## Found while surveying, to log separately
