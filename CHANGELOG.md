@@ -5,7 +5,13 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Iris, the designer** (`/ada:design`): when work changes what a person sees or does, Ada now
+  offers a design step once "done" is pinned down. Iris designs options with you on a Claude
+  Design canvas, checks the chosen one against P32 to P39, and writes `DESIGN.md`. Ada finishes
+  the brief from it; Bob builds to it, Claudia reviews against it, and Tess compares the built
+  page with it in Chrome. UI nobody specified is stopped and sent back to design. Without the
+  Design type, the design is written as text. `/ada:design` also runs on its own, and the PR
+  template gains a `Design:` line, which `ada-onboard refresh` offers to onboarded repos.
 
 ## 0.7.0, 21 Oct 2026
 

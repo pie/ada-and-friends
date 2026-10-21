@@ -14,9 +14,9 @@ precondition error with `<script>: <message>` on stderr (`die`), and needs Pytho
 
 | Subcommand | Does | Output others rely on |
 |---|---|---|
-| `who` | Approval policy for this developer from `PROJECT.md` | One line: `not-needed` \| `approver <login>` \| `trusted <login>` \| `required <login>` (`:350-365`). Read by `/ada:begin` (`skills/begin/SKILL.md:129-141`), `ada-plan status` (`bin/ada-plan:233`), `ada-onboard check` (`bin/ada-onboard:225`). |
+| `who` | Approval policy for this developer from `PROJECT.md` | One line: `not-needed` \| `approver <login>` \| `trusted <login>` \| `required <login>` (`:350-365`). Read by `/ada:begin` (`skills/begin/SKILL.md:193-205`), `ada-plan status` (`bin/ada-plan:233`), `ada-onboard check` (`bin/ada-onboard:225`). |
 | `submit <task-id> <base> [<branch>]` | Commits the brief (and plan) to `.claude/briefs/`, pushes, opens or updates the draft PR, removes `brief-approved` | `opened   <url>` or `updated  <url> (approval reset)` (`:428`, `:432`) |
-| `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`; then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:443-499`). First line read by `submit` (`:383-387`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin` (`skills/begin/SKILL.md:145-153`). |
+| `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`; then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:443-499`). First line read by `submit` (`:383-387`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin` (`skills/begin/SKILL.md:209-216`). |
 | `body <task-id> [<branch>]` | Prints the draft PR description for a committed brief | Markdown starting `<!-- ada-brief: .claude/briefs/<task>.md -->` (`:234`) |
 | `ready <title> <file>` | Final title and description, out of draft | `ready    <url>`; a stderr note if `gh pr ready` fails (`:521-522`) |
 
@@ -27,7 +27,7 @@ Env: `ADA_BRIEF_REQUIRE=1` makes `who` print `required` for everyone (`:12-13`).
 | Subcommand | Does | Output |
 |---|---|---|
 | `files KEY=value...` | Copies `templates/repo/`, never overwriting; fills `{{KEY}}` (keys at `:82`); records hashes | `created  <path>` (with `(still to fill: …)`) or `kept     <path>`; `Placeholders left: …` (`:99-113`) |
-| `refresh [--force \| --decline]` | Brings `.github/pull_request_template.md` up to the plugin's | One line per template, word padded to 9: `current`, `refreshed`, `declined`, `edited` or `unknown`; the last two followed by a unified diff (`:132-147`). Read by `/ada:begin` (`skills/begin/SKILL.md:58-63`). |
+| `refresh [--force \| --decline]` | Brings `.github/pull_request_template.md` up to the plugin's | One line per template, word padded to 9: `current`, `refreshed`, `declined`, `edited` or `unknown`; the last two followed by a unified diff (`:132-147`). Read by `/ada:begin` (`skills/begin/SKILL.md:62-67`). |
 | `gitignore` | Adds the team's ignore lines | `kept` / `added` per line (`:152-157`) |
 | `settings` | Merges plugin, marketplace, permissions, attribution off, `promptCacheTtl` into `.claude/settings.json` | The resulting file (`:203`) |
 | `check` | What's missing or unfilled | `missing`, `fill in`, `draft`, `ok`, `error` per item (`:206-227`) |
@@ -51,7 +51,8 @@ big for one sitting>)` (`:177`), which goes in the PR. Rates at `:76-86`.
 
 ### `ada-handoff-init` (`bin/ada-handoff-init:1-13`)
 
-No args: copies missing `templates/handoff/*.md` into `.claude/handoff/` (`created` / `kept`).
+No args: copies missing `templates/handoff/*.md` into `.claude/handoff/` (`created` / `kept`),
+`DESIGN.md` among them.
 `--archive <name>`: moves `.claude/handoff/*.md` to `archive/<name>/` then copies fresh ones; the
 plan stays. `--archive-plan <name>`: moves `.claude/handoff/plan/` to `archive/<name>/plan/`.
 
@@ -73,11 +74,12 @@ non-zero changing nothing if Unreleased is empty. Run by `release.yml` only.
 | `begin` | `/ada:begin` | Ada's playbook: session start, brief, approval, roles, PR gate |
 | `pickup` | `/ada:pickup` | Resume from `CHECKPOINT.md` |
 | `bughunt` | `/ada:bughunt` | Grace's read-only investigation; writes `FINDINGS.md` |
+| `design` | `/ada:design` | Usually loaded by Ada from `begin` (or `planning`) when the design test passes. Iris designs on a Design artifact (Artifact `quickstart`, intent `design`) in the main session; writes `DESIGN.md`, or in a plan only `plan/DESIGN-<task id>.md` |
 | `onboard` | `/ada:onboard` | Set a repo up; drafts the knowledge files |
 | `planning` | loaded by Ada | Work too big for one PR |
 | `standards` | preloaded (Bob, Claudia) | P rules except P29 and P32-P39 |
 | `standards-tests` | preloaded (all three) | P29 |
-| `standards-accessibility` | preloaded (Bob, Claudia) | P32-P39, WCAG 2.2 AA visual rules |
+| `standards-accessibility` | preloaded (Bob, Claudia); Iris loads it first | P32-P39, WCAG 2.2 AA visual rules |
 | `efficiency` | preloaded; Ada loads it | Context and token discipline |
 
 ## Agents (`agents/`)

@@ -33,6 +33,7 @@ plugins/ada/
   skills/begin/                   Ada's playbook (/ada:begin)
   skills/pickup/                  resume from the checkpoint (/ada:pickup)
   skills/bughunt/                 read-only investigation (/ada:bughunt)
+  skills/design/                  Iris, the designer (/ada:design); usually loaded by /ada:begin
   skills/onboard/                 set a repo up for the team (/ada:onboard)
   skills/planning/                Ada's playbook for work too big for one PR, loaded only then, not a command
   skills/standards/               the PIE rules (P1 onwards), preloaded into Bob and Claudia, not a command
@@ -147,3 +148,23 @@ only been run on 3.12.
 | Linux | Used daily. |
 | macOS | All the scripts are tested under bash 3.2.57, the version macOS ships. Python 3 comes with Apple's command line tools, which `git` already needs. |
 | Windows | Expected to work in Git Bash, which Claude Code uses on Windows. **Not yet tested.** The scripts find Python as `python3`, `python` or `py -3`, and skip the Microsoft Store shortcut. On a first run, try `ada-onboard check` and `ada-brief who`, and report what breaks. WSL also works. |
+
+## Iris and the canvas
+
+- **Iris is a skill, not an agent.** Design goes back and forth with the developer, and a
+  subagent's output is never shown to them, so `/ada:design` runs in the main session, as
+  `/ada:bughunt` does. Ada loads it from `/ada:begin` when the design test in
+  `skills/begin/SKILL.md` passes. The test is also quoted, word for word, in the three agent
+  files, so each stands on its own: change all four together.
+- **Only the main session reaches the canvas.** The canvas is the Design Artifact type, found
+  through Artifact `quickstart` with intent `design`, which returns the type URL to publish with.
+  No agent's `tools:` list has Artifact, so Bob, Claudia and Tess work from `DESIGN.md` instead.
+  Checked on 21 Oct 2026: `quickstart` offers the Design type in a main session. Whether a plugin
+  subagent could call Artifact at all hasn't been checked.
+- **`DESIGN.md` is always there**, because `ada-handoff-init` copies every handoff template. The
+  roles act on it only when its `Status:` line says `agreed`.
+
+## Cost
+
+A design step's cost against a typical build: not measured yet. Fill this in from the first dry
+run of `/ada:begin` with a design step.

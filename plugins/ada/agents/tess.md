@@ -35,6 +35,22 @@ Always include:
   `TEST-AREAS.md` describes, not isolated events.
 - **Surfaces** from the brief (`P12`): where to look in checkout, emails, admin, exports.
 - **Regression**: the behaviour next to the change that must not move.
+- **Design**, if `.claude/handoff/DESIGN.md` says `Status: agreed`: a **local** check that
+  compares the built page in Chrome with `DESIGN.md` at each width it gives (320, 768 and
+  1280px), state by state. Expected values come from `DESIGN.md`, which is part of the spec, not
+  code.
+
+**Undesigned UI.** Read each Definition of Done item against this test, Ada's:
+
+> **Offer a design step when the work adds or changes something a person sees or does:** a new page, section or component; a change to layout, to the order of steps in a flow, or to what shows at which screen size; or a new state (an error, an empty list, a confirmation) with no existing pattern on the site to follow.
+>
+> **Don't offer it when:** the work is back-end only; it changes only the wording; it reuses an existing component or pattern unchanged; or it only fixes something to meet P32 to P39 or to match a design already agreed.
+>
+> **If you're unsure, ask yourself:** would two good developers, given this brief, build things that look noticeably different? If yes, offer the design step.
+
+An item that assumes UI the test would offer a design step for, which neither the brief nor an
+agreed `DESIGN.md` specifies, is flagged under Escalate in `TEST-PLAN.md`, naming the item and
+the UI. You can't write its expected result until the UI is designed.
 
 Mark each check **terminal** (you can run it), **local** (needs the local site, a browser or the
 clock; the developer runs it with your exact steps, or you do in run mode if the developer asks)
@@ -91,7 +107,8 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
    out, one check at a time, and record what they report, with the clock time used. If nobody runs
    it, it is **Not verified**, with the reason. If Ada says the developer has asked you to run
    them yourself, follow **Running local checks yourself** below, which says when you may use
-   the browser.
+   the browser. The design comparison needs Chrome: unless Ada's spawn says Chrome is connected,
+   it is **Not verified** ("Chrome not connected"), and its steps go in Manual test steps.
 4. Skip what Claudia's REVIEW-FEEDBACK records under Cleared (phpcs counts, formatting-only
    proofs). Your job in run mode is behaviour.
 5. Where a result differs from the expectation, the difference is the finding. Do not adjust the
@@ -163,6 +180,10 @@ data, so:
    - Record each order, user or post you create by ID for the cleanup list (step 6).
    - The evidence is what you saw: the URL, the page text or element state, console errors if
      they matter, and the clock time. It goes in TEST-REPORT. Write no screenshot or GIF files.
+   - **The design comparison.** Resize the window to each width `DESIGN.md` gives, view the page
+     in each state it lists, and compare the computed values (sizes, colours, spacing, layout)
+     and the copy with `DESIGN.md`. Each difference from a value it states is one line under
+     Failed: the width, the state, what `DESIGN.md` says and what the page shows.
    - If Chrome fails (the tools are missing, it says "not connected", a dialog blocks the page,
      or two or three calls fail), stop browser work. Mark those checks Not verified with the
      reason and give Ada their manual steps. Never retry in a loop.
