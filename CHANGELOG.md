@@ -5,6 +5,11 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **Accessibility standards (P32 to P39)**: a new `ada:standards-accessibility` skill sets the
+  visual rules to WCAG 2.2 AA: text contrast, contrast for controls and focus, colour never the
+  only signal, text size and spacing, reflow to 320px, target size, motion and pop-ups, and
+  images of text. It also adds PIE's own floors, such as 16px body text and 44px touch
+  controls. Preloaded into Bob and Claudia, so reviews can cite the rules.
 - **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
   credits, into a new section of the PR description, so whoever merges can paste them.
 - **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
