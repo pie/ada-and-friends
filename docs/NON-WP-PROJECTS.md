@@ -50,7 +50,7 @@ absent. What is missing is the shape itself. The proposal: `ada-onboard` detects
 `themes/` and `plugins/` hold a `style.css` or plugin header, records `Shape:` in PROJECT.md,
 and drives the checks that follow from it. `phpcs.xml.dist` hardcodes both `themes` and
 `plugins` as `<file>` entries (see the leftovers below); it should list only the directories
-that exist. A `slim` project is always a single `src/`.
+that exist. A `slim` project is always a single `project/` directory (see below).
 
 Shape changes the rules that apply. A plugin-only or theme-only repo has no site around it, so
 P11 (WooCommerce templates), P23 (theme level) and the surfaces checklist apply only when that
@@ -96,17 +96,29 @@ Distribution: instance | released
 
 ## What a Slim project is
 
+**Why `project/`, not `app/`.** Slim's own skeleton (slimphp/Slim-Skeleton) already has an
+`app/` directory for settings, dependencies and routes, next to `src/`, `public/` and `tests/`.
+Using `app/` as the repo's code directory would give `app/app/`. So the code directory is
+`project/`, and the skeleton sits inside it unchanged. The WordPress code directories are
+`themes/` and `plugins/`; this is the Slim equivalent, and `ada-onboard` treats `project/` as
+`CODE_DIR`.
+
+The skeleton's own `tests/`, `phpunit.xml` and `phpstan.neon.dist` move out to the repo root's
+`tests/`, `tools/` and config files, as in the WordPress flavour, so Bob, Claudia and Tess find
+tests and checks in the same place in every repo. Application dependencies stay in
+`project/composer.json`; the dev tools stay in `tools/composer.json`, as today.
+
 The fixed answers the onboarding drafts from, so a developer corrects rather than invents:
 
 | Concern | Choice |
 |---|---|
 | Framework | Slim 4, PSR-7 (slim/psr7), PHP-DI for the container |
 | PHP | 8.1 or later, `declare(strict_types=1)` throughout |
-| Layout | `src/` (code, PSR-4 namespace from `NAMESPACE`), `public/index.php`, `config/`, `tests/` |
+| Layout | The whole Slim project lives in `project/`, never the repo root. Inside it the Slim-Skeleton layout: `app/` (settings, dependencies, routes, middleware), `src/` (code, PSR-4 namespace from `NAMESPACE`), `public/index.php`, `composer.json`. The repo root keeps only what the team's tooling expects: `tests/`, `tools/`, `.claude/`, `.github/`, `CLAUDE.md` |
 | Code style | PSR-12, checked with PHP_CodeSniffer |
 | Static analysis | PHPStan, level set in `phpstan.neon.dist` (start at 6) |
 | Tests | PHPUnit; HTTP routes tested by building a PSR-7 request and calling `$app->handle()` |
-| Config | Environment variables read in one place (`config/`); `.env` never committed |
+| Config | Environment variables read in one place (`project/app/settings.php`); `.env` never committed |
 | Logging | PSR-3 (Monolog) to stderr, structured, no secrets or personal data |
 | Local run | `composer start` (PHP built-in server) or the repo's compose file; `LOCAL_URL` as today |
 | Data | None, or one database through PDO with prepared statements; migrations committed |
@@ -120,14 +132,15 @@ Grouped by effort. Paths are under `plugins/ada/`.
 - `ada-onboard files` takes `--flavour <name>` and copies `templates/repo/` (shared) then
   `templates/flavours/<name>/` over it. Today it copies everything with no selection.
 - Fixed keys become per flavour. Slim drops `TEXT_DOMAIN`, `PROD_PREFIX` and `PROD_LOGS`; it keeps
-  `PROJECT_NAME`, `PACKAGE`, `NAMESPACE`, `TIMEZONE`, `CODE_DIR` (`src`) and `PROD_SSH` (optional).
+  `PROJECT_NAME`, `PACKAGE`, `NAMESPACE`, `TIMEZONE`, `CODE_DIR` (`project`) and `PROD_SSH` (optional).
 - `check` requires `phpcs.xml.dist`, `phpunit.xml.dist`, `tools/composer.json` and `prod.env`
   for `wordpress`; for `slim` it requires `phpstan.neon.dist` in place of `prod.env` unless the
   service has production access.
 - `settings` writes the `prod-wp *` allow rule for `wordpress` only. The phpcs, phpunit and
   `composer -d tools` rules and the push and SSH denies are generic and stay.
 - WordPress repos keep the rule: the skill's step 1 stops when the repo root *is* the theme or plugin. For `slim` the code is
-  `src/` at the root; that stop is skipped. Step 2's fact table gets a Slim column (no
+  in `project/`, so the same stop applies and the skill looks for `project/` in place of
+  `themes/` and `plugins/`. Step 2's fact table gets a Slim column (no
   `style.css`, no WP timezone in a database, no `wc-logs`).
 - `refresh` covers the PR template only; it grows to cover the flavour's PR template.
 
@@ -226,7 +239,9 @@ diff the output, then run `/ada:begin` on each. PR 1 is the regression guard for
 6. **Several themes or plugins in one repo:** is the combined shape common enough to design for
    now, or should the first PR cover site, theme only and plugin only? Either way, code stays
    under `themes/` and `plugins/`.
-7. **Database:** is a standard migration tool wanted (Phinx, Doctrine Migrations), or is that left
+7. **The Slim code directory name:** `project/` is proposed because the skeleton already uses
+   `app/` inside. Is that the name you want, and do tests stay at the repo root?
+8. **Database:** is a standard migration tool wanted (Phinx, Doctrine Migrations), or is that left
    to each service?
 
 ## Found while surveying, to log separately
