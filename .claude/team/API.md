@@ -14,9 +14,9 @@ precondition error with `<script>: <message>` on stderr (`die`), and needs Pytho
 
 | Subcommand | Does | Output others rely on |
 |---|---|---|
-| `who` | Approval policy for this developer from `PROJECT.md` | One line: `not-needed` \| `approver <login>` \| `trusted <login>` \| `required <login>` (`:350-365`). Read by `/ada:begin` (`skills/begin/SKILL.md:193-205`), `ada-plan status` (`bin/ada-plan:233`), `ada-onboard check` (`bin/ada-onboard:225`). |
+| `who` | Approval policy for this developer from `PROJECT.md` | One line: `not-needed` \| `approver <login>` \| `trusted <login>` \| `required <login>` (`:350-365`). Read by `/ada:begin` (`skills/begin/SKILL.md:197-209`), `ada-plan status` (`bin/ada-plan:233`), `ada-onboard check` (`bin/ada-onboard:225`). |
 | `submit <task-id> <base> [<branch>]` | Commits the brief (and plan) to `.claude/briefs/`, pushes, opens or updates the draft PR, removes `brief-approved` | `opened   <url>` or `updated  <url> (approval reset)` (`:428`, `:432`) |
-| `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`; then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:443-499`). First line read by `submit` (`:383-387`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin` (`skills/begin/SKILL.md:209-216`). |
+| `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`; then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:443-499`). First line read by `submit` (`:383-387`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin` (`skills/begin/SKILL.md:213-220`). |
 | `body <task-id> [<branch>]` | Prints the draft PR description for a committed brief | Markdown starting `<!-- ada-brief: .claude/briefs/<task>.md -->` (`:234`) |
 | `ready <title> <file>` | Final title and description, out of draft | `ready    <url>`; a stderr note if `gh pr ready` fails (`:521-522`) |
 

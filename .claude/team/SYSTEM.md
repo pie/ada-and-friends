@@ -22,7 +22,7 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
   (`DEVELOPING.md`, Layout). `design` (Iris) runs in the main session, usually loaded by Ada from
   `begin` or `planning`.
 - **Agents** (`agents/*.md`): `bob`, `claudia`, `tess`, spawned as `ada:bob` etc.
-  (`DEVELOPING.md:52`, `skills/begin/SKILL.md:180-181`). Each has a `tools:` allowlist
+  (`DEVELOPING.md:52`, `skills/begin/SKILL.md:184-185`). Each has a `tools:` allowlist
   (`agents/bob.md:6`, `agents/claudia.md:6`, `agents/tess.md:6`). Tess's also has `ToolSearch` and
   the Claude in Chrome tools (`mcp__claude-in-chrome__*`), for local checks the developer asks her
   to run (`agents/tess.md`, Running local checks yourself).
@@ -133,7 +133,7 @@ Traps:
   it that way.
 - **`gh pr create` errors are swallowed** (`:430`, `2>/dev/null`): only "couldn't open the draft
   PR" reaches the user.
-- **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/SKILL.md:209-216`),
+- **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/SKILL.md:213-220`),
   by `submit` (`:383-387`) and by `ada-plan status` (`bin/ada-plan:257`). Don't change its words.
 - **The Asana block** is found by a fixed English sentence (`:312`); if Asana changes it, the
   block is dropped on the next description replace.
@@ -283,11 +283,13 @@ Traps:
   `Plan:`, status lines) are interfaces; see `API.md`.
 - `.claude/handoff/DESIGN.md` always exists once `ada-handoff-init` has run, as `FINDINGS.md`
   does, so "is there a design?" is read from its `Status:` line, never from the file being
-  there. The roles work to it only at `Status: agreed`; `/ada:begin` reads `draft`, or `agreed`
-  with the brief still the template, as a standalone `/ada:design` run. The template's own line,
-  `Status: draft | agreed | superseded`, means no design. When the developer says a standalone
-  design isn't for this task, Ada sets it to `Status: superseded`; it stays until the step is
-  archived, and the roles ignore it.
+  there. The roles work to it only at `Status: agreed`; `/ada:begin` reads `draft` or `agreed` as
+  a standalone `/ada:design` run only when no brief has been started (`BRIEF.md` has no Outcome
+  yet). A `draft` design in a step Ada started is that step's design, not agreed yet: she doesn't
+  confirm its requirements again, and its visual parts wait for a fix or a PIE waiver. The
+  template's own line, `Status: draft | agreed | superseded`, means no design. When the developer
+  says a standalone design isn't for this task, Ada sets it to `Status: superseded`; it stays
+  until the step is archived, and the roles ignore it.
 - `templates/repo/` is PHP/WordPress-shaped (`phpunit.xml.dist`, `tools/composer.json`,
   `tests/unit/TestCase.php`). This repo was onboarded with them; its own knowledge files say
   where they don't apply.

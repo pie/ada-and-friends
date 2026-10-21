@@ -27,9 +27,9 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
 5. If `.claude/handoff/FINDINGS.md` exists and the developer is starting the fix it describes,
    read it. The cause, the scope and the code fix section are your starting point, and the
    Definition of Done includes the failure it records no longer happening. If
-   `.claude/handoff/DESIGN.md` says `Status: draft`, or `Status: agreed` while `BRIEF.md` is
-   still the template, a standalone `/ada:design` ran: confirm its requirements before you write
-   the brief (The design step). The template's own line, `Status: draft | agreed | superseded`,
+   `.claude/handoff/DESIGN.md` says `Status: draft` or `Status: agreed` while `BRIEF.md` has no
+   Outcome yet, a standalone `/ada:design` ran: confirm its requirements before you write the
+   brief (The design step). The template's own line, `Status: draft | agreed | superseded`,
    means there is no design.
 6. If `.claude/handoff/CHECKPOINT.md` exists, read it.
    - **Its step is finished** (its PR is merged or closed, or it says the step was shelved): say
@@ -112,15 +112,19 @@ the test says not to offer it, don't mention design.
 
 **A design from a standalone run.** `ada-handoff-init` always puts a `DESIGN.md` in place, so
 look at its `Status:` line, not whether it exists. The template's own line,
-`Status: draft | agreed | superseded`, means there is no design. If it says `draft`, or `agreed`
-while `BRIEF.md` is still the template, `/ada:design` ran on its own before this step. Before you
-write the brief, check with the developer that the design is for this task. If it isn't, set it
-to `Status: superseded`: it stays until the step is archived, and the roles ignore it. If it is,
-go through its requirements ("The problem") with them, item by item: they are a draft, not
-agreed. If the design is only `draft`, offer Iris to finish it.
+`Status: draft | agreed | superseded`, means there is no design. A standalone run is a
+`DESIGN.md` saying `draft` or `agreed` when no brief has been started (`BRIEF.md` has no Outcome
+yet): `/ada:design` ran on its own before this step. Before you write the brief, check with the
+developer that the design is for this task. If it isn't, set it to `Status: superseded`: it
+stays until the step is archived, and the roles ignore it. If it is, go through its requirements
+("The problem") with them, item by item: they are a draft, not agreed. If the design is only
+`draft`, offer Iris to finish it. A `draft` design in a step you started (the brief has its
+Outcome) is that step's design, not agreed yet: don't confirm its requirements again, and its
+visual parts wait until the developer chooses a fix or PIE waives the rule.
 
-**Finish the brief from `DESIGN.md`.** Bob, Claudia and Tess never open the canvas, so the brief
-carries what they need from it:
+**Finish the brief from `DESIGN.md`.** Only from `Status: agreed`: when Iris hands back "Design
+not agreed:", the visual parts wait until the developer chooses a fix or PIE waives the rule. Bob,
+Claudia and Tess never open the canvas, so the brief carries what they need from it:
 
 - **Constraints:** "`DESIGN.md` is the spec for the UI", the artifact link, and a summary of the
   agreed design in a few lines. For a text-only design (`Artifact: text only`), copy its "The

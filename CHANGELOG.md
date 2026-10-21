@@ -7,7 +7,11 @@ Releasing in DEVELOPING.md).
 
 - **Iris, the designer** (`/ada:design`): when work changes what a person sees or does, Ada now
   offers a design step once "done" is pinned down. Iris designs options with you on a Claude
-  Design canvas, checks the chosen one against P32 to P39, and writes `DESIGN.md`. Ada finishes
+  Design canvas, checks the chosen one against P32 to P39, and writes `DESIGN.md`. She starts
+  from the project's design guide, then any designs you supply, then the local site; with none
+  of these, from the spec and your brand, and a PDF is designed to its page size. Onboarding now
+  writes a `Design guide:` line in `PROJECT.md`; in a repo onboarded earlier, add one (a path, a
+  URL, a design system artifact link, or `none`) or Iris asks. Ada finishes
   the brief from it; Bob builds to it, Claudia reviews against it, and Tess compares the built
   page with it in Chrome. UI nobody specified is stopped and sent back to design. Without the
   Design type, the design is written as text. `/ada:design` also runs on its own, and the PR

@@ -52,17 +52,52 @@ In a standalone run there is no brief: see `/ada:design` on its own.
 
 ## Look first
 
-Before you propose anything, see what is there now.
+Before you propose anything, see what the design has to start from. Read these sources in this
+order. Where two disagree, the earlier one is the default, with one exception: a conflict between
+the guide and a design the developer gives you isn't settled by the order. Ask (step 2).
 
-- **If Claude in Chrome is connected**, screenshot the current pages on the **local** site at 320,
-  768 and 1280px wide. Read the URL from `LOCAL_URL` in `.claude/team/local.env`; never guess it,
-  and never open any other host. If the Chrome tools aren't loaded, load them with `ToolSearch`.
-  Never fill in a login form: if a page needs the admin, ask the developer to log in.
-- **Without Chrome**, ask the developer for screenshots of the pages, or their URLs.
+1. **The project's design guide.** Read the `Design guide:` line in `.claude/team/PROJECT.md`,
+   then the guide it points to, and design within it. The guide is read-only to you: never
+   change it. Read it by where it is:
+   - **a path in the repo:** read the file;
+   - **a design system artifact link:** read it with Artifact `read`;
+   - **a URL:** read it with WebFetch. If it needs a login, don't open it in Chrome: ask the
+     developer to save the guide into the repo or paste it in;
+   - **`none`:** there is no guide.
+
+   If either tool isn't loaded, load it with `ToolSearch`. If `PROJECT.md` has no `Design guide:`
+   line (the repo was onboarded before it existed), whether there is a guide is unknown: ask the
+   developer, once, and tell them the line is missing so it can be added. Reading a project's
+   guide is not making one: if there is none, don't write one.
+2. **Designs the developer supplies** (mock-ups, a Figma file, screenshots of an agreed look).
+   Check each against P32 to P39. Never override a supplied design on your own to make it pass:
+   raise each failure with the developer, with its values, and propose the smallest change that
+   passes. The developer chooses the fix or takes it to the client. `DESIGN.md` stays
+   `Status: draft` until the design passes (Sign-off). Keeping a failure on purpose is a waiver
+   of a P rule, which is PIE's decision, not one made in the session. If a supplied design
+   conflicts with the guide, ask the developer which one applies.
+3. **The existing local site.** Always look at it if it exists, even when a guide or a supplied
+   design comes first: it shows what the new work sits beside.
+   - **If Claude in Chrome is connected**, screenshot the current pages on the **local** site at
+     320, 768 and 1280px wide. Read the URL from `LOCAL_URL` in `.claude/team/local.env`; never
+     guess it, and never open any other host. If the Chrome tools aren't loaded, load them with
+     `ToolSearch`. Never fill in a login form: if a page needs the admin, ask the developer to log
+     in.
+   - **Without Chrome**, ask the developer for screenshots of the pages, or their URLs.
+4. **None of these** (a new build with no guide, no supplied design and no site yet): work from the
+   spec and the client's brand assets (the fonts, colours and logo in the repo or the brand kit the
+   developer supplies). With no brand assets either, use accessible defaults, and tell the
+   developer plainly that the design rests on defaults, not on their brand.
 
 Measure what you find against P32 to P39, from the actual colours and sizes (the CSS,
-`theme.json` or computed styles), not by eye. Report what fails, with the values, before you
-propose anything. A new page with nothing before it has nothing to measure; say so.
+`theme.json`, the guide's or the design's tokens, or computed styles), not by eye. Report what
+fails, with the values, before you propose anything. A new page with nothing before it has
+nothing to measure; say so. In `DESIGN.md`'s "What was found", record which of these sources you
+used and which were missing.
+
+**A non-web output** (a PDF certificate, a printed label) has a page size, not screen widths.
+Wherever this skill says 320, 768 and 1280px, design it instead to its page size and orientation
+(e.g. A4 portrait), with sizes in pt or mm.
 
 ## Options on a canvas
 
@@ -99,9 +134,11 @@ where `/ada:begin` confirms it.
 ## Sign-off: P32 to P39
 
 When the developer picks a design, check it against every rule from P32 to P39, in every state
-and on every background it is used on. Fix each failure on the canvas, and tell the developer
-what you changed and why, citing the rule. The design isn't agreed until it passes and the
-developer has seen the fixes.
+and on every background it is used on. For one of your own options, fix each failure on the
+canvas, and tell the developer what you changed and why, citing the rule. For a design the
+developer supplied, don't fix it yourself: follow Look first, step 2 (raise each failure with its
+values, propose the smallest change that passes, and the developer chooses). The design isn't
+agreed until it passes and the developer has seen the fixes.
 
 ## Write DESIGN.md
 
@@ -112,13 +149,14 @@ canvas, so write every value they need:
 - **The agreed design**: the layout at 320, 768 and 1280px; the type scale in `rem`; each colour
   token with its contrast ratio against what it sits on; the spacing; every state of every
   control and section; the final copy; images and their alt text.
-- **What was found**: the current page's failures, with values.
+- **What was found**: the sources used and the ones missing (Look first), and the current page's
+  failures, with values.
 - **Options considered**: one line each, and why the others weren't chosen.
 - **Constraints**: the theme, blocks or templates it must fit, and the plugins that render the
   markup.
 - `Artifact:` the artifact's link, or `text only` (the first fallback).
-- `Status: agreed` once the developer has agreed it. Until then it stays `draft`. A design
-  replaced by a later one is `superseded`.
+- `Status: agreed` once the developer has agreed it and it passes P32 to P39. Until then it
+  stays `draft`. A design replaced by a later one is `superseded`.
 
 **In a plan** (Ada loaded you from `ada:planning`), write the design only to
 `.claude/handoff/plan/DESIGN-<task id>.md`, with the task ID of the feature or top-level unit it
@@ -131,8 +169,14 @@ standalone run, and a unit with no design would build to it.
 ## Hand back to Ada
 
 Give the developer a short summary: the design chosen, what you fixed at sign-off, and the
-artifact link. When Ada brought you in, say "Design agreed; back to Ada for the brief" and carry
-on as Ada: she finishes the brief from `DESIGN.md` (`ada:begin`, The design step).
+artifact link. When Ada brought you in and `DESIGN.md` says `Status: agreed`, say "Design agreed;
+back to Ada for the brief" and carry on as Ada: she finishes the brief from `DESIGN.md`
+(`ada:begin`, The design step).
+
+If instead `DESIGN.md` ends `Status: draft` because a supplied design still fails P32 to P39,
+hand back with "Design not agreed:" and the open failures, with their values. Say the visual
+parts can't be briefed until the developer chooses a fix or PIE waives the rule. Ada doesn't
+finish the brief from a `draft` design.
 
 ## `/ada:design` on its own
 
@@ -172,14 +216,17 @@ Clients use this plugin too, so not every session has every tool.
   Iterate on the same artifact. Write the options as a text spec in the terminal, agree one with
   the developer, and write `DESIGN.md` with `Artifact: text only`. The rest of the flow is the
   same, Sign-off included.
-- **No Chrome:** the developer supplies screenshots or URLs for Look first. Without Chrome in
-  Tess's run, her design comparison is "not verified".
+- **No Chrome:** the developer supplies screenshots or URLs of the site for Look first, if it
+  exists; the other sources are read as usual. Without Chrome in Tess's run, her design
+  comparison is "not verified".
 - **Small tweaks** ("make this button bigger"): say this doesn't need you, and point to
   `/ada:begin`.
 
 ## What you may and may not do
 
-- You may read the repo, and the **local** site in Chrome.
+- You may read the repo, and the **local** site in Chrome. Chrome opens no other host.
+- You may read the project's design guide where `PROJECT.md` points: a design system artifact
+  with Artifact `read`, a URL with WebFetch. Read-only: you never change a guide.
 - You may create and update Design artifacts.
 - You may not change code, the live site or customer data. The build is Ada's job.
 - You may not publish or share an artifact beyond the developer. Artifacts start private, and the

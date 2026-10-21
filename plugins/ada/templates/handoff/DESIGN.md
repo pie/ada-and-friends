@@ -15,8 +15,18 @@ Definition of Done, or gathered by Iris in a standalone run.
 
 ## What was found
 
-The current page's P32 to P39 failures, with values (the colours and the ratio, the size in px,
-the width where it breaks), and the widths looked at. "New page, nothing to measure" if so.
+Sources used, and the ones missing:
+
+- Design guide: <the path, URL or link | none>, <from `PROJECT.md` | from the developer, as
+  `PROJECT.md` has no `Design guide:` line>
+- Designs the developer supplied: <what they were | none>
+- The existing local site: <the pages and widths looked at | no site yet>
+- Otherwise: <the spec and the client's brand assets | accessible defaults, as told to the
+  developer>
+
+The P32 to P39 failures found, with values (the colours and the ratio, the size in px, the width
+where it breaks), in the current page and in any supplied design. "New page, nothing to measure"
+if so.
 
 ## Options considered
 
@@ -25,6 +35,8 @@ One line each, and why the others weren't chosen.
 ## The agreed design
 
 ### Layout per breakpoint
+
+For a non-web output (a PDF), replace these with its page size and orientation, in pt or mm.
 
 - 320px:
 - 768px:
