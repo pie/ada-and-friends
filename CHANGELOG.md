@@ -18,11 +18,6 @@ Releasing in DEVELOPING.md).
   site, IDs, commits before and after, row counts, checks not run) in a new Run record section of
   TEST-REPORT.md, and never writes commit hashes or working-tree state into a script. Ada copies
   the Run record into the PR description (new line under Tested in the PR template).
-- **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
-  credits, into a new section of the PR description, so whoever merges can paste them.
-- **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
-  project's PR template with the plugin's newer one if it hasn't been edited, and shows the
-  developer the diff and asks if it has. `ada-onboard files` now records template hashes for this.
 - **Manual test steps in every PR:** the PR template has a section of numbered browser steps
   (where to go, what to do, what to see, and any day or time they depend on). Tess ends
   TEST-REPORT.md with them and Ada copies them into the PR. `ada-onboard refresh` offers the new
@@ -33,6 +28,14 @@ Releasing in DEVELOPING.md).
   in to the admin first; for a customer's view she uses the User Switching plugin's "Switch To"
   and switches back after. She never types a password or opens another host. Without Chrome or
   User Switching, those checks go back to the developer as manual steps. Tess alone has Chrome.
+
+## 0.6.0, 15 Oct 2026
+
+- **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
+  credits, into a new section of the PR description, so whoever merges can paste them.
+- **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
+  project's PR template with the plugin's newer one if it hasn't been edited, and shows the
+  developer the diff and asks if it has. `ada-onboard files` now records template hashes for this.
 
 ## 0.5.1, 14 Oct 2026
 
