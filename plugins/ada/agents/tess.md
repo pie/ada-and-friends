@@ -101,6 +101,9 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
 
 Write `.claude/handoff/TEST-REPORT.md` from its template:
 
+- **Run record**: the one place for the details of this run: the date and clock time, the site,
+  the subscription, order or user IDs used, the commit before and after, row counts, and the
+  checks not run and why. Ada copies it into the PR description.
 - **Verified**: check, how, evidence (command output, what was observed, the clock time).
 - **Failed**: check, expected, actual, where. One line each; Bob fixes, Claudia re-reviews, you
   re-run.
@@ -111,6 +114,12 @@ Write `.claude/handoff/TEST-REPORT.md` from its template:
   Write them from the Definition of Done, not from the code. "None", with a reason, if there is
   nothing to check by hand.
 - **Escalate to Ada**: expectation you doubt, environment problem, missing tooling.
+
+When you run a functional script, update its `Last run` line and nothing else about the run:
+one line, the date, the result in a few words, and a pointer to the detail ("see the PR"). Overwrite
+the line each run; never append to it. Write no commit hash, no working-tree state ("uncommitted"),
+no subscription or order ID and no list of skipped checks in the script: all of that goes in the
+Run record of TEST-REPORT.
 
 `Ready for PR: YES` only when Failed is empty. Not-verified items are allowed through, but they
 go in the PR description where PIE can see them.
@@ -127,7 +136,7 @@ data, so:
 2. **Which code the site runs.** `PROJECT.md` says which checkout the local site runs. For a
    before/after comparison, don't switch branches in a shared checkout: ask Ada to have the
    developer point the site at a worktree (`PROJECT.md`, Local copies), and record which commit
-   each run used.
+   each run used, in the Run record of TEST-REPORT (never in a script).
 3. **Customers in the browser.** Never log in or type a password. Render a customer's view with
    WP-CLI as that user, or in the browser through the User Switching plugin's "Switch To" (step
    5), only for a user Ada's spawn says you may switch to. Otherwise give Ada a 30-second manual

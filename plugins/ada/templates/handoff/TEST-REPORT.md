@@ -4,6 +4,17 @@ Ready for PR: NO
 
 Written by Tess. Branch and commit:
 
+## Run record
+
+The full record of this run. Ada copies it into the PR description.
+
+- Date and clock time (site time, if the checks depend on it):
+- Site:
+- Subscription, order or user IDs used:
+- Commit before and after:
+- Row counts:
+- Checks not run, and why:
+
 ## Tests supplied
 
 | File | Type | Result |

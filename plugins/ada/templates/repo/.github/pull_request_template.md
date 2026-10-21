@@ -58,6 +58,7 @@ Rules checked (STANDARDS.md numbers), what was found, how it was resolved.
 - Verified (with the clock time for anything date-related):
 - Not verified, and why:
 - Failed and left: none
+- Run record (copied from TEST-REPORT.md: clock time, site, IDs used, commits before and after, row counts, checks not run and why):
 
 ## Manual test steps
 
