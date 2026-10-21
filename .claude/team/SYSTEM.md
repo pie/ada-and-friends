@@ -17,8 +17,8 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
   only in `plugins/ada/.claude-plugin/plugin.json:3`; `marketplace.json` has none. The marketplace
   installs straight from `main` (`DEVELOPING.md:134-136`, `release.yml:4-5`).
 - **Skills** (`skills/*/SKILL.md`): `begin`, `pickup`, `bughunt`, `onboard` are commands
-  (`/ada:begin` etc.); `planning`, `standards`, `standards-tests`, `efficiency` are loaded or
-  preloaded, not commands (`DEVELOPING.md:33-40`).
+  (`/ada:begin` etc.); `planning`, `standards`, `standards-tests`, `standards-accessibility`,
+  `efficiency` are loaded or preloaded, not commands (`DEVELOPING.md:33-40`).
 - **Agents** (`agents/*.md`): `bob`, `claudia`, `tess`, spawned as `ada:bob` etc.
   (`DEVELOPING.md:52`, `skills/begin/SKILL.md:116-117`). Each has a `tools:` allowlist
   (`agents/bob.md:6`, `agents/claudia.md:6`, `agents/tess.md:6`). Tess's also has `ToolSearch` and

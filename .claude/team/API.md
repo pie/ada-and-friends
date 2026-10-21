@@ -75,8 +75,9 @@ non-zero changing nothing if Unreleased is empty. Run by `release.yml` only.
 | `bughunt` | `/ada:bughunt` | Grace's read-only investigation; writes `FINDINGS.md` |
 | `onboard` | `/ada:onboard` | Set a repo up; drafts the knowledge files |
 | `planning` | loaded by Ada | Work too big for one PR |
-| `standards` | preloaded (Bob, Claudia) | P rules except P29 |
+| `standards` | preloaded (Bob, Claudia) | P rules except P29 and P32-P39 |
 | `standards-tests` | preloaded (all three) | P29 |
+| `standards-accessibility` | preloaded (Bob, Claudia) | P32-P39, WCAG 2.2 AA visual rules |
 | `efficiency` | preloaded; Ada loads it | Context and token discipline |
 
 ## Agents (`agents/`)

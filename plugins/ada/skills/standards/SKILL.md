@@ -18,7 +18,8 @@ tells you when a rule does and doesn't apply.
   are unused.
 - **Severity:** "Must fix" for a rule broken outright; "Should fix" for a judgement call.
 
-P29, on tests, is in the `ada:standards-tests` skill, preloaded alongside this one.
+P29, on tests, is in the `ada:standards-tests` skill, and P32 to P39, on visual accessibility
+(WCAG 2.2 AA), are in `ada:standards-accessibility`. Both are preloaded alongside this one.
 
 Names below such as "the project's main classes" are filled in by the project's `API.md` and
 `SYSTEM.md`.

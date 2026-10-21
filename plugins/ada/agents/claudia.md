@@ -7,6 +7,7 @@ tools: Read, Write, Bash, Grep, Glob
 skills:
   - ada:standards
   - ada:standards-tests
+  - ada:standards-accessibility
   - ada:efficiency
 ---
 

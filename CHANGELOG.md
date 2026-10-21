@@ -8,6 +8,11 @@ Releasing in DEVELOPING.md).
 - **Grace, the bug hunter**: `/ada:bughunt` now runs as Grace, named after Grace Hopper. The
   command is unchanged. The README introduces her with the team, and `FINDINGS.md` is signed by
   her.
+- **Accessibility standards (P32 to P39)**: a new `ada:standards-accessibility` skill sets the
+  visual rules to WCAG 2.2 AA: text contrast, contrast for controls and focus, colour never the
+  only signal, text size and spacing, reflow to 320px, target size, motion and pop-ups, and
+  images of text. It also adds PIE's own floors, such as 16px body text and 44px touch
+  controls. Preloaded into Bob and Claudia, so reviews can cite the rules.
 - **Last run stays one line**: a functional script's `Last run` is the date, the result in a few
   words and a pointer to the detail, overwritten each run. Tess puts the full record (clock time,
   site, IDs, commits before and after, row counts, checks not run) in a new Run record section of
