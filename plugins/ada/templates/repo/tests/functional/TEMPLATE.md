@@ -3,7 +3,7 @@
 - Area: <number and name from .claude/team/TEST-AREAS.md>
 - Asana: <task URL that introduced or changed this behaviour>
 - Automate as: none | unit | presstest
-- Last run: <date, clock time, site, who, result>
+- Last run: <date, result in a few words, where the detail is (e.g. PR #123)>
 
 ## Precondition
 

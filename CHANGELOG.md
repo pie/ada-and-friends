@@ -5,10 +5,11 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
-
-## 0.6.0, 15 Oct 2026
-
+- **Last run stays one line**: a functional script's `Last run` is the date, the result in a few
+  words and a pointer to the detail, overwritten each run. Tess puts the full record (clock time,
+  site, IDs, commits before and after, row counts, checks not run) in a new Run record section of
+  TEST-REPORT.md, and never writes commit hashes or working-tree state into a script. Ada copies
+  the Run record into the PR description (new line under Tested in the PR template).
 - **Squash commit in the PR**: Ada writes the squash-merge title and message, with the role
   credits, into a new section of the PR description, so whoever merges can paste them.
 - **The PR template stays current**: `/ada:begin` runs `ada-onboard refresh`, which replaces a
