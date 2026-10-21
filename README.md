@@ -14,8 +14,10 @@ builds it, reviews it and tests it, and gives you a pull request (PR) for PIE to
 | **Bob**, the builder | Builds what the brief says, and nothing more. |
 | **Claudia**, the reviewer | Reviews Bob's code against PIE's standards and the project's rules. |
 | **Tess**, the tester | Writes tests from the brief. Runs them. Reports what she checked and what she didn't. |
+| **Grace**, the bug hunter | Finds the cause of a problem on the live site, reading production only. Hands her findings to Ada. |
 
-You talk only to Ada. She gets the other agents to do their work.
+In a build you talk only to Ada. She gets the other agents to do their work. For a problem on the
+live site, you talk to Grace first (`/ada:bughunt`).
 
 ## Get started
 
@@ -66,7 +68,7 @@ nobody does it again.
 | `/ada:onboard` | Set up a repo for the team. Once per repo (see above). |
 | `/ada:begin` | Start a piece of work. Give Ada the Asana task. |
 | `/ada:pickup` | Continue work from where you stopped. |
-| `/ada:bughunt` | Find the cause of a problem on the live site, before anything is built. |
+| `/ada:bughunt` | Have Grace find the cause of a problem on the live site, before anything is built. |
 
 ### What happens in a step
 

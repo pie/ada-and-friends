@@ -5,6 +5,9 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **Grace, the bug hunter**: `/ada:bughunt` now runs as Grace, named after Grace Hopper. The
+  command is unchanged. The README introduces her with the team, and `FINDINGS.md` is signed by
+  her.
 - **Last run stays one line**: a functional script's `Last run` is the date, the result in a few
   words and a pointer to the detail, overwritten each run. Tess puts the full record (clock time,
   site, IDs, commits before and after, row counts, checks not run) in a new Run record section of

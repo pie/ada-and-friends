@@ -1,7 +1,7 @@
 # Findings — <short title>
 
 Asana: <task URL>
-Hunted: <date>, by <developer> with Claude
+Hunted: <date>, by <developer> with Grace
 Status: investigating | cause found | cause likely | not reproduced | known issue
 
 ## The claim

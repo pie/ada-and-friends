@@ -72,7 +72,7 @@ non-zero changing nothing if Unreleased is empty. Run by `release.yml` only.
 |---|---|---|
 | `begin` | `/ada:begin` | Ada's playbook: session start, brief, approval, roles, PR gate |
 | `pickup` | `/ada:pickup` | Resume from `CHECKPOINT.md` |
-| `bughunt` | `/ada:bughunt` | Read-only investigation; writes `FINDINGS.md` |
+| `bughunt` | `/ada:bughunt` | Grace's read-only investigation; writes `FINDINGS.md` |
 | `onboard` | `/ada:onboard` | Set a repo up; drafts the knowledge files |
 | `planning` | loaded by Ada | Work too big for one PR |
 | `standards` | preloaded (Bob, Claudia) | P rules except P29 |
