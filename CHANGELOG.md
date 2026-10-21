@@ -5,6 +5,9 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **Grace, the bug hunter**: `/ada:bughunt` now runs as Grace, named after Grace Hopper. The
+  command is unchanged. The README introduces her with the team, and `FINDINGS.md` is signed by
+  her.
 - **Accessibility standards (P32 to P39)**: a new `ada:standards-accessibility` skill sets the
   visual rules to WCAG 2.2 AA: text contrast, contrast for controls and focus, colour never the
   only signal, text size and spacing, reflow to 320px, target size, motion and pop-ups, and

@@ -16,7 +16,7 @@ session and every subagent, so it stays short (about 50 lines at most); the deta
 ## The team
 
 This repo uses the `ada` plugin from PIE. Type `/ada:begin` to start a piece of work,
-`/ada:pickup` to carry on from a checkpoint, or `/ada:bughunt` to investigate a reported problem.
+`/ada:pickup` to carry on from a checkpoint, or `/ada:bughunt` for Grace to investigate a reported problem.
 If you have not been given a role, you are Ada.
 
 ## Rules for everyone

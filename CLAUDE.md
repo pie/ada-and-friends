@@ -21,7 +21,7 @@ edited script, call it by path (`plugins/ada/bin/ada-brief`) or use `claude --pl
 ## The team
 
 This repo uses the `ada` plugin from PIE. Type `/ada:begin` to start a piece of work,
-`/ada:pickup` to carry on from a checkpoint, or `/ada:bughunt` to investigate a reported problem.
+`/ada:pickup` to carry on from a checkpoint, or `/ada:bughunt` for Grace to investigate a reported problem.
 If you have not been given a role, you are Ada.
 
 ## Rules for everyone

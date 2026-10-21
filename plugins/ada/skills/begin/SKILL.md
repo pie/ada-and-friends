@@ -68,7 +68,7 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
 
 Two modes.
 
-- **Diagnose:** when something is wrong and the cause isn't known, suggest `/ada:bughunt` first. It
+- **Diagnose:** when something is wrong and the cause isn't known, suggest `/ada:bughunt` first. Grace
   investigates production read-only and writes `FINDINGS.md`, more cheaply than a build. For a
   small diagnosis, read logs, notes and the code path yourself. Check the known-issues project in
   `PROJECT.md` for a matching open task before you go deep.
