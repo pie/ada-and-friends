@@ -7,7 +7,7 @@ For PIE developers who change the plugin or release it. Users start with the [RE
 The process lives in this plugin. **Each project's knowledge lives in its own repo**, in
 `.claude/team/`: `PROJECT.md`, `SYSTEM.md`, `API.md`, `STANDARDS.md` (the project's S rules) and
 `TEST-AREAS.md`. The PIE rules (P1 onwards) are in `skills/standards/` and
-`skills/standards-tests/`.
+`skills/standards-tests/` and `skills/standards-accessibility/`.
 
 The roles hand over through files in the project's `.claude/handoff/`, copied in from
 `templates/handoff/` by `ada-handoff-init`.
@@ -37,6 +37,7 @@ plugins/ada/
   skills/planning/                Ada's playbook for work too big for one PR, loaded only then, not a command
   skills/standards/               the PIE rules (P1 onwards), preloaded into Bob and Claudia, not a command
   skills/standards-tests/         P29, on tests, preloaded into all three agents, not a command
+  skills/standards-accessibility/ P32-P39, visual accessibility (WCAG 2.2 AA), preloaded into Bob and Claudia, not a command
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
   bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp
