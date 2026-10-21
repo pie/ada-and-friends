@@ -38,16 +38,19 @@ A `wordpress` repo is one of:
 | Shape | Code lives in | Notes |
 |---|---|---|
 | Full site | `themes/<theme>/` and `plugins/<plugin>/` (one or several) | Today's assumption |
-| Theme only | The repo root is the theme, or `themes/<theme>/` | Needs `style.css` at the code root |
-| Plugin only | The repo root is the plugin, or `plugins/<plugin>/` | Needs the plugin header file at the code root |
-| Theme and plugin(s) | Both of the above, in one repo | Code dir is a list, not one path |
+| Theme only | `themes/<theme>/` | No `plugins/` code |
+| Plugin only | `plugins/<plugin>/` | No `themes/` code |
+| Theme and plugin(s) | Both, in one repo | |
 
-Today `skills/onboard/SKILL.md:24-28` stops when the repo root *is* the theme or plugin, so the
-two single-item shapes can't be onboarded at all. The proposal: `ada-onboard` detects the shape
-(`style.css` and plugin headers at the root or under `themes/` and `plugins/`), records
-`Shape:` and a `Code dirs:` list in PROJECT.md, and uses that list wherever `CODE_DIR` stands
-alone now. That includes `phpcs.xml.dist`, which hardcodes `themes` and `plugins` (see the
-leftovers below). A `slim` project is always a single `src/`.
+The repo root is never the theme or plugin, whatever the shape: code always sits under `themes/`
+or `plugins/`. That is what the onboarding skill already enforces (`skills/onboard/SKILL.md:24-28`
+stops when the root *is* the theme or plugin), so the rule stays, and a theme-only or
+plugin-only repo is onboarded the same way as a site, with one of the two directories empty or
+absent. What is missing is the shape itself. The proposal: `ada-onboard` detects it from which of
+`themes/` and `plugins/` hold a `style.css` or plugin header, records `Shape:` in PROJECT.md,
+and drives the checks that follow from it. `phpcs.xml.dist` hardcodes both `themes` and
+`plugins` as `<file>` entries (see the leftovers below); it should list only the directories
+that exist. A `slim` project is always a single `src/`.
 
 Shape changes the rules that apply. A plugin-only or theme-only repo has no site around it, so
 P11 (WooCommerce templates), P23 (theme level) and the surfaces checklist apply only when that
@@ -87,7 +90,7 @@ The three lines now read:
 
 ```
 Flavour: wordpress | slim
-Shape: site | theme | plugin | theme+plugin   (wordpress only; detected)
+Shape: site | theme | plugin | theme+plugin   (wordpress only; detected from themes/ and plugins/)
 Distribution: instance | released
 ```
 
@@ -123,7 +126,7 @@ Grouped by effort. Paths are under `plugins/ada/`.
   service has production access.
 - `settings` writes the `prod-wp *` allow rule for `wordpress` only. The phpcs, phpunit and
   `composer -d tools` rules and the push and SSH denies are generic and stay.
-- (Shape is covered under "Two more things" above.) The skill's step 1 stops when the repo root *is* the theme or plugin. For `slim` the code is
+- WordPress repos keep the rule: the skill's step 1 stops when the repo root *is* the theme or plugin. For `slim` the code is
   `src/` at the root; that stop is skipped. Step 2's fact table gets a Slim column (no
   `style.css`, no WP timezone in a database, no `wc-logs`).
 - `refresh` covers the PR template only; it grows to cover the flavour's PR template.
@@ -190,8 +193,8 @@ Each is a PR into `next-release`, small enough to review alone (P30):
    `flavours/wordpress/` and prove `ada-onboard files` output is byte-identical for an existing
    project.
 2. **Tag the P rules** by flavour, shape and distribution. Docs only.
-3. **Shapes.** Detect and onboard theme-only, plugin-only and theme+plugin repos; replace the
-   hardcoded code paths with `Code dirs:`.
+3. **Shapes.** Detect the shape from `themes/` and `plugins/`; make `phpcs.xml.dist` and the
+   checks use only the directories that exist.
 4. **Released software.** The `Distribution: released` templates, review checks and release
    checklist, for WordPress themes and plugins first.
 5. **Slim templates and onboarding.** The `flavours/slim/` files, `--flavour slim`, the Slim
@@ -221,7 +224,8 @@ diff the output, then run `/ada:begin` on each. PR 1 is the regression guard for
    is there an update checker, or do sites update from the GitHub zip manually? The `released`
    release template should copy what already works.
 6. **Several themes or plugins in one repo:** is the combined shape common enough to design for
-   now, or should the first PR cover site, theme only and plugin only?
+   now, or should the first PR cover site, theme only and plugin only? Either way, code stays
+   under `themes/` and `plugins/`.
 7. **Database:** is a standard migration tool wanted (Phinx, Doctrine Migrations), or is that left
    to each service?
 
