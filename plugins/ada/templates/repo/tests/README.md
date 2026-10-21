@@ -45,5 +45,9 @@ each area.
   behaviour rather than writing a near-copy.
 - Start from `functional/TEMPLATE.md`. Steps are exact enough that someone who has never seen the
   change gets the same answer.
+- `Last run` is one line: the date, the result in a few words, and where the detail is (the PR).
+  It is overwritten each run, never appended to. The run record (clock time, site, commits, what
+  wasn't checked) goes in the PR description, not in the script, and nothing in the script names a
+  commit or the state of the working tree.
 - `Automate as: unit` or `Automate as: presstest` marks a script that should become an automated
   test.
