@@ -3,7 +3,7 @@
 - Area: 13 Design (`/ada:design`, Iris); also 08 Session flow, 09 Roles, 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
 - Automate as: none (part A is a self-checking shell script; part B is read by a person)
-- Last run: 21 Oct 2026, part A 124 PASS, 0 failed; part B 32 of 32 items found (see the PR)
+- Last run: 21 Oct 2026, part A 165 PASS, 0 failed; part B all 51 items found (see the PR)
 
 ## Precondition
 
@@ -95,7 +95,7 @@ t "planning/SKILL.md mentions the design step" grep -qiE 'design' "$P/skills/pla
 for f in agents/bob.md agents/claudia.md agents/tess.md skills/begin/SKILL.md; do
   t "$f keys on DESIGN.md saying Status: agreed (Q1)" grep -qF 'Status: agreed' "$P/$f"
 done
-t "begin/SKILL.md: draft, or agreed with no brief, is a standalone run (Q1)" grep -qE '`draft`|Status: draft' "$B"
+t "begin/SKILL.md: a draft design when no brief has been started is a standalone run (Q1 as amended)" grep -qE '`draft`|Status: draft' "$B"
 t "design skill: archives a finished step first (Q2)" grep -qF -- '--archive' "$S"
 t "design skill: checks CHECKPOINT for an open step (Q2)" grep -qF 'CHECKPOINT' "$S"
 t "planning/SKILL.md: plan/DESIGN-<task id>.md (Q3)" grep -qF 'DESIGN-<task id>.md' "$P/skills/planning/SKILL.md"
@@ -151,6 +151,90 @@ t "DESIGN.md template has a Status: line" grep -qF 'Status:' "$D"
 t "the blank template reads neither Status: agreed nor Status: draft (Q1)" \
   not grep -Eq 'Status: *\**(agreed|draft)\** *$' "$D"
 
+# Amendment of DoD 2 (fix round 3, 21 Oct 2026): look first, in order of precedence.
+# heading_section <regex> <file>: the lines under the first heading matching regex (any level),
+# up to the next heading of the same or a higher level.
+heading_section() { awk -v re="$1" '/^#+ /{ match($0,/^#+/); l=RLENGTH; if(p&&l<=lv) exit; if(!p&&tolower($0)~re){p=1;lv=l;next} } p' "$2"; }
+joined() { tr '\n' ' ' | tr -s ' \t' '  '; }
+heading_section 'look first' "$S" > "$W/look"; joined < "$W/look" > "$W/look1"
+heading_section 'fallback' "$S" | joined > "$W/fall1"
+heading_section 'what was found' "$D" | joined > "$W/found1"
+O=$P/skills/onboard/SKILL.md
+joined < "$O" > "$W/onboard1" 2>/dev/null
+first() { grep -niE -- "$1" "$W/look" | head -1 | cut -d: -f1; }
+in_order() { prev=0; for re in "$@"; do n=$(first "$re"); [ -n "$n" ] && [ "$n" -gt "$prev" ] || return 1; prev=$n; done; }
+t "design skill: a Look first section" test -s "$W/look"
+t "Look first: names PROJECT.md" grep -qF 'PROJECT.md' "$W/look1"
+t "Look first: reads its Design guide: line" grep -qF 'Design guide:' "$W/look1"
+t "Look first: guide, then supplied designs, then the local site, then accessible defaults, in that order" \
+  in_order 'design guide' 'suppl' 'local site' 'accessible default'
+t "Look first: the local site is always looked at if it exists" grep -qiE 'always.{0,120}exist' "$W/look1"
+t "Look first: with none, the spec and the client's brand assets" grep -qiE 'spec.{0,160}brand|brand.{0,160}spec' "$W/look1"
+t "Look first: no Design guide: line counts as unknown" grep -qiE 'unknown' "$W/look1"
+t "Look first: asks the developer once" grep -qiE 'Design guide.{0,300}once' "$W/look1"
+t "Look first: a supplied design that conflicts with the guide: ask" grep -qiE 'conflict.{0,160}ask|ask.{0,160}conflict' "$W/look1"
+t "Look first: supplied designs checked against P32 to P39" grep -qiE 'suppl.{0,300}P32' "$W/look1"
+t "Look first: failures raised, not overridden" grep -qiE 'overrid' "$W/look1"
+t "Look first: a non-web output (PDF) to its page size" grep -qiE 'PDF.{0,200}page size|page size.{0,200}PDF' "$W/look1"
+t "Look first: page sizes in pt or mm" grep -qE '(^|[^a-z])(pt|mm)([^a-z]|$)' "$W/look1"
+t "Fallbacks: no Chrome, screenshots or URLs of the site if it exists" grep -qiE 'screenshot.{0,200}exist' "$W/fall1"
+t "DESIGN.md template, What was found: the sources used" grep -qiE 'source' "$W/found1"
+t "DESIGN.md template, What was found: which were missing" grep -qiE 'missing' "$W/found1"
+t "onboard/SKILL.md: PROJECT.md gains a Design guide: line" grep -qF 'Design guide:' "$O"
+t "onboard/SKILL.md: the Design guide: line is none when the repo has none" grep -qE 'Design guide:.{0,300}none' "$W/onboard1"
+
+# Amendments of 21 Oct 2026 (the last two rows): a guide outside the repo, and a supplied design
+# that fails P32 to P39. Keyed to the amendments' words: WebFetch, Artifact read, read-only, login,
+# smallest passing change, waiver, draft until it passes.
+joined < "$S" > "$W/skill1"
+heading_section 'may not' "$S" | joined > "$W/may1"
+t "design skill: a may / may not section" test -s "$W/may1"
+t "Look first: a guide given as a URL is read with WebFetch" grep -qF 'WebFetch' "$W/look1"
+t "Look first: a URL that needs a login: save it into the repo or paste it" \
+  grep -qiE 'login.{0,240}(repo|paste)|(repo|paste).{0,240}login' "$W/look1"
+t "Look first: a design system artifact link is read with Artifact read" \
+  grep -qE 'Artifact[^[:alnum:]]{1,4}read' "$W/look1"
+t "Look first: reading a guide outside the repo is read-only" grep -qiE 'read-only' "$W/look1"
+t "may / may not: WebFetch named" grep -qF 'WebFetch' "$W/may1"
+t "may / may not: Artifact read named" grep -qE 'Artifact[^[:alnum:]]{1,4}read' "$W/may1"
+t "design skill: Chrome stays on the local site only" grep -qiE 'Chrome.{0,160}(only|never)|(only|never).{0,160}Chrome' "$W/skill1"
+# after_term <term> <window> <regex> <file>: some window of <window> characters starting at an
+# occurrence of <term> (lower case) matches <regex>. (Two bounded gaps in one grep -E are too
+# complex for some greps, so this is awk.)
+after_term() { awk -v t="$1" -v n="$2" -v re="$3" '{ s=tolower($0); while ((i=index(s,t))>0) { if (substr(s,i,n) ~ re) f=1; s=substr(s,i+1) } } END { exit !f }' "$4"; }
+# Keyed to the supplied-design wording, so "Report what fails ... with the values" (the released
+# first step's text, about the site) does not satisfy it.
+t "Look first: each failure of a supplied design raised with its values" \
+  after_term 'supplied design' 300 'raise.*value' "$W/look1"
+t "Look first: the supplied-design sentence is about not changing it on her own" \
+  after_term 'supplied design' 120 'own' "$W/look1"
+t "Look first: proposes the smallest passing change" grep -qiE 'smallest.{0,120}pass|pass.{0,120}smallest' "$W/look1"
+t "Look first: the developer chooses the fix" grep -qiE '(choos|pick|decid).{0,120}(fix|change)' "$W/look1"
+t "design skill: keeping a failure on purpose is a waiver for PIE" grep -qiE 'waiver.{0,240}PIE|PIE.{0,240}waiver' "$W/skill1"
+t "design skill: DESIGN.md stays Status: draft until the design passes" grep -qiE 'draft.{0,200}until.{0,200}pass' "$W/skill1"
+heading_section 'hand back' "$S" | joined > "$W/hand1"
+t "Hand back: a design that stays draft is handed back as 'Design not agreed:'" grep -qF 'Design not agreed' "$W/hand1"
+t "Hand back: 'Design not agreed' names the open failures" grep -qiE 'Design not agreed.{0,300}fail' "$W/hand1"
+t "Hand back: and their values" grep -qiE 'values' "$W/hand1"
+t "Hand back: the visual parts can't be briefed until a fix is chosen or PIE waives" \
+  grep -qiE 'visual.{0,300}waive|waive.{0,300}visual' "$W/hand1"
+
+# Amendment of Q1 (last Amendments row, 21 Oct 2026): a standalone run is a DESIGN.md (draft or
+# agreed) when no brief has been started (BRIEF.md has no Outcome yet). A draft design in a step
+# Ada started is that step's design, not agreed yet: Ada doesn't re-confirm its requirements, and
+# the visual parts wait for a fix or a PIE waiver. Keyed to the amendment's words: Outcome,
+# started, re-confirm, "Design not agreed", waive.
+joined < "$B" > "$W/begin1"
+t "begin/SKILL.md: standalone is decided by no brief started, the BRIEF.md Outcome (Q1 amended)" \
+  grep -qiE 'standalone.{0,300}Outcome|Outcome.{0,300}standalone' "$W/begin1"
+t "begin/SKILL.md: a draft design in a step Ada started is that step's design (Q1 amended)" \
+  grep -qiE 'draft.{0,300}started|started.{0,300}draft' "$W/begin1"
+t "begin/SKILL.md: Ada doesn't re-confirm a draft design's requirements in a started step (Q1 amended)" \
+  grep -qiE "(n.?t|not|never) +(re-?confirm|confirm.{0,40}again)" "$W/begin1"
+t "begin/SKILL.md: 'Design not agreed' is handled (Q1 amended)" grep -qF 'Design not agreed' "$W/begin1"
+t "begin/SKILL.md: the visual parts wait for a fix or a PIE waiver (Q1 amended)" \
+  grep -qiE 'visual.{0,300}waiv|waiv.{0,300}visual' "$W/begin1"
+
 # DoD 10: docs.
 t "README: team row for **Iris**, the designer" grep -qF '| **Iris**, the designer' README.md
 t "README: Use it has a /ada:design row" in_section '## Use it' README.md '^\| *`/ada:design`'
@@ -201,9 +285,12 @@ item must be found, under a heading a reader would look in. The words in quotes 
    P32 to P39 are the bar.
 2. She reads the draft brief's outcome, Definition of Done and out of scope, and does not ask the
    developer those again.
-3. Look first: with Claude in Chrome, screenshots of the current pages on the **local** site at
-   320, 768 and 1280px, measured against P32 to P39, failures reported before any proposal.
-   Without Chrome, she asks for screenshots or URLs.
+3. Look first, in order of precedence (Definition of Done 2 as amended, fix round 3; items 33 to
+   44 hold the detail): the project's design guide, designs the developer supplies, then the
+   existing **local** site, always looked at if it exists: with Claude in Chrome, screenshots of
+   its current pages at 320, 768 and 1280px, measured against P32 to P39, failures reported
+   before any proposal; without Chrome, she asks for screenshots or URLs of it. With none of
+   these, the spec and the client's brand assets, else accessible defaults, said plainly.
 4. The canvas: Artifact `quickstart` with intent `design`, then a publish with the `type_url` the
    quickstart returns. No type URL written into the skill; nothing points at claude.ai/design.
    The artifact holds the current page beside 2 or 3 options at mobile and desktop widths; the
@@ -216,7 +303,8 @@ item must be found, under a heading a reader would look in. The words in quotes 
 7. Sign-off: when the developer picks a design, she checks it against P32 to P39, fixes any
    failure, and says what she changed.
 8. She writes `.claude/handoff/DESIGN.md` (its sections as in the template), with `Status: agreed`
-   once the developer has picked a design (`draft` before that), and hands back to Ada.
+   once the developer has picked a design (`draft` before that, and `draft` until the design passes P32 to P39: item 49), and hands back
+    to Ada.
 9. Standalone use: at her start she checks `CHECKPOINT.md`. A finished step is archived first
    (`ada-handoff-init --archive`, as begin's session start does), so her `DESIGN.md` lands in a
    fresh set; an open step means she says so and stops (design for that step goes through Ada,
@@ -226,9 +314,12 @@ item must be found, under a heading a reader would look in. The words in quotes 
 10. Back to design partway through a step: she designs only the new part, in the same artifact,
     and updates `DESIGN.md`.
 11. The three fallbacks: no Design type (text spec in `DESIGN.md`, no canvas or iteration, the
-    rest the same); no Chrome (screenshots or URLs; Tess's comparison is "not verified"); small
+    rest the same); no Chrome (screenshots or URLs of the site, if it exists; Tess's comparison
+    is "not verified"); small
     tweaks (she says it doesn't need her and points to `/ada:begin`).
-12. May: read the repo and the local site in Chrome; create and update Design artifacts.
+12. May: read the repo and the local site in Chrome; read a design guide held as a URL (WebFetch)
+    or as a design system artifact link (Artifact `read`), read-only (items 45 to 47); create and
+    update Design artifacts.
     May not: change code, the live site or customer data; publish or share an artifact beyond the
     developer; copy another organisation's branding (she uses the client's own assets, from the
     repo or a brand kit the developer supplies).
@@ -246,9 +337,12 @@ item must be found, under a heading a reader would look in. The words in quotes 
     copies `DESIGN.md`'s "The agreed design" into Constraints. When `ada-brief who` says
     `required`, Ada asks the developer to share the artifact with the approver (the developer's
     decision, not Iris's or Ada's). (Amendment Q4)
-17. A standalone run is a `DESIGN.md` saying `Status: draft`, or `Status: agreed` with no brief
-    written yet: Ada confirms its requirements with the developer before writing the brief. The
-    blank template (neither) triggers nothing. (Amendment Q1)
+17. A standalone run is a `DESIGN.md` (`Status: draft` or `Status: agreed`) while no brief has been
+    started, that is, `BRIEF.md` has no Outcome yet: Ada confirms its requirements with the
+    developer before writing the brief. The blank template (neither) triggers nothing. A `draft`
+    design in a step Ada started is that step's design, not agreed yet: Ada doesn't re-confirm
+    its requirements, and the visual parts wait for a fix or a PIE waiver. (Amendment Q1, as
+    amended on 21 Oct 2026)
 18. Partway through a step, as the source's table says: when the test passes, Ada pauses the step
     and offers Iris; Iris designs only the new part; Ada updates the brief, which needs approving
     again. When it fails (an existing pattern, unchanged), Ada adds a line to the brief naming the
@@ -301,11 +395,75 @@ item must be found, under a heading a reader would look in. The words in quotes 
 32. The `file:line` references to `skills/begin/SKILL.md` and `bin/ada-handoff-init` in
     `SYSTEM.md`, `API.md` and `DEVELOPING.md` still point at the lines they describe.
 
+**Look first, as amended** (Definition of Done 2 as amended on 21 Oct 2026; the brief's fix round
+3). In `plugins/ada/skills/design/SKILL.md` unless another file is named:
+
+33. Look first is written as steps in precedence order: the design guide first, then designs the
+    developer supplies, then the local site, then the fallbacks (item 39). Part A checks the
+    order of first mention; here, check that a reader following the steps would take them in
+    that order.
+34. The guide comes from `PROJECT.md`'s `Design guide:` line, which holds a path in the repo, a
+    URL, a design system artifact link, or `none`. With `none`, she has no guide and doesn't ask
+    for one.
+35. A `PROJECT.md` with no `Design guide:` line (onboarded before this change) counts as unknown:
+    she asks the developer, once, and doesn't ask again later in the same run.
+36. A supplied design that conflicts with the guide: she asks the developer which to follow; she
+    doesn't choose.
+37. Supplied designs are checked against P32 to P39, and failures are raised with the developer,
+    not overridden: she doesn't quietly change a supplied design to pass. (Contrast item 7, where
+    she fixes failures in the design the developer picks from her options, and says so.)
+38. Reading a project's guide is not making one: nothing tells Iris to write or extend a design
+    guide or design system for the client (out of scope).
+39. With none of the sources, the spec and the client's brand assets, else accessible defaults,
+    and she says plainly which she is working from.
+40. A non-web output (a PDF) is designed to its page size (for example A4, with sizes in pt or
+    mm), in place of 320, 768 and 1280.
+41. The fallbacks section agrees with Look first: without Chrome, screenshots or URLs of the
+    site if it exists; nothing asks for screenshots of a site that doesn't exist.
+42. `plugins/ada/templates/handoff/DESIGN.md`, "What was found": says to record which sources
+    were used and which were missing.
+43. `plugins/ada/skills/onboard/SKILL.md`: the drafted `PROJECT.md` gains a `Design guide:`
+    line, drafted from what is in the repo (a guide, a style guide, a design system link), else
+    `none`, for the developer to correct.
+44. Wherever `SYSTEM.md`, `API.md`, `TEST-AREAS.md` row 13 or the CHANGELOG bullet describe look
+    first, they give the amended order and the non-web case, not only "the local site at 320,
+    768 and 1280px". If none of them describes look first, write "none describes it": that is a
+    pass.
+
+**Reading a guide outside the repo, and failing supplied designs** (the last two rows of the
+brief's Amendments, 21 Oct 2026, agreed by Neil). In `plugins/ada/skills/design/SKILL.md`:
+
+45. A guide held as a URL: she reads it with WebFetch, read-only. If it needs a login, she asks
+    the developer to save it into the repo or paste it; she doesn't ask for credentials.
+46. A guide held as a design system artifact link: she reads it with Artifact `read`, read-only,
+    not with WebFetch. Nothing tells her to update, publish or comment on that artifact.
+47. Chrome stays on the local site only: nothing tells her to open a guide's URL or artifact link
+    in Chrome. The may / may not section (item 12) agrees: it names WebFetch and Artifact `read`
+    for guides, and the repo and the local site in Chrome.
+48. A supplied design that fails P32 to P39: she raises each failure with the developer with its
+    rule and values (colours and ratio, sizes) and proposes the smallest passing change. Nothing
+    lets her change a supplied design on her own. The developer chooses the fix or takes it to
+    the client.
+49. `DESIGN.md` stays `Status: draft` until the design passes; it becomes `agreed` only after a
+    passing fix is chosen. Keeping a failure on purpose is a P-rule waiver for PIE, and the skill
+    says it is not settled in the session: nothing tells her to mark a failing design `agreed`. In Hand back to Ada, a design that stays `draft` is
+    handed back as "Design not agreed:", naming the open failures and their values and saying the
+    visual parts can't be briefed until a fix is chosen or PIE waives; Ada doesn't finish the
+    brief from it.
+50. Items 7 and 48 don't contradict: the first is her own options (she fixes failures, and says
+    what she changed); the second is a design the developer supplied (she proposes, and the
+    developer chooses). Read Sign-off and Look first together and check a reader could tell which
+    applies.
+51. The Fallbacks section (item 11) still agrees: with no Chrome she still asks for screenshots or
+    URLs of the local site if it exists; the guide URL and artifact routes don't need Chrome.
+
 ## Expected
 
-Part A: every line `PASS`, last line `0 failed`, exit 0. Part B: all 32 items found. Sources: the
+Part A: every line `PASS`, last line `0 failed`, exit 0. Part B: all 51 items found. Sources: the
 brief (Decisions, Constraints, Build order, Definition of Done 1 to 7, 10 and 12, and its
-Amendments Q1 to Q5, agreed by Neil on 21 Oct 2026) and the source
+Amendments Q1 to Q6, the amended Definition of Done 2 with its fix round 3, and the two later rows
+on guides outside the repo and on failing supplied designs, all agreed by Neil on 21 Oct 2026)
+and the source
 spec it includes (`IRIS-SOURCE-BRIEF.md`: the flow, the test, the `DESIGN.md` sections, may and may
 not, fallbacks).
 

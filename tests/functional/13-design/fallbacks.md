@@ -15,7 +15,8 @@ checkout). Each case is a fresh session; put `.claude/handoff/` back afterwards.
 - Case A: an account or session whose `quickstart` doesn't offer the Design type. If none is to
   hand, use a normal session and tell Iris at the start: "For this test, treat the Design type as
   missing: quickstart doesn't offer it." Note which in the Run record.
-- Case B: Claude in Chrome **not** connected (extension off, or `/chrome` disconnected).
+- Case B: Claude in Chrome **not** connected (extension off, or `/chrome` disconnected), on a project
+  whose local site exists.
 - Case C: anything.
 
 ## Steps
@@ -36,7 +37,7 @@ checkout). Each case is a fresh session; put `.claude/handoff/` back afterwards.
    into the brief's Constraints. Ada doesn't ask you to share an artifact (there is none). If the
    step reaches the PR gate, `PR.md` has `Design: text only, in the brief`. (DoD 2, the
    fallbacks; DoD 11, run 4; Amendments Q4, Q5)
-2. Case B: she asks for screenshots or URLs instead of opening a browser, and works from what you
+2. Case B: she asks for screenshots or URLs of the site instead of opening a browser, and works from what you
    give her. Later, in any build of this design, Tess's design comparison is "not verified" in
    `TEST-REPORT.md`. (DoD 2; DoD 6)
 3. Case C: she says this doesn't need her and points you to `/ada:begin`. No artifact, no
@@ -49,3 +50,4 @@ The terminal; `.claude/handoff/DESIGN.md`; claude.ai's artifact list (nothing ne
 ## Regression
 
 With the Design type available and Chrome connected, dry run 1 still takes the canvas route.
+With no site at all, she asks for no screenshots or URLs of one: `look-first-sources.md`, case A.
