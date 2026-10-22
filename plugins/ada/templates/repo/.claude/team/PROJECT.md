@@ -10,6 +10,7 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 - **Client:** <name>. Approves: <who>. Releases: <who>.
 - **People:** <PIE developers>, <client developers>
 - **Known issues live in:** <Asana project name and URL>. Search it before investigating a bug.
+- **Design guide:** `none` <or a path in the repo, a URL, or a design system artifact link>
 
 ## Code and branches
 

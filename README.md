@@ -15,9 +15,11 @@ builds it, reviews it and tests it, and gives you a pull request (PR) for PIE to
 | **Claudia**, the reviewer | Reviews Bob's code against PIE's standards and the project's rules. |
 | **Tess**, the tester | Writes tests from the brief. Runs them. Reports what she checked and what she didn't. |
 | **Grace**, the bug hunter | Finds the cause of a problem on the live site, reading production only. Hands her findings to Ada. |
+| **Iris**, the designer | Designs what people will see, as options on a Claude Design canvas, with you. Checks it meets the accessibility rules. Hands the agreed design to Ada. |
 
-In a build you talk only to Ada. She gets the other agents to do their work. For a problem on the
-live site, you talk to Grace first (`/ada:bughunt`).
+In a build you talk only to Ada. She gets the other agents to do their work. When a change needs
+designing, Ada brings Iris in, and you work with Iris on the design in the same session. For a
+problem on the live site, you talk to Grace first (`/ada:bughunt`).
 
 ## Get started
 
@@ -69,6 +71,7 @@ nobody does it again.
 | `/ada:begin` | Start a piece of work. Give Ada the Asana task. |
 | `/ada:pickup` | Continue work from where you stopped. |
 | `/ada:bughunt` | Have Grace find the cause of a problem on the live site, before anything is built. |
+| `/ada:design` | Have Iris design something with no build behind it yet, such as concepts for a proposal. For a build, `/ada:begin` brings her in. |
 
 ### What happens in a step
 

@@ -1,11 +1,24 @@
 # Tests
 
-This repo has no automated test suite and no committed test scripts: it is bash, Python and
-markdown, with no site to drive. Tess's test plan (`TEST-PLAN.md`) lists the checks for a step,
-and she runs them by hand and reports them in `TEST-REPORT.md` (P29). Her reasons for any
-Definition of Done item with no automated test go there too.
+This repo has no automated test suite: it is bash, Python and markdown, with no site to drive.
+Tess's test plan (`TEST-PLAN.md`) lists the checks for a step, and she runs them and reports them
+in `TEST-REPORT.md` (P29). Her reasons for any Definition of Done item with no automated test go
+there too.
 
-There are no unit tests (no PHPUnit, no `tests/unit/`) and no functional scripts.
+There are no unit tests (no PHPUnit, no `tests/unit/`).
+
+## Functional scripts
+
+`tests/functional/<area number>-<area>/<slug>.md`, one per behaviour, numbered by the areas in
+`.claude/team/TEST-AREAS.md`. Each has a Precondition, Steps, Expected, Observe at and Regression,
+and a `Last run` line.
+
+- Script checks carry a self-checking shell block: save it outside the repo, run it with
+  `REPO=<this checkout> bash check.sh`, and read the `PASS` / `FAIL` lines and the exit code. They
+  make their own scratch repos and compare with the released plugin exported from
+  `origin/next-release`.
+- Skill and agent checks are dry runs for a person, with the prompts to give and the files to
+  open.
 
 ## Static checks
 
@@ -16,7 +29,8 @@ bash -n plugins/ada/bin/<script>
 python3 -m py_compile .github/scripts/release-bump.py
 ```
 
-Also run changed scripts under bash 3.2 (`/bin/bash` on a Mac) as well as a current bash.
+Also run changed scripts under bash 3.2 (`/bin/bash` on a Mac, or the `bash:3.2` Docker image) as
+well as a current bash.
 
 ## Manual checks
 
