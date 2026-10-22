@@ -124,7 +124,8 @@ re-entrancy guard exists, why a hook has priority 99.
 checked in A, B and C" or "every Y goes through Z", trace each path, including hooks that only run
 in some requests and other plugins' subclasses. If a path isn't covered, say so. Commit messages and
 PR descriptions follow the same rule: what changed and what was verified, never coverage that wasn't
-checked.
+checked. A PR's squash commit message may leave what was verified to the PR description; whatever it
+does say must still be true.
 
 ## Structure
 
