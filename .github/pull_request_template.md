@@ -30,11 +30,6 @@ Paste these into the squash-merge dialog. The title is what goes on the producti
 ```text
 <what the change does and why, wrapped at 72>
 
-<where the logic lives; the tests that cover it>
-
-Verified: <…>
-Not verified: <…>
-
 Asana: <task URL>
 
 Co-authored-by: Bob (Ada and friends, Claude Code) <bob@ada.pie.co.de>

@@ -337,16 +337,15 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
      paste into the squash-merge dialog:
      - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and
        specific; it becomes the commit on production.
-     - **Message:** wrapped at 72 characters. Cover what the change does and why, as a few
-       lines or bullets. Then the functions or files where the logic lives and the tests that
-       cover them. Then one paragraph each starting `Verified:` and `Not verified:` (P20).
-       Then the `Asana:` link. End with the credit lines for every role that took part:
-       `Co-authored-by:` for Bob and Tess, `Reviewed-by:` for Claudia (the lines in Commits
-       and credit).
+     - **Message:** wrapped at 72 characters, in three parts and nothing else. First, what
+       the change does and why, as a few lines or bullets. Then the `Asana:` link. End with
+       the credit lines for every role that took part: `Co-authored-by:` for Bob and Tess,
+       `Reviewed-by:` for Claudia (the lines in Commits and credit). What was verified and
+       not verified stays in the PR description, not in this message.
 
      Write it as one commit covering the whole PR, not the step's commits pasted together.
      A new PR has no number until it's opened, so add it to the title once it has one. If a
-     fix round changes what the PR does or what was verified, update this section too.
+     fix round changes what the PR does, update this section too.
    - Open the PR into the brief's `PR into:` branch (the one `PROJECT.md` names, or a part's
      feature branch), with `gh pr create` if `gh` is available.
      If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the

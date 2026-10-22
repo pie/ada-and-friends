@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **Shorter squash commit messages**: the message in each PR's Squash commit section holds only
+  what the change does and why, the Asana link and the credit lines. The functions and tests
+  paragraph and the `Verified:` and `Not verified:` paragraphs are gone; what was verified stays
+  in the PR description. `ada-onboard refresh` offers the new PR template to onboarded repos.
 - **Iris, the designer** (`/ada:design`): when work changes what a person sees or does, Ada now
   offers a design step once "done" is pinned down. Iris designs options with you on a Claude
   Design canvas, checks the chosen one against P32 to P39, and writes `DESIGN.md`. She starts
