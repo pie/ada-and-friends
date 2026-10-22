@@ -5,7 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Shorter squash commit messages**: the message in each PR's Squash commit section holds only
+  what the change does and why, the Asana link and the credit lines. The functions and tests
+  paragraph and the `Verified:` and `Not verified:` paragraphs are gone; what was verified stays
+  in the PR description. `ada-onboard refresh` offers the new PR template to onboarded repos.
 
 ## 0.7.0, 21 Oct 2026
 
