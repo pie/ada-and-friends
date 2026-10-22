@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.8.0, 22 Oct 2026
+
 - **P20 and squash commit messages**: P20 now lets a PR's squash commit message leave what was
   verified to the PR description, so the shorter squash message meets the standard. Branch commits
   and PR descriptions still say what changed and what was verified, and whatever a squash message
