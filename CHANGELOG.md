@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **P20 and squash commit messages**: P20 now lets a PR's squash commit message leave what was
+  verified to the PR description, so the shorter squash message meets the standard. Branch commits
+  and PR descriptions still say what changed and what was verified, and whatever a squash message
+  does say must still be true.
 - **Shorter squash commit messages**: the message in each PR's Squash commit section holds only
   what the change does and why, the Asana link and the credit lines. The functions and tests
   paragraph and the `Verified:` and `Not verified:` paragraphs are gone; what was verified stays
