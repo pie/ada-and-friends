@@ -1,6 +1,7 @@
 Asana:
 Brief: <`.claude/briefs/<task id>.md`, approved by @login | approval not needed, and why>
 Plan: <none | unit <ID> of `.claude/briefs/<Epic task id>-plan.md`; ships <independent | after #PR>>
+Design: <the Design artifact link | text only, in the brief | none>
 
 <!-- A feature's last PR (feature branch into the release branch): list its parts' PRs here,
 with the smoke-test result under Tested. It is checked like a release, by a smoke test, not a
