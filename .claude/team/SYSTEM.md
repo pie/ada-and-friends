@@ -16,14 +16,19 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
   `pie`; it lists one plugin, `ada`, at `./plugins/ada` (`marketplace.json:7-8`). The version lives
   only in `plugins/ada/.claude-plugin/plugin.json:3`; `marketplace.json` has none. The marketplace
   installs straight from `main` (`DEVELOPING.md:134-136`, `release.yml:4-5`).
-- **Skills** (`skills/*/SKILL.md`): `begin`, `pickup`, `bughunt`, `onboard` are commands
-  (`/ada:begin` etc.); `planning`, `standards`, `standards-tests`, `standards-accessibility`,
-  `efficiency` are loaded or preloaded, not commands (`DEVELOPING.md:33-40`).
+- **Skills** (`skills/*/SKILL.md`): `begin`, `pickup`, `bughunt`, `design`, `onboard` are
+  commands (`/ada:begin` etc.); `planning`, `standards`, `standards-tests`,
+  `standards-accessibility`, `efficiency` are loaded or preloaded, not commands
+  (`DEVELOPING.md`, Layout). `design` (Iris) runs in the main session, usually loaded by Ada from
+  `begin` or `planning`.
 - **Agents** (`agents/*.md`): `bob`, `claudia`, `tess`, spawned as `ada:bob` etc.
-  (`DEVELOPING.md:52`, `skills/begin/SKILL.md:116-117`). Each has a `tools:` allowlist
+  (`DEVELOPING.md:52`, `skills/begin/SKILL.md:184-185`). Each has a `tools:` allowlist
   (`agents/bob.md:6`, `agents/claudia.md:6`, `agents/tess.md:6`). Tess's also has `ToolSearch` and
   the Claude in Chrome tools (`mcp__claude-in-chrome__*`), for local checks the developer asks her
   to run (`agents/tess.md`, Running local checks yourself).
+- **Subagents and the canvas.** No agent's `tools:` list has Artifact, so only the main session
+  (Ada, and Iris in `skills/design/SKILL.md`) reaches a Design artifact. Bob, Claudia and Tess
+  work from `.claude/handoff/DESIGN.md` instead. Don't add Artifact to an agent to change this.
 - **Scripts** (`bin/`): on the Bash PATH while the plugin is enabled (`DEVELOPING.md:42,53`):
   `ada-brief`, `ada-plan`, `ada-size`, `ada-handoff-init`, `ada-onboard`, `prod-wp`. Each is bash
   with Python 3.8+ heredocs.
@@ -36,7 +41,8 @@ State the scripts read and write, in an onboarded project:
 |---|---|---|
 | `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:66-93`) |
 | `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:65-71`, `90-93`) |
-| `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, FINDINGS, REVIEW-*, TEST-*) | `ada-handoff-init` copies; roles fill | the roles |
+| `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*) | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
+| `.claude/handoff/plan/DESIGN-<task id>.md` | Iris, in a plan: the only file she writes then, and `DESIGN.md` stays the template (`skills/design/SKILL.md`, Write DESIGN.md) | Ada, who copies it to `DESIGN.md` when a unit that names it is built (`skills/planning/SKILL.md`) |
 | `.claude/handoff/archive/<name>/` | `ada-handoff-init --archive` / `--archive-plan` (`bin/ada-handoff-init:21-42`) | people |
 | `.claude/handoff/plan/PLAN.md` and `plan/<task>.md` | `ada-plan init` / `briefs` (`bin/ada-plan:47-53`, `186-209`) | `ada-plan`, `ada-brief submit` |
 | `.claude/briefs/<task>.md`, `.claude/briefs/<epic>-plan.md` (committed) | `ada-brief submit` (`bin/ada-brief:390-418`) | `ada-brief status`/`body` via `git show` (`bin/ada-brief:117-119`, `463`) |
@@ -60,7 +66,10 @@ it, or (in this repo only) a push to `main` runs the Release workflow.
    check the working tree with `git status` / `git reflog -5` (`:47-54`); branch (`:55-57`);
    `ada-onboard refresh` (`:58-63`).
 2. Brief (`:91-124`): one PR or a plan (`ada:planning`); `.claude/handoff/BRIEF.md` with an
-   `Expected review:` level.
+   `Expected review:` level. Before the rest of the brief, once "done" is pinned down, Ada
+   applies the design test (begin, The design step); when it passes she offers the design step
+   and loads `ada:design`, and finishes the brief from `DESIGN.md`. The same test runs again if
+   undesigned UI turns up during the build.
 3. Approval (`:129-151`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
    opens a draft PR and the session stops until `ada-brief status` says `approved`. Amendments are
    resubmitted (`:159-160`).
@@ -124,7 +133,7 @@ Traps:
   it that way.
 - **`gh pr create` errors are swallowed** (`:430`, `2>/dev/null`): only "couldn't open the draft
   PR" reaches the user.
-- **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/SKILL.md:145-153`),
+- **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/SKILL.md:213-220`),
   by `submit` (`:383-387`) and by `ada-plan status` (`bin/ada-plan:257`). Don't change its words.
 - **The Asana block** is found by a fixed English sentence (`:312`); if Asana changes it, the
   block is dropped on the next description replace.
@@ -272,6 +281,15 @@ Traps:
 - The skills and agents are the product: wording changes in them change behaviour in every
   onboarded repo on the next release. Words that scripts parse (brief headings, `Approval:`,
   `Plan:`, status lines) are interfaces; see `API.md`.
+- `.claude/handoff/DESIGN.md` always exists once `ada-handoff-init` has run, as `FINDINGS.md`
+  does, so "is there a design?" is read from its `Status:` line, never from the file being
+  there. The roles work to it only at `Status: agreed`; `/ada:begin` reads `draft` or `agreed` as
+  a standalone `/ada:design` run only when no brief has been started (`BRIEF.md` has no Outcome
+  yet). A `draft` design in a step Ada started is that step's design, not agreed yet: she doesn't
+  confirm its requirements again, and its visual parts wait for a fix or a PIE waiver. The
+  template's own line, `Status: draft | agreed | superseded`, means no design. When the developer
+  says a standalone design isn't for this task, Ada sets it to `Status: superseded`; it stays
+  until the step is archived, and the roles ignore it.
 - `templates/repo/` is PHP/WordPress-shaped (`phpunit.xml.dist`, `tools/composer.json`,
   `tests/unit/TestCase.php`). This repo was onboarded with them; its own knowledge files say
   where they don't apply.

@@ -26,7 +26,11 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
    handoff templates in). Never write the templates out yourself.
 5. If `.claude/handoff/FINDINGS.md` exists and the developer is starting the fix it describes,
    read it. The cause, the scope and the code fix section are your starting point, and the
-   Definition of Done includes the failure it records no longer happening.
+   Definition of Done includes the failure it records no longer happening. If
+   `.claude/handoff/DESIGN.md` says `Status: draft` or `Status: agreed` while `BRIEF.md` has no
+   Outcome yet, a standalone `/ada:design` ran: confirm its requirements before you write the
+   brief (The design step). The template's own line, `Status: draft | agreed | superseded`,
+   means there is no design.
 6. If `.claude/handoff/CHECKPOINT.md` exists, read it.
    - **Its step is finished** (its PR is merged or closed, or it says the step was shelved): say
      so in one line ("previous step finished: PR #N merged; archiving it") and run
@@ -73,7 +77,9 @@ Two modes.
   small diagnosis, read logs, notes and the code path yourself. Check the known-issues project in
   `PROJECT.md` for a matching open task before you go deep.
 - **Direction:** when something is wanted, pin down what "done" looks like in observable terms
-  before you write the brief.
+  before you write the brief. Work out with the developer who it's for, what "done" looks like
+  and what's out of scope, and write them into the draft `BRIEF.md` (Outcome, Definition of Done,
+  Out of scope). Then apply the design test (The design step, below) before you write the rest.
 
 Push back when the request fights the system: a rule reimplemented somewhere new, a write around
 the owning class, something `SYSTEM.md` warns against. Offer the shape that fits, and say why.
@@ -87,6 +93,68 @@ severity of a review finding.
 - a data repair;
 - a template override version bump;
 - any trade-off between scope and time.
+
+#### The design step
+
+**The test.** Apply it word for word:
+
+> **Offer a design step when the work adds or changes something a person sees or does:** a new page, section or component; a change to layout, to the order of steps in a flow, or to what shows at which screen size; or a new state (an error, an empty list, a confirmation) with no existing pattern on the site to follow.
+>
+> **Don't offer it when:** the work is back-end only; it changes only the wording; it reuses an existing component or pattern unchanged; or it only fixes something to meet P32 to P39 or to match a design already agreed.
+>
+> **If you're unsure, ask yourself:** would two good developers, given this brief, build things that look noticeably different? If yes, offer the design step.
+
+**The offer.** When the test says so, offer it in one line that names what changes, e.g. "This
+changes the checkout layout. Shall Iris design it before I write the brief?" On yes, load the
+`ada:design` skill (Skill tool): Iris takes over in this session, reads the draft brief, and hands
+back once `.claude/handoff/DESIGN.md` says `Status: agreed`. On no, write the brief as usual. When
+the test says not to offer it, don't mention design.
+
+**A design from a standalone run.** `ada-handoff-init` always puts a `DESIGN.md` in place, so
+look at its `Status:` line, not whether it exists. The template's own line,
+`Status: draft | agreed | superseded`, means there is no design. A standalone run is a
+`DESIGN.md` saying `draft` or `agreed` when no brief has been started (`BRIEF.md` has no Outcome
+yet): `/ada:design` ran on its own before this step. Before you write the brief, check with the
+developer that the design is for this task. If it isn't, set it to `Status: superseded`: it
+stays until the step is archived, and the roles ignore it. If it is, go through its requirements
+("The problem") with them, item by item: they are a draft, not agreed. If the design is only
+`draft`, offer Iris to finish it. A `draft` design in a step you started (the brief has its
+Outcome) is that step's design, not agreed yet: don't confirm its requirements again, and its
+visual parts wait until the developer chooses a fix or PIE waives the rule.
+
+**Finish the brief from `DESIGN.md`.** Only from `Status: agreed`: when Iris hands back "Design
+not agreed:", the visual parts wait until the developer chooses a fix or PIE waives the rule. Bob,
+Claudia and Tess never open the canvas, so the brief carries what they need from it:
+
+- **Constraints:** "`DESIGN.md` is the spec for the UI", the artifact link, and a summary of the
+  agreed design in a few lines. For a text-only design (`Artifact: text only`), copy its "The
+  agreed design" section into the Constraints, so the design travels with the brief.
+- **Build order:** in the order the design builds up (shared tokens and styles, then each
+  component, then its states).
+- **Definition of Done:** an observable item for each state and each breakpoint the design
+  specifies, so Tess can check it and Claudia can trace it.
+
+The approver sees the design with the brief. The artifact is private, so when `ada-brief who`
+says `required`, ask the developer to share it with the approver: who sees it is their decision,
+not yours or Iris's.
+
+**Back to design partway through a step.** UI that nobody thought was needed can turn up at any
+point. Whoever finds it, you apply the test:
+
+| Who finds it | What happens |
+|---|---|
+| You, writing the brief | Offer the design step there and then. |
+| Bob, building | He stops that part and records `UI not specified: <what>` in `REVIEW-REQUEST.md`. |
+| Claudia, reviewing | She raises unspecified UI as Must Fix, citing the test. |
+| Tess, planning tests | She flags, under Escalate, a Definition of Done item that assumes UI no one has designed. |
+
+- **If the test passes:** pause the step and offer Iris. She designs only the new part, in the
+  same artifact, and updates `DESIGN.md`. Then amend the brief from it (the Amendments rules
+  below): it needs the developer's yes again, and approving again if the project needs approval.
+  `ada-brief` already requires this, because only an approval given after the brief last changed
+  counts.
+- **If it fails** (the UI reuses an existing pattern unchanged): add a line to the brief's
+  Constraints naming the pattern and where it is used, and the step carries on.
 
 ### 2. Direct Bob, Claudia and Tess
 
@@ -174,13 +242,17 @@ for fix rounds, spawn afresh with a prompt that names only what to read.
    One spawn, so she reads the brief and `TEST-AREAS.md` once. Then check every Definition of
    Done item has a test type, or a reason it can't have one; for a gap, continue her with what's
    missing. The tests come from the brief, not the code, so this runs alongside Bob's plan. Bob
-   builds against them and doesn't change them.
+   builds against them and doesn't change them. If she flags a Definition of Done item that
+   assumes undesigned UI, apply the test (The design step, Back to design partway through a
+   step) before Bob builds that part.
 2. **Bob.** `Agent(subagent_type: "ada:bob", prompt: "Build step N. Read .claude/handoff/BRIEF.md and follow your role file.")`
    For non-trivial work Bob writes a plan into the brief and stops. Read it; approve or redirect
    in the brief; continue Bob with "Plan approved; build it." if you approve at once, or spawn him
 again if the developer had to be asked. No code until you have approved.
 3. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`:
    `Agent(subagent_type: "ada:claudia", prompt: "Review step N. Read .claude/handoff/REVIEW-REQUEST.md and follow your role file.")`
+   If any `UI not specified:` line says anything but `none`, apply the test first (The design
+   step, Back to design partway through a step); Claudia reviews once the brief covers that UI.
 4. **Loop.** Must Fix → spawn Bob: `Agent(subagent_type: "ada:bob", prompt: "Fix round for step N. Read only .claude/handoff/REVIEW-FEEDBACK.md (Must Fix) and the code it names; follow Fix rounds in your role file.")`
    Then spawn Claudia for the re-review, on Sonnet:
    `Agent(subagent_type: "ada:claudia", model: "sonnet", prompt: "Re-review step N: follow Re-review in your role file.")`
@@ -189,10 +261,13 @@ again if the developer had to be asked. No code until you have approved.
    `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Test fixes for step N: follow Test fixes in your role file.")`
    A re-review checks only the fixed items. If she says a full review is needed (the fix went
    beyond the items, or into a fragile area), spawn her as in 3, on her own model. Escalate →
-   decide, or take it to the developer. Repeat until `Ready for PR: YES`.
+   decide, or take it to the developer. A Must Fix for unspecified UI goes through the test
+   (The design step) before Bob is spawned for it. Repeat until `Ready for PR: YES`.
 5. **Tess, run.** `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Run mode. Execute .claude/handoff/TEST-PLAN.md for step N against the current branch and write TEST-REPORT.md.")`
    Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a
-   Claudia re-review of the fix, then Tess again.
+   Claudia re-review of the fix, then Tess again. When `DESIGN.md` says `Status: agreed`, Tess's
+   design comparison needs Chrome: ask the developer whether she may run the local checks herself
+   (below). Without Chrome it is not verified.
 
 Spawn them one at a time (you may keep talking with the developer while one runs), unless they
 are independent: Tess planning and writing tests while Bob writes his plan is the only parallel
@@ -277,8 +352,9 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
      If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the
      Asana app's block):
      `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
-     `Approval:` line. Without `gh`, give the developer the compare link and the description to
-     paste. PRs are
+     `Approval:` line, and its `Design:` line from `DESIGN.md`: the artifact link, `text only, in
+     the brief` for a text-only design, or `none` when `DESIGN.md` isn't `Status: agreed`.
+     Without `gh`, give the developer the compare link and the description to paste. PRs are
      squash-merged; the `## Squash commit` section is the commit the merger pastes.
    - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
      PR), ask the developer to paste the PR's URL into the task's Apps, GitHub, "Add GitHub pull

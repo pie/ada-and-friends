@@ -1,6 +1,7 @@
 Asana:
 Brief: <`.claude/briefs/<task id>.md`, approved by @login | approval not needed, and why>
 Plan: <none | unit <ID> of `.claude/briefs/<Epic task id>-plan.md`; ships <independent | after #PR>>
+Design: <the Design artifact link | text only, in the brief | none>
 
 <!-- A feature's last PR (feature branch into the release branch): list its parts' PRs here,
 with the smoke-test result under Tested. It is checked like a release, by a smoke test, not a
@@ -58,6 +59,15 @@ Rules checked (STANDARDS.md numbers), what was found, how it was resolved.
 - Verified (with the clock time for anything date-related):
 - Not verified, and why:
 - Failed and left: none
+- Run record (copied from TEST-REPORT.md: clock time, site, IDs used, commits before and after, row counts, checks not run and why):
+
+## Manual test steps
+
+Numbered steps a person can follow in the browser to check the change by hand: where to go,
+what to do, what they should see. Say when a step only works at certain times (e.g. after 12:00
+on a Friday, or on a Sunday). "None" if there is nothing to check by hand, and why.
+
+1.
 
 ## Surfaces checked
 

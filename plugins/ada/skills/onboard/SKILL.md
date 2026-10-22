@@ -47,6 +47,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |
 | Expensive or sensitive tables, classes whose constructors write | ask, and grep for views, `CREATE VIEW` and constructors that save |
 | How local copies are made safe | ask |
+| Design guide (what Iris designs within) | a style guide or pattern library in the repo (e.g. under `docs/`, a `styleguide` folder), or a link to one in the README; else `none`, for the developer to correct with a URL or a design system artifact link |
 
 ## 3. Copy the templates and write the settings
 
@@ -84,7 +85,9 @@ Fill the templates in `.claude/team/` and the root `CLAUDE.md` from the code, it
 existing docs:
 
 - **`PROJECT.md`:** the facts from step 2. Fill every section; write "none" rather than leaving a
-  prompt.
+  prompt. Fill the `Design guide:` line under The project (add it if `PROJECT.md` was there
+  before and has none): a path in the repo, a URL, a design system artifact link, or `none`.
+  Iris reads it first when she designs (`ada:design`, Look first).
 - **`SYSTEM.md`:** the model, what fires when (hooks, scheduled actions, webhooks, cron), each
   fragile area, the environments, and the gotchas. Trace each claim to code and cite it
   (`file:line`). Mark anything you inferred but couldn't trace with *(unverified)*.
