@@ -5,6 +5,7 @@ Branch: <branch name>
 PR into: <the release branch PROJECT.md names | the feature branch this is a part of>
 Plan: <none | .claude/briefs/<Epic task id>-plan.md, Unit <ID>>
 Ships: <independent | after Unit <ID>, Unit <ID>: built once they are in production (a part: merged into the feature branch)>
+Overlaps: <none | #N: <what we're doing about it>; ...>
 Status: draft | agreed | awaiting approval | building | in review | testing | ready for PR
 Approval: <not needed (why) | approved by @login on <date> | awaiting @approvers>
 

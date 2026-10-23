@@ -10,7 +10,7 @@ precondition error with `<script>: <message>` on stderr (`die`), and needs Pytho
 
 ## Scripts (`bin/`)
 
-### `ada-brief` (`bin/ada-brief:1-41`), needs `gh` logged in
+### `ada-brief` (`bin/ada-brief:1-41`), needs `gh` logged in (`overlap` runs without it)
 
 | Subcommand | Does | Output others rely on |
 |---|---|---|
@@ -19,6 +19,7 @@ precondition error with `<script>: <message>` on stderr (`die`), and needs Pytho
 | `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`; then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:443-499`). First line read by `submit` (`:383-387`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin` (`skills/begin/SKILL.md:213-220`). |
 | `body <task-id> [<branch>]` | Prints the draft PR description for a committed brief | Markdown starting `<!-- ada-brief: .claude/briefs/<task>.md -->` (`:234`) |
 | `ready <title> <file>` | Final title and description, out of draft | `ready    <url>`; a stderr note if `gh pr ready` fails (`:521-522`) |
+| `overlap [<file>...]` | Fetches `Branch from` and `PR into` (`PROJECT.md`, defaults `production` and `next-release`); lists the work waiting to ship and the open PRs into either branch; marks entries that change a given file | **First line**: `touching <n>`, or `touching -` with no files. Then `waiting to ship:` and `open:`, each entry two-space indented: `#N <subject> [<files>]` or `<short hash> <subject> [<files>]`; `#N [draft ]<title> [<files>]`. A marked entry ends ` touches: <file>, ...`; an empty group is `  none`; without `gh` the open group is `  unknown (<reason>)`, exit 0. Read by `/ada:begin` (brief step and PR gate). |
 
 Env: `ADA_BRIEF_REQUIRE=1` makes `who` print `required` for everyone (`:12-13`).
 

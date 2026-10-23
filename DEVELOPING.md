@@ -84,6 +84,13 @@ folded away. When `ada-brief` replaces a PR's description, it keeps the block th
 To try the flow as an approver, run Claude with `ADA_BRIEF_REQUIRE=1`. Your briefs then need
 approval, and your own label counts.
 
+`ada-brief overlap [<file>...]` lists the work in flight a step could overlap. It fetches the
+`Branch from` and `PR into` branches `PROJECT.md` names. It lists the commits in `PR into` not in
+`Branch from` (one entry per PR number in a squash commit's subject), and the open PRs into either
+branch, and marks each entry that changes one of the files given. Ada runs it before confirming a
+brief and again at the PR gate. The open PRs need `gh`; without it, that group says `unknown` and
+the rest still prints.
+
 ## Plans and PR size
 
 `bin/ada-plan` reads the plan (`.claude/handoff/plan/PLAN.md`, committed as

@@ -40,7 +40,7 @@ State the scripts read and write, in an onboarded project:
 | State | Written by | Read by |
 |---|---|---|
 | `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:66-93`) |
-| `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:65-71`, `90-93`) |
+| `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:65-71`, `90-93`); `ada-brief overlap` (`branches()`) |
 | `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*) | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
 | `.claude/handoff/plan/DESIGN-<task id>.md` | Iris, in a plan: the only file she writes then, and `DESIGN.md` stays the template (`skills/design/SKILL.md`, Write DESIGN.md) | Ada, who copies it to `DESIGN.md` when a unit that names it is built (`skills/planning/SKILL.md`) |
 | `.claude/handoff/archive/<name>/` | `ada-handoff-init --archive` / `--archive-plan` (`bin/ada-handoff-init:21-42`) | people |
@@ -69,7 +69,8 @@ it, or (in this repo only) a push to `main` runs the Release workflow.
    `Expected review:` level. Before the rest of the brief, once "done" is pinned down, Ada
    applies the design test (begin, The design step); when it passes she offers the design step
    and loads `ada:design`, and finishes the brief from `DESIGN.md`. The same test runs again if
-   undesigned UI turns up during the build.
+   undesigned UI turns up during the build. Before the brief is confirmed, `ada-brief overlap`
+   with its expected files; Ada fills `Overlaps:` and stops for the developer on any overlap.
 3. Approval (`:129-151`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
    opens a draft PR and the session stops until `ada-brief status` says `approved`. Amendments are
    resubmitted (`:159-160`).
@@ -77,7 +78,8 @@ it, or (in this repo only) a push to `main` runs the Release workflow.
    (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet.
 5. Session end at each phase break (`:323-334`): `CHECKPOINT.md`, then `/ada:pickup` in a fresh
    session.
-6. PR gate (`:234-288`): `ada-size <base>`; summary; on yes, commit with role trailers
+6. PR gate (`:234-288`): `ada-size <base>`; `ada-brief overlap` again with the branch's changed
+   files, any new overlap to the developer; summary; on yes, commit with role trailers
    (`:290-307`), push, `PR.md` from the PR template including the `## Squash commit` section, then
    `gh pr create` or `ada-brief ready "<title>" .claude/handoff/PR.md` if a draft PR exists.
    Nobody on the team merges (`:288`).
@@ -117,7 +119,19 @@ How it works:
   is newer than `since`, else `waiting` (`:483-499`).
 - `ready` (`:512-523`): PATCHes title and body, keeps the Asana block, `gh pr ready`.
 - `render_body` (`:110-301`) parses the brief's headings and bullets and the plan's Units table,
-  and calls `gh pr list` once per unit (`:193-199`).
+  and calls `gh pr list` once per unit (`:193-199`). A filled `Overlaps:` header line becomes
+  `> Overlaps with work in flight: …` in the note to the approver; without the line the body is
+  as before.
+- `overlap [<file>...]`: `branches()` reads `Branch from` and `PR into` from `PROJECT.md` with
+  `ada-plan`'s `named()` regex and its defaults (`production`, `next-release`); no `PROJECT.md`
+  dies. Arguments are normalised (`\` to `/`, leading `./` dropped) and refused with `die` if they
+  start with `-` or `/`, have a `..` segment, or hold a control character such as a newline (each
+  entry is one line); any other character is accepted. It fetches both branches
+  into `origin/<name>` with explicit refspecs (a failure dies), then lists `git log --no-merges
+  --no-renames --name-only origin/<PR into> ^origin/<Branch from>`, grouped by the trailing
+  `(#N)` of each subject, and `gh pr list --base <b> --state open --limit 100 --json
+  number,title,isDraft,headRefName,files` for each branch. `need_gh` runs in a command
+  substitution, so its `die` only gives the reason printed as `unknown (<reason>)`.
 
 Traps:
 
@@ -137,9 +151,18 @@ Traps:
   by `submit` (`:383-387`) and by `ada-plan status` (`bin/ada-plan:257`). Don't change its words.
 - **The Asana block** is found by a fixed English sentence (`:312`); if Asana changes it, the
   block is dropped on the next description replace.
+- **`overlap`'s first line is an interface** read by `/ada:begin`, as are its group headings,
+  ` touches: ` and `unknown (`. Change them only with the begin skill.
+- **`overlap` reads one page.** `--limit 100` open PRs per branch, and `gh pr list` gives at most
+  100 files per PR (`files(first: 100)` in gh 2.45), so a file past that isn't marked.
+- **`overlap` leaves out PRs by head branch name.** A PR whose head has the same name as the
+  current branch is left out, even one from a fork.
+- **`overlap` with the same `Branch from` and `PR into`** has nothing waiting to ship, by
+  construction: the range is empty.
 - Parsing depends on template wording: `# Brief…:` title (`:161`, `:391`), `Plan:` line pointing
   at `.claude/briefs/<id>-plan.md` (`:181`, `:394`), `- Out of scope:` / `- Expected review:`
-  bullets under `## Constraints` (`:168-175`), `- [ ]` Definition of Done items (`:176`). A change
+  bullets under `## Constraints` (`:168-175`), `- [ ]` Definition of Done items (`:176`), the
+  `Overlaps:` line. A change
   to `templates/handoff/BRIEF.md` can silently empty parts of the PR body.
 
 Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
