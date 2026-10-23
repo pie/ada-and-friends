@@ -180,7 +180,7 @@ def add(kind, rules):
         if r not in lst:
             lst.append(r)
 add('allow', [
-    'Bash(ada-handoff-init*)', 'Bash(ada-onboard refresh)', 'Bash(prod-wp *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
+    'Bash(ada-handoff-init*)', 'Bash(ada-onboard refresh)', 'Bash(prod-wp *)', 'Bash(presstest *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
     'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',
