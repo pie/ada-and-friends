@@ -99,10 +99,15 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
 
 1. Run every **terminal** check, including the unit tests (`tests/README.md`). Record the command
    and the result.
-2. Run the **suite** checks: the project's PressTest suite, with `local-test.sh` against the site
-   under test if a presstest.io clone and Docker are to hand (`TEST-AREAS.md`). If not, hand it to
-   the developer like a local check: trigger it from WP admin → Presstest on the review site once
-   the branch is merged there, and record the report.
+2. Run the **suite** checks with `presstest run`. It runs the project's suite against the local
+   site, so make sure the site runs this step's code first (`PROJECT.md`, Local copies). Run the
+   files that cover the step (`presstest run checkout_test.js ...`; `presstest list` shows them),
+   or the whole suite if the step touches checkout or anything they share. Record the command and
+   its last line (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each
+   failure the test's name and error from the summary. If it stops before running (exit 2: no
+   clone, no Docker, the site not started), record what it printed and hand the suite to the
+   developer like a local check: `presstest run` once they've fixed it, or WP admin → Presstest on
+   the review site once the branch is merged there.
 3. For **local** checks, give Ada the exact steps and expected result for the developer to carry
    out, one check at a time, and record what they report, with the clock time used. If nobody runs
    it, it is **Not verified**, with the reason. If Ada says the developer has asked you to run
@@ -166,7 +171,8 @@ data, so:
    test-fix modes never use the browser.
    - If the Chrome tools aren't already available, load them with `ToolSearch`.
    - Open only `LOCAL_URL` from `.claude/team/local.env`, and pages under it. Read it from the
-     file; never guess it. If it is missing, stop and say so under Escalate. Never open any
+     file (`presstest config`, or only the `LOCAL_URL` line: the file also holds the developer's
+     secrets); never guess it. If it is missing, stop and say so under Escalate. Never open any
      other host.
    - The developer is already logged in to the local admin. Never fill in a login form.
    - To view the site as the user a check names, use the User Switching plugin's "Switch To"

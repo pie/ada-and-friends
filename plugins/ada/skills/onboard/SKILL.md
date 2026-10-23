@@ -47,6 +47,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |
 | Expensive or sensitive tables, classes whose constructors write | ask, and grep for views, `CREATE VIEW` and constructors that save |
 | How local copies are made safe | ask |
+| PressTest suite | the folder names under `all-tests/` in a pie/presstest.io clone, if the developer has one (ask where); then ask them to confirm which is this project's, or `none` |
 | Design guide (what Iris designs within) | a style guide or pattern library in the repo (e.g. under `docs/`, a `styleguide` folder), or a link to one in the README; else `none`, for the developer to correct with a URL or a design system artifact link |
 
 ## 3. Copy the templates and write the settings
@@ -87,7 +88,9 @@ existing docs:
 - **`PROJECT.md`:** the facts from step 2. Fill every section; write "none" rather than leaving a
   prompt. Fill the `Design guide:` line under The project (add it if `PROJECT.md` was there
   before and has none): a path in the repo, a URL, a design system artifact link, or `none`.
-  Iris reads it first when she designs (`ada:design`, Look first).
+  Iris reads it first when she designs (`ada:design`, Look first). Write the `PressTest suite:`
+  line as the suite's folder name in a code span, first on the line (`` `vandme` ``), or `none`:
+  `presstest run` reads it.
 - **`SYSTEM.md`:** the model, what fires when (hooks, scheduled actions, webhooks, cron), each
   fragile area, the environments, and the gotchas. Trace each claim to code and cite it
   (`file:line`). Mark anything you inferred but couldn't trace with *(unverified)*.
@@ -112,7 +115,10 @@ shallow line about the area that breaks is not.
    - what you drafted, and how many lines are marked *(unverified)*;
    - what you couldn't find out;
    - that **they must read and correct `SYSTEM.md` and `PROJECT.md` before the first
-     `/ada:begin`**.
+     `/ada:begin`**;
+   - if the project has a PressTest suite, that each developer adds their `PRESSTEST_*` lines to
+     `.claude/team/local.env` (`PROJECT.md`, Local copies), then checks them with
+     `presstest config`.
 4. Open the PR as `PROJECT.md` says, with `gh` if it's available. The PR description lists the
    unverified claims so the reviewer can check them.
 5. Tell them how teammates get the plugin. When they open the repo, they accept the folder trust

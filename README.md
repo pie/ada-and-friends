@@ -62,6 +62,10 @@ nobody does it again.
 5. If the project uses a local copy of the site, put your own paths and the site's URL
    (`LOCAL_URL`) in `.claude/team/local.env`. `PROJECT.md` says what goes there. This file stays
    on your machine.
+6. If the project has a PressTest suite (`PROJECT.md`, Tests), also put in `local.env` where your
+   clone of pie/presstest.io is (`PRESSTEST_DIR`) and the local site's report token
+   (`PRESSTEST_SECRET`). `presstest config` shows what it found. Then `presstest run` runs the
+   project's suite against your local site, for you or for Tess. It needs Docker.
 
 ## Use it
 

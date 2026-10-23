@@ -41,7 +41,7 @@ plugins/ada/
   skills/standards-accessibility/ P32-P39, visual accessibility (WCAG 2.2 AA), preloaded into Bob and Claudia, not a command
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
-  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp
+  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp, presstest
   templates/handoff/              the files the roles hand over through
   templates/plan/                 the plan, for work too big for one PR
   templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
@@ -52,7 +52,12 @@ plugins/ada/
 Tested 10 Oct 2026 on Claude Code 2.1.296:
 
 - Agents are spawned by their prefixed name: `ada:bob`, never `bob`.
-- `bin/` is on the PATH, so `prod-wp` ships here. Each project still allows it in its settings.
+- `bin/` is on the PATH, so `prod-wp` and `presstest` ship here. Each project still allows them in
+  its settings.
+- `presstest` runs a project's PressTest suite on the developer's local site. The suite is the
+  repo's (`PROJECT.md`); the site, the presstest.io clone and the secrets are the developer's
+  (`.claude/team/local.env`). It only tests `.local` and `.test` hosts, and only touches the
+  clone's `playwright` container, recreating it when the site's domain isn't mapped into it.
 - Reading files bundled in the plugin needs a permission rule, so the team avoids it:
   - **Shared standards** are non-invocable skills, preloaded into each agent (`skills:` in its
     frontmatter).
