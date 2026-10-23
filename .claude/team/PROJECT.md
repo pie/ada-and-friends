@@ -17,7 +17,7 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 
 - **Code:** `plugins/ada/` (agents, skills, `bin/` scripts, templates); `.claude-plugin/` (the
   marketplace); `.github/workflows/` and `.github/scripts/` (the release).
-- **Branch from:** `next-release`. **PR into:** `next-release`. **Test on:** a scratch git repo,
+- **Branch from:** `main`. **PR into:** `next-release`. **Test on:** a scratch git repo,
   or a PIE project with the plugin installed from the branch (`TEST-AREAS.md`).
   Releases: the `next-release` → `main` PR, labelled `release:major|minor|patch` (README,
   Releasing). The marketplace installs from `main`.
