@@ -3,7 +3,7 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1210681019800745/task/1219403227572186
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 23 Oct 2026, 57 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should
+- Last run: 23 Oct 2026, 59 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should. Real run on vandme.local the same day: product_type 3/3, failed_payment 1/1, whole suite 16 of 18 (no test customer set; the evening slot test expects 6-8PM, the site says 4-6PM)
 
 ## Precondition
 
@@ -54,7 +54,8 @@ printf 'customer=%s/%s\n' "${CUSTOMER_USERNAME:-}" "${CUSTOMER_PASSWORD:-}" > "$
 d="$(dirname "$0")/playwright/test-results/local-run"; mkdir -p "$d"
 printf '{"suites":[{"status":"expected"}],"stats":{"duration":1,"expected":%s,"skipped":1,"unexpected":%s,"flaky":0}}\n' "${STUB_PASSED:-2}" "${STUB_FAILED:-0}" > "$d/results.json"
 EOF
-# A stand-in docker: the container resolves a domain only after compose has started it with one.
+# A stand-in docker: the container maps a domain in /etc/hosts only after compose has started it
+# with one, though its DNS resolves anything.
 mkdir -p "$W/bin" "$W/log"
 cat > "$W/bin/docker" <<'EOF'
 #!/usr/bin/env bash
@@ -65,7 +66,8 @@ case "$1 $2" in
 esac
 if [ "$1" = exec ]; then
   case "$*" in
-    *getent*) [ -f "$STUB_LOG/mapped" ] && [ "$(cat "$STUB_LOG/mapped")" = "${*: -1}" ]; exit $? ;;
+    *getent*) exit 0 ;;  # Docker's DNS may resolve a Local domain to ::1; that must not count
+    */etc/hosts*) [ -f "$STUB_LOG/mapped" ] && case "$*" in *"d=$(cat "$STUB_LOG/mapped") "*) exit 0 ;; esac; exit 1 ;;
     *node*) exit 0 ;;
   esac
 fi
@@ -102,7 +104,8 @@ PRESSTEST_DIR=$C
 PRESSTEST_SECRET='s3cr#t'
 PRESSTEST_CUSTOMER_USERNAME=cust@example.com
 PRESSTEST_CUSTOMER_PASSWORD="pa ss#1"
-PRESSTEST_STAGING_SECRET=stg-token
+PRESSTEST_STAGING_SECRET=stg-token   # from vmestg
+PRESSTEST_STAGING_USERNAME=<admin login, optional>
 PRESSTEST_STAGING_CUSTOMER_USERNAME=stg-cust@example.com
 PRESSTEST_STAGING_CUSTOMER_PASSWORD=stg-pass
 EOF
@@ -113,6 +116,7 @@ t "config shows the staging site" grep -qx 'staging: *https://staging.shop.examp
 t "config shows the secret as (set)" grep -qx '  secret: *(set)' "$W/out"
 t "config never prints a secret" not grep -q 's3cr\|pa ss\|stg-' "$W/out"
 (cd "$R" && LOCAL_URL=http://other.test PATH="$W/bin:$PATH" bash "$PT" config) > "$W/out" 2>&1
+t "an unfilled <example> counts as unset" grep -qx '  login: *(not set)' <(sed -n '/^staging/,$p' "$W/out")
 t "the environment overrides local.env" grep -qx 'local: *http://other.test' "$W/out"
 
 # 3. list shows the suite's test files only.
@@ -139,7 +143,7 @@ rm -f "$W/log/"*
 run "$R" run
 t "run exits 0 when everything passes" test "$(rc)" = 0
 t "the container is started with the site's domain" grep -qx 'LOCAL_SITE_DOMAIN=shop.local' "$W/log/docker"
-t "only the playwright container, with the local compose file" grep -q 'compose -f docker-compose.yml -f docker-compose.local.yml up -d --no-deps playwright' "$W/log/docker"
+t "only the playwright container, rebuilt, with the local compose file" grep -q 'compose -f docker-compose.yml -f docker-compose.local.yml up -d --build --no-deps playwright' "$W/log/docker"
 t "test-results exists before Docker could make it" test -d "$C/playwright/test-results"
 t "local-test.sh gets the site" grep -qx 'https://shop.local' "$W/log/args"
 t "local-test.sh gets the whole suite" test "$(sed -n '4p' "$W/log/args")" = shop
@@ -162,7 +166,8 @@ run "$R" run --env staging checkout_test.js
 t "a staging run exits 0" test "$(rc)" = 0
 t "it says it is running on staging" grep -qx 'presstest: staging, https://staging.shop.example.com' "$W/out"
 t "local-test.sh gets the staging site" grep -qx 'https://staging.shop.example.com' "$W/log/args"
-t "local-test.sh gets the staging secret" grep -qx 'stg-token' "$W/log/args"
+t "local-test.sh gets the staging secret, without its comment" grep -qx 'stg-token' "$W/log/args"
+t "an unfilled <example> is not sent" not grep -q '<admin' "$W/log/args"
 t "the local secret is not sent to staging" not grep -q 's3cr' "$W/log/args"
 t "the staging customer is passed, not the local one" grep -qx 'customer=stg-cust@example.com/stg-pass' "$W/log/env"
 t "a running container is left alone" not grep -q compose "$W/log/docker"

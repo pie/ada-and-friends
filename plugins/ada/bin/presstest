@@ -20,9 +20,10 @@
 # environment override them. There is no production: the suites place orders.
 #
 # Everything else is the developer's own, in .claude/team/local.env (git-ignored), as KEY=value
-# lines. The file is parsed, never executed. Other keys in it are left alone, and only whole-line
-# comments are allowed, so a value may hold a #. An environment variable of the same name
-# overrides the file.
+# lines. The file is parsed, never executed. Other keys in it are left alone. A comment is a line
+# starting with #, or ` #` after an unquoted value; a quoted value may hold a #. A value still in
+# <angle brackets> is an unfilled example and counts as unset. An environment variable of the same
+# name overrides the file.
 #
 #   LOCAL_URL=https://my-site.local         the local site, on a .local or .test domain, which
 #                                           Docker can be pointed at
@@ -38,8 +39,10 @@
 #                                           to staging.
 #
 # Needs Docker. `run` starts the clone's playwright container if it isn't running. For a local
-# run it also recreates it when it can't resolve the site's domain, with that domain mapped to the
-# host (LOCAL_SITE_DOMAIN in the clone's docker-compose.local.yml). Only that container is touched.
+# run it also recreates it when the site's domain isn't mapped to the host in it, with that domain
+# mapped (LOCAL_SITE_DOMAIN in the clone's docker-compose.local.yml). Only that container is touched.
+# The container's fixed name is `playwright`; with a second clone, set COMPOSE_PROJECT_NAME to the
+# first clone's project (its folder name, e.g. presstestio) so Compose replaces it, not clashes.
 #
 # `run` ends with one line: `presstest: passed <n>` or `presstest: failed <n> of <total>`.
 # Exit status: 0 everything passed; 1 a test failed or no report was written; 2 a usage or
@@ -84,8 +87,13 @@ if [ -f "$conf" ]; then
 		[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
 		key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
 		[[ "$KEYLIST" == *" $key "* ]] || continue
-		val="${val%"${val##*[![:space:]]}"}"
-		[[ "$val" =~ ^\"(.*)\"$ || "$val" =~ ^\'(.*)\'$ ]] && val="${BASH_REMATCH[1]}"
+		if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?[[:space:]]*$ || "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?[[:space:]]*$ ]]; then
+			val="${BASH_REMATCH[1]}"
+		else
+			val="${val%%[[:space:]]#*}"
+			val="${val%"${val##*[![:space:]]}"}"
+		fi
+		[[ "$val" == '<'*'>' ]] && val=''
 		printf -v "${key}_FILE" '%s' "$val"
 	done < "$conf"
 fi
@@ -182,21 +190,26 @@ run)
 	command -v docker >/dev/null 2>&1 || die 'needs Docker, which is not installed'
 	docker info >/dev/null 2>&1 || die 'needs Docker running'
 
-	# A local run needs the container to resolve the site's domain, which it does only if it was
-	# created with it mapped; if it can't, Compose recreates it with this site's domain. A staging
-	# run only needs it running. The folder is made first, so Docker doesn't create it as root.
+	# A local run needs the site's domain mapped to the host in the container, which it is only if
+	# the container was created with it; if it isn't, Compose recreates it with this site's domain. A staging
+	# run only needs it running. The image is rebuilt as it starts, because the clone's Playwright
+	# config is copied into it, not mounted (Docker's cache makes that quick when nothing changed).
+	# The folder is made first, so Docker doesn't create it as root.
 	start() {
 		mkdir -p "$DIR/playwright/test-results"
 		(cd "$DIR" && LOCAL_SITE_DOMAIN="${DOMAIN:-presstest.local}" docker compose -f docker-compose.yml \
-			-f docker-compose.local.yml up -d --no-deps playwright) >&2 \
+			-f docker-compose.local.yml up -d --build --no-deps playwright) >&2 \
 			|| die "couldn't start the playwright container in $DIR"
 	}
+	# Only the compose mapping counts: Docker's DNS can pass on the host's /etc/hosts, where Local
+	# points the domain at ::1, which inside the container is the container itself.
+	mapped() { docker exec playwright awk -v d="$DOMAIN" '$1 !~ /^#/ { for (i = 2; i <= NF; i++) if ($i == d) f = 1 } END { exit !f }' /etc/hosts >/dev/null 2>&1; }
 	if [ "$env" = local ]; then
-		if ! docker exec playwright getent hosts "$DOMAIN" >/dev/null 2>&1; then
+		if ! mapped; then
 			echo "presstest: starting the playwright container for $DOMAIN"
 			start
-			docker exec playwright getent hosts "$DOMAIN" >/dev/null 2>&1 \
-				|| die "the playwright container still can't resolve $DOMAIN: does $DIR/docker-compose.local.yml use LOCAL_SITE_DOMAIN? Pull the clone."
+			mapped \
+				|| die "the playwright container still doesn't map $DOMAIN: does $DIR/docker-compose.local.yml use LOCAL_SITE_DOMAIN? Pull the clone."
 		fi
 		# A local site's certificate is self-signed; local-test.sh accepts it for these domains too.
 		tls=0 hint='is it started in Local?'
