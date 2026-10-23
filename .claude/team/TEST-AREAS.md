@@ -32,7 +32,7 @@ by sequence (label before / after a resubmit), not by setting the clock.
 
 | # | Area | Scope | How to observe |
 |---|---|---|---|
-| 01 | Brief approval (`ada-brief`) | `who` for each policy and login; `submit` new and update; label by approver / non-approver / before a resubmit; `status` words; `body`; `ready`; Asana block kept | Scratch GitHub repo: the PR, its labels and body; first line of `status` |
+| 01 | Brief approval (`ada-brief`) | `who` for each policy and login; `submit` new and update; label by approver / non-approver / before a resubmit; `status` words; `body` (with `Overlaps:`); `ready`; Asana block kept; `overlap` waiting and open groups, marks, no `gh`, over 100 PRs or files; `overlap --gate` (changed and untracked files, merge-base failure) | Scratch GitHub repo: the PR, its labels and body; first line of `status` |
 | 02 | Onboarding and refresh (`ada-onboard`) | `files` (never overwrites, placeholders, hashes), `refresh` all five outcomes and both flags, `gitignore`, `settings` merge into an existing file, `check` | Scratch repo: `git status`, `git diff`, `.claude/team/.template-hashes`, `.claude/settings.json` |
 | 03 | Plans (`ada-plan`) | Units table validation, `briefs`, `branches` (parents first, from origin), `status` next actions | Scratch repo (GitHub for `status`): `git branch`, the drafted briefs, `status` output |
 | 04 | Review size (`ada-size`) | Kinds, moved code, untracked files, real index untouched, estimate level | Scratch repo with a known diff; `git status` unchanged afterwards |
