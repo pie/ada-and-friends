@@ -132,3 +132,4 @@ To change the plugin or make a release, see [DEVELOPING.md](DEVELOPING.md).
 
 MIT. The team's structure comes from Three Man Team (MIT, Russell Aaron). Both notices are in
 [LICENSE](LICENSE).
+
