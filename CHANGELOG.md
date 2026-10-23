@@ -5,16 +5,19 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-- **`presstest`, the project's PressTest suite on your local site**: in any onboarded repo,
-  `presstest run` runs that project's suite (the `PressTest suite:` line in `PROJECT.md`) against
-  your local site, and ends with one line saying how many passed or failed. `presstest run
+- **`presstest`, the project's PressTest suite on your local site or staging**: in any onboarded
+  repo, `presstest run` runs that project's suite (the `PressTest suite:` line in `PROJECT.md`)
+  against your local site, and ends with one line saying how many passed or failed. `presstest
+  run --env staging` runs it on the staging site named on a new `PressTest staging:` line, with
+  its own `PRESSTEST_STAGING_*` settings; there is no production option. `presstest run
   <file>_test.js` runs single files, `presstest list` lists them and `presstest config` shows the
-  settings. Tess now runs the suite checks with it, instead of handing them all to the developer.
-  Each developer adds `PRESSTEST_DIR` (their presstest.io clone) and `PRESSTEST_SECRET` to
-  `.claude/team/local.env`, plus a test customer's login if a test needs one. It only tests
-  `.local` and `.test` sites and needs Docker. Onboarding now asks which suite the project uses.
-  In a repo onboarded earlier, run `ada-onboard settings` to allow `presstest`, and check that the
-  suite's name comes first on the `PressTest suite:` line.
+  settings. Tess now runs the suite checks with it, locally unless you ask for staging, instead of
+  handing them all to you. Each developer adds `PRESSTEST_DIR` (their presstest.io clone) and
+  `PRESSTEST_SECRET` to `.claude/team/local.env`, plus a test customer's login if a test needs
+  one. Local runs only test `.local` and `.test` sites, and it needs Docker. Onboarding now asks
+  for the suite and the staging site. In a repo onboarded earlier, run `ada-onboard settings` to
+  allow `presstest`, check that the suite's name comes first on the `PressTest suite:` line, and
+  add a `PressTest staging:` line (a URL or `none`).
 
 ## 0.8.0, 22 Oct 2026
 

@@ -61,10 +61,11 @@ plan stays. `--archive-plan <name>`: moves `.claude/handoff/plan/` to `archive/<
 Read-only production access for `/ada:bughunt` in WordPress projects: `config`, `sql`, `inspect`,
 `notes`, `option`, `actions`, `logs`. Not used in this repo (no production).
 
-### `presstest` (`bin/presstest:1-36`)
+### `presstest` (`bin/presstest:1-46`)
 
-Runs the project's PressTest suite on the developer's local site: `config`, `list`,
-`run [-b <browser>] [<file>_test.js ...]`. `run` ends with `presstest: passed <n>` or
+Runs the project's PressTest suite on the developer's local site or the project's staging site:
+`config`, `list`, `run [--env local|staging] [-b <browser>] [<file>_test.js ...]`. `run` prints
+`presstest: <env>, <url>` before the tests and ends with `presstest: passed <n>` or
 `presstest: failed <n> of <total>` (exit 1), or `presstest: failed, no report written` (exit 1);
 settings, usage and Docker errors exit 2. Tess reads the last line (`agents/tess.md`, Run mode).
 Not used in this repo (no suite).

@@ -51,8 +51,8 @@ State the scripts read and write, in an onboarded project:
 | `.claude/team/.template-hashes` (`<copied\|declined> <sha256> <path>`) | `ada-onboard files` / `refresh` (`bin/ada-onboard:50-74`) | `ada-onboard refresh` |
 | `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:158-205`) | Claude Code |
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:159-162`) |
-| `PROJECT.md` `**PressTest suite:**` (first code span, else first word; `none` or a `<prompt>` means none) | the developer, at onboarding | `presstest` (`bin/presstest:47-58`) |
-| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`; git-ignored, other keys ignored) | each developer | `presstest` (`bin/presstest:60-81`); Tess and Iris read `LOCAL_URL` |
+| `PROJECT.md` `**PressTest suite:**` and `**PressTest staging:**` (first code span, else first word; `none` or a `<prompt>` means none) | the developer, at onboarding | `presstest` (`bin/presstest:57-71`) |
+| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`; git-ignored, other keys ignored) | each developer | `presstest` (`bin/presstest:73-93`); Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
 
@@ -256,7 +256,8 @@ Traps:
   `:360`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
   (`bin/prod-wp:17-24`). No production server exists for this repo, so `prod-wp` is never used here.
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
-  overridable, and `PRESSTEST_SUITE` overrides `PROJECT.md`. This repo's suite is `none`.
+  overridable, and `PRESSTEST_SUITE` / `PRESSTEST_STAGING_URL` override `PROJECT.md`. This repo's
+  suite is `none`.
 - **Platforms** (`DEVELOPING.md:138-148`): bash 3.2+ (all scripts tested under 3.2.57), Python
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:

@@ -65,7 +65,9 @@ nobody does it again.
 6. If the project has a PressTest suite (`PROJECT.md`, Tests), also put in `local.env` where your
    clone of pie/presstest.io is (`PRESSTEST_DIR`) and the local site's report token
    (`PRESSTEST_SECRET`). `presstest config` shows what it found. Then `presstest run` runs the
-   project's suite against your local site, for you or for Tess. It needs Docker.
+   project's suite against your local site, for you or for Tess. `presstest run --env staging`
+   runs it on the project's staging site, if `PROJECT.md` names one; its token goes in
+   `PRESSTEST_STAGING_SECRET`. It needs Docker, and never runs on production.
 
 ## Use it
 

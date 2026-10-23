@@ -61,6 +61,9 @@ Project-specific checks on top of the P rules, each pointing at its S rule:
 - **Unit tests:** `tools/vendor/bin/phpunit` (`tests/README.md`).
 - **PressTest suite:** <`suite`, the folder under `all-tests/` in pie/presstest.io, or "none">.
   `presstest run` reads the first `code` span here (or the first word), so keep the name first.
+- **PressTest staging:** <`https://staging.example.com`, the staging site `presstest run --env
+  staging` tests, or "none" (e.g. Cloudflare's bot challenge blocks PressTest there)>. Never
+  production: the suites place orders.
 - **Clock-sensitive behaviour:** <yes/no; if yes, the positions to test, e.g. Friday after noon,
   Sunday>
 
@@ -93,7 +96,8 @@ emails disabled. Say what a check should verify.>
   in use). Each developer adds to `.claude/team/local.env`: `PRESSTEST_DIR` (their clone of
   pie/presstest.io), `PRESSTEST_SECRET` (the site's report token, Presstest > Settings, with "Allow
   Presstest to create test data" on), and `PRESSTEST_CUSTOMER_USERNAME` /
-  `PRESSTEST_CUSTOMER_PASSWORD` if a test needs a shop customer. Needs Docker and the Presstest
+  `PRESSTEST_CUSTOMER_PASSWORD` if a test needs a shop customer. For staging (`--env staging`),
+  the same with `PRESSTEST_STAGING_` in front: local values are never sent to staging. Needs Docker and the Presstest
   Companion plugin on the local site. <Which tests need the customer, if any.>
 - **Also checked before anything runs on the local site:** the background runners (Action
   Scheduler, WP-Cron) are frozen; the time WordPress reports from a web request is the intended

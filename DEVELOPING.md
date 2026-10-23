@@ -56,8 +56,11 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   its settings.
 - `presstest` runs a project's PressTest suite on the developer's local site. The suite is the
   repo's (`PROJECT.md`); the site, the presstest.io clone and the secrets are the developer's
-  (`.claude/team/local.env`). It only tests `.local` and `.test` hosts, and only touches the
-  clone's `playwright` container, recreating it when the site's domain isn't mapped into it.
+  (`.claude/team/local.env`). It tests the local site (`.local` and `.test` hosts) or, with
+  `--env staging`, the staging URL in `PROJECT.md`, with separate `PRESSTEST_STAGING_*` settings.
+  There is no production option: the suites place orders, and nothing marks a test as safe for
+  live. It only touches the clone's `playwright` container, recreating it when the local site's
+  domain isn't mapped into it.
 - Reading files bundled in the plugin needs a permission rule, so the team avoids it:
   - **Shared standards** are non-invocable skills, preloaded into each agent (`skills:` in its
     frontmatter).

@@ -1,9 +1,9 @@
-# `presstest` runs the project's own suite against the developer's local site, and only there
+# `presstest` runs the project's own suite against the local site or the project's staging site, and nowhere else
 
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1210681019800745/task/1219403227572186
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 23 Oct 2026, 37 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should
+- Last run: 23 Oct 2026, 57 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should
 
 ## Precondition
 
@@ -24,8 +24,9 @@
 
 ```bash
 #!/usr/bin/env bash
-# presstest: suite from PROJECT.md, settings from local.env, local sites only, the container
-# pointed at the site, the result line and exit status. Prints PASS/FAIL per check; exits 1 if
+# presstest: suite and staging site from PROJECT.md, settings from local.env, local or staging
+# only (never production, never local values on staging), the container pointed at the site, the
+# result line and exit status. Prints PASS/FAIL per check; exits 1 if
 # any FAIL. Env: REPO (this checkout), PLUGIN (plugin under test, default $REPO/plugins/ada).
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
@@ -40,7 +41,7 @@ run() { d=$1; shift; (cd "$d" && PATH="$W/bin:$PATH" bash "$PT" "$@") > "$W/out"
 rc() { cat "$W/rc"; }
 mkrepo() {
   mkdir -p "$1/.claude/team" && git -C "$1" init -q
-  printf '# P\n\n## Tests\n\n- **Unit tests:** x\n- **PressTest suite:** %s\n' "$2" > "$1/.claude/team/PROJECT.md"
+  printf '# P\n\n## Tests\n\n- **Unit tests:** x\n- **PressTest suite:** %s\n- **PressTest staging:** %s\n' "$2" "${3:-none}" > "$1/.claude/team/PROJECT.md"
 }
 
 # A stand-in presstest.io clone: local-test.sh records its arguments and environment and writes
@@ -74,7 +75,7 @@ chmod +x "$W/bin/docker"
 export STUB_LOG=$W/log
 
 # 1. The suite comes from PROJECT.md: a code span, a plain word, none, or the template's prompt.
-R=$W/r1; mkrepo "$R" '`shop`, in `pie/presstest.io` under `all-tests/shop/`'
+R=$W/r1; mkrepo "$R" '`shop`, in `pie/presstest.io` under `all-tests/shop/`' '`https://staging.shop.example.com` (WP Engine)'
 run "$R" config
 t "config exits 0" test "$(rc)" = 0
 t "a code span names the suite" grep -qx 'suite: *shop' "$W/out"
@@ -84,9 +85,11 @@ R3=$W/r3; mkrepo "$R3" 'none'; run "$R3" run
 t "a project with none is refused with exit 2" test "$(rc)" = 2
 t "and told it has no suite" grep -q 'no PressTest suite' "$W/err"
 R4=$W/r4; mkrepo "$R4" x
-grep -F -- '- **PressTest suite:**' "$PLUGIN/templates/repo/.claude/team/PROJECT.md" > "$R4/.claude/team/PROJECT.md"
+grep -F -e '- **PressTest suite:**' -e '- **PressTest staging:**' "$PLUGIN/templates/repo/.claude/team/PROJECT.md" > "$R4/.claude/team/PROJECT.md"
 run "$R4" config
+t "the template has both PressTest lines" test "$(wc -l < "$R4/.claude/team/PROJECT.md")" -eq 2
 t "the template's unfilled prompt counts as no suite" grep -qx 'suite: *(none)' "$W/out"
+t "the template's unfilled prompt counts as no staging site" grep -qx 'staging: *(none)' "$W/out"
 
 # 2. Settings come from local.env, parsed not executed; other keys and stray lines are ignored;
 #    a # inside a value is kept; the environment overrides; secrets are never printed.
@@ -99,14 +102,18 @@ PRESSTEST_DIR=$C
 PRESSTEST_SECRET='s3cr#t'
 PRESSTEST_CUSTOMER_USERNAME=cust@example.com
 PRESSTEST_CUSTOMER_PASSWORD="pa ss#1"
+PRESSTEST_STAGING_SECRET=stg-token
+PRESSTEST_STAGING_CUSTOMER_USERNAME=stg-cust@example.com
+PRESSTEST_STAGING_CUSTOMER_PASSWORD=stg-pass
 EOF
 run "$R" config
 t "local.env is not executed" not test -e "$W/executed"
-t "config shows the site" grep -qx 'site: *https://shop.local' "$W/out"
-t "config shows the secret as (set)" grep -qx 'secret: *(set)' "$W/out"
-t "config never prints a secret" not grep -q 's3cr\|pa ss' "$W/out"
+t "config shows the local site" grep -qx 'local: *https://shop.local' "$W/out"
+t "config shows the staging site" grep -qx 'staging: *https://staging.shop.example.com' "$W/out"
+t "config shows the secret as (set)" grep -qx '  secret: *(set)' "$W/out"
+t "config never prints a secret" not grep -q 's3cr\|pa ss\|stg-' "$W/out"
 (cd "$R" && LOCAL_URL=http://other.test PATH="$W/bin:$PATH" bash "$PT" config) > "$W/out" 2>&1
-t "the environment overrides local.env" grep -qx 'site: *http://other.test' "$W/out"
+t "the environment overrides local.env" grep -qx 'local: *http://other.test' "$W/out"
 
 # 3. list shows the suite's test files only.
 run "$R" list
@@ -148,7 +155,34 @@ STUB_FAILED=1 run "$R" run
 t "a failing test exits 1" test "$(rc)" = 1
 t "the last line says failed 1 of 4" test "$(tail -1 "$W/out")" = 'presstest: failed 1 of 4'
 
-# 6. A clone without the suite, or no clone, is a settings error.
+# 6. Staging: the project's URL and the staging settings, never the local ones; the container is
+#    only started if it isn't running; production and a project without staging are refused.
+rm -f "$W/log/"*
+run "$R" run --env staging checkout_test.js
+t "a staging run exits 0" test "$(rc)" = 0
+t "it says it is running on staging" grep -qx 'presstest: staging, https://staging.shop.example.com' "$W/out"
+t "local-test.sh gets the staging site" grep -qx 'https://staging.shop.example.com' "$W/log/args"
+t "local-test.sh gets the staging secret" grep -qx 'stg-token' "$W/log/args"
+t "the local secret is not sent to staging" not grep -q 's3cr' "$W/log/args"
+t "the staging customer is passed, not the local one" grep -qx 'customer=stg-cust@example.com/stg-pass' "$W/log/env"
+t "a running container is left alone" not grep -q compose "$W/log/docker"
+for e in production live ''; do
+  rm -f "$W/log/"*
+  run "$R" run --env "$e"
+  t "--env '$e' is refused with exit 2" test "$(rc)" = 2
+  t "--env '$e': nothing ran" not test -e "$W/log/args"
+done
+cp "$R/.claude/team/local.env" "$R2/.claude/team/local.env"
+run "$R2" run --env staging
+t "a project with staging none is refused with exit 2" test "$(rc)" = 2
+t "and told it has no staging site" grep -q 'no staging site' "$W/err"
+R5=$W/r5; mkrepo "$R5" '`shop`' '`https://shop.local`'
+cp "$R/.claude/team/local.env" "$R5/.claude/team/local.env"
+run "$R5" run --env staging
+t "a local URL on the staging line is refused" test "$(rc)" = 2
+t "and told why" grep -q 'not a local one' "$W/err"
+
+# 7. A clone without the suite, or no clone, is a settings error.
 (cd "$R" && PRESSTEST_DIR=$W/nowhere PATH="$W/bin:$PATH" bash "$PT" run) > "$W/out" 2> "$W/err"; echo $? > "$W/rc"
 t "a missing clone is refused with exit 2" test "$(rc)" = 2
 
@@ -170,5 +204,6 @@ The script's output and exit code.
 ## Regression
 
 The Tess run step (`agents/tess.md`, Run mode step 2) and `presstest config` in a real onboarded
-repo with a running Local site: `presstest run` ends with `presstest: passed <n>` or
+repo with a running Local site, and `presstest run --env staging` on a project with a staging line:
+`presstest run` ends with `presstest: passed <n>` or
 `presstest: failed <n> of <total>`.
