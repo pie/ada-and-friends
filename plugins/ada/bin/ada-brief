@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Brief approval: who needs it, sending a brief for it, and whether it has been given. Ada runs
-# it from /ada:begin and /ada:pickup; a developer can too. Run from inside the project repo.
+# Brief approval: who needs it, sending a brief for it, and whether it has been given; and the
+# work in flight a brief could overlap. Ada runs it from /ada:begin and /ada:pickup; a developer
+# can too. Run from inside the project repo.
 #
 #   ada-brief who
 #       What the brief approval policy means for the developer running this, from the "Brief
@@ -29,6 +30,27 @@
 #   ada-brief ready <title> <description-file>
 #       At the end of the step: gives the branch's PR its final title and description and takes
 #       it out of draft.
+#   ada-brief overlap [<file>...]
+#   ada-brief overlap --gate
+#       Work in flight that a step could overlap. Fetches the "Branch from" and "PR into"
+#       branches PROJECT.md names (production and next-release when it doesn't name them) and
+#       lists two groups: commits in origin/<PR into> not in origin/<Branch from>, one entry per
+#       PR number in a squash commit's "(#N)" or per commit without one; and the open PRs into
+#       either branch, except the current branch's own. Each <file> is a path from the top of
+#       the repo; an entry that changed one is marked. With --gate (no <file>), the files are
+#       the branch's own: the working tree's changes since git merge-base origin/<PR into> HEAD
+#       (committed, staged and unstaged) plus untracked files; if git merge-base fails (a
+#       shallow clone), it exits 2. Prints:
+#         touching <n>                    entries marked (0 with --gate and no changed files),
+#                                         or "touching -" with no <file> and no --gate
+#         waiting to ship:
+#           #N <subject> [<file>, ...]    or "<short hash> <subject> [...]"; "  none" if empty
+#         open:
+#           #N [draft ]<title> [<file>, ...]
+#       A marked entry ends " touches: <file>, ...". Without gh, or not logged in, the open
+#       group is "  unknown (<reason>)" and it still exits 0. It is "unknown" too when more
+#       than 100 PRs are open into one branch, or an open PR has 100 or more files (gh lists
+#       no more), as nothing past those limits is seen.
 #
 # Replacing a PR's description (submit again, ready) keeps the block the Asana app for GitHub
 # appends when a task is linked to the PR.
@@ -89,6 +111,23 @@ if not approvers:
     print('none')
 else:
     print(' '.join(approvers)); print(' '.join(trusted))
+PY
+}
+
+# Prints the "Branch from" then the "PR into" branch named in PROJECT.md, read as ada-plan reads
+# them; a line PROJECT.md doesn't have gives production or next-release.
+branches() {
+	py - "$root/.claude/team/PROJECT.md" <<'PY'
+import re, sys
+try:
+    text = open(sys.argv[1], encoding='utf-8').read()
+except FileNotFoundError:
+    sys.exit('ada-brief: no .claude/team/PROJECT.md; onboard the repo first')
+def named(label, default):
+    m = re.search(r'\*\*' + label + r':\*\*\s*`([^`]+)`', text)
+    return m.group(1) if m else default
+print(named('Branch from', 'production'))
+print(named('PR into', 'next-release'))
 PY
 }
 
@@ -163,6 +202,7 @@ asana = field(head, 'Asana')
 asana_url = (re.search(r'https?://\S+', asana) or [None])[0] if asana else None
 plan_line = field(head, 'Plan')
 ships = field(head, 'Ships')
+overlaps = field(head, 'Overlaps')
 
 constraints = bullets(sec.get('constraints', ''))
 def take(name):
@@ -239,6 +279,8 @@ if expected:
     m = re.match(r'(small|medium|large)\b[.:,;]?\s*(.*)', expected, re.I)
     exp = f'**{m.group(1).lower()}**' + (f'. {m.group(2)}' if m.group(2) else '') if m else expected
     out.append(f'> Expected review once built: {exp}')
+if overlaps:
+    out.append(f'> Overlaps with work in flight: {overlaps}')
 out.append('')
 where = []
 if plan and unit:
@@ -522,7 +564,135 @@ ready)
 	echo "ready    $url"
 	;;
 
+overlap)
+	# Each entry is printed on one line, so a newline or other control character would split it.
+	one_line() {
+		case "$1" in *[[:cntrl:]]*) die "a file path can't hold a control character such as a newline: $1" ;; esac
+	}
+	gate=''
+	if [ "${1-}" = '--gate' ]; then
+		shift
+		[ $# -eq 0 ] || die "overlap --gate takes the branch's own files, so it takes no file arguments"
+		gate=1
+	fi
+	files=()
+	for f in "$@"; do
+		f="${f//\\//}"
+		while [ "${f#./}" != "$f" ]; do f="${f#./}"; done
+		case "$f" in -* | /*) die "a file is a path from the top of the repo: $f" ;; esac
+		case "/$f/" in */../*) die "a file can't go up a directory (..): $f" ;; esac
+		one_line "$f"
+		files+=("$f")
+	done
+	br="$(branches)" || exit 2
+	{ read -r from; read -r into; } <<<"$br"
+	for b in "$from" "$into"; do
+		[[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch name in PROJECT.md: $b"
+	done
+	refspecs=("+refs/heads/$from:refs/remotes/origin/$from")
+	names="$from"
+	if [ "$into" != "$from" ]; then
+		refspecs+=("+refs/heads/$into:refs/remotes/origin/$into")
+		names="$from and $into"
+	fi
+	out="$(git fetch -q origin "${refspecs[@]}" 2>&1)" || die "couldn't fetch $names from origin: ${out##*$'\n'}"
+	# --gate's list, NUL-separated so paths with spaces or non-ASCII stay whole. It goes to Python
+	# in a file rather than as arguments: a Windows command line holds about 32,000 characters.
+	# The merge base is found after the fetch, so it is against the current origin/<PR into>.
+	list=''
+	if [ -n "$gate" ]; then
+		base="$(git merge-base "origin/$into" HEAD 2>/dev/null)" ||
+			die "couldn't find where this branch left origin/$into (git merge-base failed; in a shallow clone, run git fetch --unshallow)"
+		list="$(mktemp)"; trap 'rm -f "$list"' EXIT
+		{ git diff -z --no-renames --name-only "$base" && git ls-files -z --others --exclude-standard; } >"$list" ||
+			die "couldn't list this branch's changed files"
+		while IFS= read -r -d '' f; do one_line "$f"; done <"$list"
+	fi
+	# Without gh the open group can't be listed, but what waits to ship still can: need_gh's
+	# reason is printed in its place rather than stopping.
+	if why="$(need_gh 2>&1)"; then gh_problem=''; else gh_problem="${why#ada-brief: }"; fi
+	# With --gate the one argument is the list file, passed as an argument (not through the
+	# environment) so Git Bash converts its path for a native Windows Python.
+	FROM="$from" INTO="$into" CURRENT="$(git branch --show-current)" GH_PROBLEM="$gh_problem" GATE="$gate" \
+		py - ${files[@]+"${files[@]}"} ${gate:+"$list"} <<'PY'
+import json, os, re, subprocess, sys
+frm, into, current, problem, gate = (os.environ[k] for k in ('FROM', 'INTO', 'CURRENT', 'GH_PROBLEM', 'GATE'))
+if gate:
+    with open(sys.argv[1], encoding='utf-8', errors='replace') as f:
+        given = [path for path in f.read().split('\0') if path]
+else:
+    given = sys.argv[1:]
+wanted = list(dict.fromkeys(given))
+# Open PRs shown per branch; one more is asked for, so a longer list is known to be cut short.
+PR_LIMIT = 100
+# gh lists at most this many files for a PR, so a PR with this many may have more.
+GH_FILES_CAP = 100
+
+def run(args, check):
+    return subprocess.run(args, capture_output=True, encoding='utf-8', errors='replace', check=check)
+
+# Waiting to ship: one entry per PR number at the end of a squash commit's subject; a commit
+# without one is its own entry. Newest first, as git log lists them.
+log = run(['git', '-c', 'core.quotePath=false', 'log', '--no-merges', '--no-renames', '--name-only',
+           '--format=%x1e%h%x1f%s', f'origin/{into}', f'^origin/{frm}', '--'], True)
+waiting, by_pr = [], {}
+for chunk in log.stdout.split('\x1e')[1:]:
+    lines = chunk.split('\n')
+    short, subject = lines[0].split('\x1f', 1)
+    changed = [line for line in lines[1:] if line]
+    m = re.search(r'\s*\(#(\d+)\)\s*$', subject)
+    if not m:
+        waiting.append({'label': short, 'title': subject, 'files': set(changed)})
+    elif m.group(1) in by_pr:
+        by_pr[m.group(1)]['files'].update(changed)
+    else:
+        by_pr[m.group(1)] = {'label': '#' + m.group(1), 'title': subject[:m.start()], 'files': set(changed)}
+        waiting.append(by_pr[m.group(1)])
+
+# Open: PRs into either branch, except the current branch's own. Returns the PRs and '', or a
+# reason the group can't be listed in full.
+def open_prs():
+    found = []
+    for base in dict.fromkeys([frm, into]):
+        r = run(['gh', 'pr', 'list', '--base', base, '--state', 'open', '--limit', str(PR_LIMIT + 1),
+                 '--json', 'number,title,isDraft,headRefName,files'], False)
+        if r.returncode != 0:
+            return [], f"couldn't list open PRs into {base}: " + ' '.join(r.stderr.split())
+        prs = json.loads(r.stdout)
+        if len(prs) > PR_LIMIT:
+            return [], f'more than {PR_LIMIT} open PRs into {base}'
+        for p in prs:
+            if p['headRefName'] == current:
+                continue
+            if len(p['files']) >= GH_FILES_CAP:
+                return [], f"#{p['number']} has {GH_FILES_CAP} or more files"
+            found.append({'number': p['number'], 'label': f"#{p['number']}" + (' draft' if p['isDraft'] else ''),
+                          'title': p['title'], 'files': {f['path'] for f in p['files']}})
+    return sorted(found, key=lambda e: e['number']), ''
+
+opened = []
+if not problem:
+    opened, problem = open_prs()
+
+def entry(e):
+    shared = [f for f in wanted if f in e['files']]
+    line = f"  {e['label']} {e['title']} [{', '.join(sorted(e['files']))}]"
+    return (line + ' touches: ' + ', '.join(shared) if shared else line), bool(shared)
+
+rows = [entry(e) for e in waiting]
+open_rows = [] if problem else [entry(e) for e in opened]
+print(f'touching {sum(marked for _, marked in rows + open_rows)}' if given or gate else 'touching -')
+print('waiting to ship:')
+print('\n'.join(line for line, _ in rows) if rows else '  none')
+print('open:')
+if problem:
+    print(f'  unknown ({problem})')
+else:
+    print('\n'.join(line for line, _ in open_rows) if open_rows else '  none')
+PY
+	;;
+
 *)
-	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | body <task-id> [<branch>] | ready <title> <file> (see the header of this script)'
+	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | body <task-id> [<branch>] | ready <title> <file> | overlap [<file>... | --gate] (see the header of this script)'
 	;;
 esac

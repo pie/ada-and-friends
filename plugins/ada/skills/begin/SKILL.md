@@ -191,6 +191,28 @@ Definition of Done is observable: a thing Tess can see, not a feeling. For logic
 unit-tested, name the function and its signature, so Tess can write the test before Bob writes
 the code (P29).
 
+**Check the brief against work in flight.** Before you confirm the brief, run
+`ada-brief overlap <the brief's expected files>`. It lists the work waiting to ship (in the
+release branch, not yet in production) and the open PRs, and marks each one that changes one of
+the brief's expected files with `touches:`. A concern can overlap without sharing a file, so read
+every title against the task as well as the marks. Write what you find on the brief's `Overlaps:`
+line: `none`, or each `#N` with what you're doing about it. For any overlap, stop and ask the
+developer which of these to do:
+
+- Build on top of it: base this branch on the release branch or on that PR's branch. Nothing is
+  committed yet, so recreate the branch on the new base. Record the base on the `Overlaps:` line
+  and set `Ships: after #N`.
+- Fold this work into that PR.
+- Narrow the scope, so the two no longer meet.
+- Go ahead independently, with the reason on the `Overlaps:` line.
+
+If the open group says `unknown (...)`, the open PRs couldn't all be listed: `gh` is missing or not
+logged in, more than 100 PRs are open, or one has 100 or more files. Tell the developer the reason
+in brackets, and go on with what waits to ship. If `ada-brief overlap` exits with anything other than 0
+(a branch couldn't be fetched, a path was refused, there is no `PROJECT.md`, or the script
+failed), show the developer its `ada-brief:` message or the error, and don't record
+`Overlaps: none` until it runs.
+
 Confirm the brief with the developer. Once it's agreed and needs no approval, end the session
 (**Session end**); the build starts in a fresh one.
 
@@ -318,11 +340,26 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
    with the brief's `Expected review:` line. If the step came out a level bigger than expected,
    or too big for one sitting, say so and ask the developer before going on: split it now, or
    ship it as it is with the reason in the PR.
-2. Summarise for the developer in a short paragraph: what was built, what the review found and how
+2. Check for overlap again, since other work may have landed or opened during the build. The
+   build isn't committed yet, so the check takes the changed files from the working tree,
+   untracked ones included. Run it as one command, with no pipe:
+
+   ```sh
+   ada-brief overlap --gate
+   ```
+
+   It fetches the branches itself and takes this branch's files since it left
+   `origin/<PR into>`, keeping paths with spaces or non-ASCII characters whole. Compare the
+   result with the brief's `Overlaps:` line. Take any new overlap to the developer before you
+   offer the PR, with the same options as for the brief. Record it and what was decided in
+   `BUILD-LOG.md` and in the PR's "For the reviewer". If `ada-brief overlap` exits with anything
+   other than 0, show the developer its `ada-brief:` message or the error and fix the cause or
+   ask them how to go on; never read it as no overlap.
+3. Summarise for the developer in a short paragraph: what was built, what the review found and how
    it was resolved, which tests are supplied, what was verified and what was not, and whether
    `SYSTEM.md` / `API.md` were updated (or why none was needed).
-3. Ask: open the PR?
-4. On yes:
+4. Ask: open the PR?
+5. On yes:
    - Update `BUILD-LOG.md`.
    - Commit, credited as in **Commits and credit** below. Every commit says what changed and
      what was verified (P20).
@@ -359,7 +396,7 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
    - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
      PR), ask the developer to paste the PR's URL into the task's Apps, GitHub, "Add GitHub pull
      request".
-5. Write `CHECKPOINT.md`.
+6. Write `CHECKPOINT.md`.
 
 The PR is the gate. Nothing is merged by this team.
 
