@@ -16,6 +16,14 @@ Releasing in DEVELOPING.md).
 - **Onboarding asks for the suite and the staging site**, on two lines in `PROJECT.md`. In a repo
   onboarded earlier, add a `PressTest staging:` line (a URL or `none`) and run
   `ada-onboard settings` to allow `presstest`.
+- **Overlap check for briefs** (`ada-brief overlap`): before a brief is confirmed, Ada lists the
+  work waiting to ship and the open PRs, marks any that change the brief's files, and reads their
+  titles against the task. On any overlap she stops and asks whether to build on top of it, fold
+  the work into that PR, narrow the scope or go ahead independently, and records the answer on
+  the brief's new `Overlaps:` line, which the draft brief PR shows. She checks again at the PR
+  gate with `ada-brief overlap --gate`, which takes the files the branch changed itself. Without
+  `gh`, or with more open PRs or files than `gh` lists, the open PRs show as unknown and the
+  rest still works.
 
 ## 0.8.0, 22 Oct 2026
 
