@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+# Runs the project's PressTest suite against the developer's local site, or the project's staging
+# site, for Tess and for people. Run from inside the project repo.
+#
+#   presstest config                     show the settings in use; secrets show as (set). Nothing runs.
+#   presstest list                       the test files in the project's suite
+#   presstest run [--env local|staging] [-b <browser>] [<test file> ...]
+#                                        run the whole suite, or the named files in it, and print
+#                                        the summary. --env: local (the default) or staging.
+#                                        Browser: chromium (default), firefox, webkit,
+#                                        mobile-chrome or mobile-safari.
+#
+# The suite and the staging site are the project's, from .claude/team/PROJECT.md, under Tests:
+#
+#   - **PressTest suite:** `vandme`                      a folder under all-tests/ in pie/presstest.io
+#   - **PressTest staging:** `https://staging.example.com`    the staging site's URL
+#
+# Each line's first `code` span is read, or else its first word. "none", or the template's
+# unfilled <prompt>, means there is none. PRESSTEST_SUITE and PRESSTEST_STAGING_URL in the
+# environment override them. There is no production: the suites place orders.
+#
+# Everything else is the developer's own, in .claude/team/local.env (git-ignored), as KEY=value
+# lines. The file is parsed, never executed. Other keys in it are left alone. A comment is a line
+# starting with #, or ` #` after an unquoted value; a quoted value may hold a #. A value still in
+# <angle brackets> is an unfilled example and counts as unset. An environment variable of the same
+# name overrides the file.
+#
+#   LOCAL_URL=https://my-site.local         the local site, on a .local or .test domain, which
+#                                           Docker can be pointed at
+#   PRESSTEST_DIR=~/Repos/presstest.io      required: your clone of pie/presstest.io
+#   PRESSTEST_SECRET=...                    the site's report token (Presstest > Settings), for
+#                                           suites that create test data
+#   PRESSTEST_USERNAME=  PRESSTEST_PASSWORD=                    a login, for suites that log in
+#   PRESSTEST_CUSTOMER_USERNAME=  PRESSTEST_CUSTOMER_PASSWORD=  a shop customer, for suites
+#                                                               that need one
+#   PRESSTEST_STAGING_SECRET=  PRESSTEST_STAGING_USERNAME=  PRESSTEST_STAGING_PASSWORD=
+#   PRESSTEST_STAGING_CUSTOMER_USERNAME=  PRESSTEST_STAGING_CUSTOMER_PASSWORD=
+#                                           the same, for staging. Local values are never sent
+#                                           to staging.
+#
+# Needs Docker. `run` starts the clone's playwright container if it isn't running. For a local
+# run it also recreates it when the site's domain isn't mapped to the host in it, with that domain
+# mapped (LOCAL_SITE_DOMAIN in the clone's docker-compose.local.yml). Only that container is touched.
+# The container's fixed name is `playwright`; with a second clone, set COMPOSE_PROJECT_NAME to the
+# first clone's project (its folder name, e.g. presstestio) so Compose replaces it, not clashes.
+#
+# `run` ends with one line: `presstest: passed <n>` or `presstest: failed <n> of <total>`.
+# Exit status: 0 everything passed; 1 a test failed or no report was written; 2 a usage or
+# settings error, or the site doesn't answer or is password-protected, so nothing ran.
+
+set -euo pipefail
+
+die() { echo "presstest: $*" >&2; exit 2; }
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+cd "$root"
+project="$root/.claude/team/PROJECT.md"
+conf="$root/.claude/team/local.env"
+
+# A `- **<label>:** value` line from PROJECT.md: its first code span, or else its first word.
+project_line() {
+	local line
+	[ -f "$project" ] || return 0
+	line="$(sed -n "s/^[[:space:]]*-[[:space:]]*\*\*$1:\*\*[[:space:]]*//p" "$project" | head -1)"
+	if [[ "$line" == '<'* ]]; then
+		return 0
+	elif [[ "$line" =~ \`([^\`]*)\` ]]; then
+		echo "${BASH_REMATCH[1]}"
+	else
+		echo "${line%%[[:space:],;(]*}"
+	fi
+}
+SUITE_FILE="$(project_line 'PressTest suite')"
+STAGING_URL_FILE="$(project_line 'PressTest staging')"
+
+# The developer's settings, from local.env. Each known KEY is held as KEY_FILE.
+KEYS='LOCAL_URL PRESSTEST_DIR PRESSTEST_SECRET PRESSTEST_USERNAME PRESSTEST_PASSWORD
+	PRESSTEST_CUSTOMER_USERNAME PRESSTEST_CUSTOMER_PASSWORD PRESSTEST_STAGING_SECRET
+	PRESSTEST_STAGING_USERNAME PRESSTEST_STAGING_PASSWORD PRESSTEST_STAGING_CUSTOMER_USERNAME
+	PRESSTEST_STAGING_CUSTOMER_PASSWORD'
+KEYLIST=" $(echo $KEYS) "
+for key in $KEYS; do printf -v "${key}_FILE" '%s' ''; done
+if [ -f "$conf" ]; then
+	while IFS= read -r line || [ -n "$line" ]; do
+		line="${line%$'\r'}"
+		[[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+		[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+		key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+		[[ "$KEYLIST" == *" $key "* ]] || continue
+		if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?[[:space:]]*$ || "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?[[:space:]]*$ ]]; then
+			val="${BASH_REMATCH[1]}"
+		else
+			val="${val%%[[:space:]]#*}"
+			val="${val%"${val##*[![:space:]]}"}"
+		fi
+		[[ "$val" == '<'*'>' ]] && val=''
+		printf -v "${key}_FILE" '%s' "$val"
+	done < "$conf"
+fi
+# The environment's value, else the file's.
+setting() { local file="${1}_FILE"; local env="${!1:-}"; echo "${env:-${!file}}"; }
+SUITE="${PRESSTEST_SUITE:-$SUITE_FILE}"
+STAGING_URL="${PRESSTEST_STAGING_URL:-$STAGING_URL_FILE}"
+LOCAL_SITE="$(setting LOCAL_URL)"
+DIR="$(setting PRESSTEST_DIR)"
+case "$DIR" in "~/"*) DIR="$HOME/${DIR#"~/"}" ;; esac
+
+shopt -s nocasematch
+[[ "$SUITE" =~ ^(none)?$ ]] && SUITE=''
+[[ "$STAGING_URL" =~ ^(none)?$ ]] && STAGING_URL=''
+shopt -u nocasematch
+
+# Settings are checked before use, so a bad value can't change what runs or which site is tested.
+[[ -z "$SUITE" || "$SUITE" =~ ^[A-Za-z0-9_-]+$ ]] || die "the PressTest suite in PROJECT.md must be a folder name: $SUITE"
+DOMAIN=''
+if [[ "$LOCAL_SITE" =~ ^https?://([A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(local|test))(:[0-9]+)?(/.*)?$ ]]; then
+	DOMAIN="${BASH_REMATCH[1]}"
+fi
+STAGING_OK=''
+if [[ "$STAGING_URL" =~ ^https?://[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$ ]] \
+	&& ! [[ "$STAGING_URL" =~ ^https?://[^/:]+\.(local|test)(:|/|$) ]]; then
+	STAGING_OK=1
+fi
+
+need_suite() { [ -n "$SUITE" ] || die 'this project has no PressTest suite (PROJECT.md, Tests: PressTest suite)'; }
+need_dir() {
+	[ -n "$DIR" ] || die 'no PRESSTEST_DIR: add your presstest.io clone to .claude/team/local.env'
+	[ -f "$DIR/local-test.sh" ] || die "no local-test.sh in PRESSTEST_DIR ($DIR): is it a presstest.io clone?"
+	[ -d "$DIR/all-tests/$SUITE" ] || die "no suite all-tests/$SUITE in $DIR: pull the clone, or check PROJECT.md"
+}
+shown() { [ -n "$1" ] && echo '(set)' || echo '(not set)'; }
+
+[ $# -ge 1 ] || die "no command. See the header of $0."
+cmd="$1"; shift
+
+case "$cmd" in
+config)
+	echo "repo:       $root"
+	echo "suite:      ${SUITE:-(none)}"
+	echo "settings:   $conf$([ -f "$conf" ] || echo ' (missing)')"
+	echo "presstest:  ${DIR:-(not set)}$([ -z "$DIR" ] || [ -f "$DIR/local-test.sh" ] || echo ' (not a presstest.io clone)')"
+	if [ -n "$SUITE" ] && [ -n "$DIR" ]; then
+		echo "suite dir:  $DIR/all-tests/$SUITE$([ -d "$DIR/all-tests/$SUITE" ] || echo ' (missing)')"
+	fi
+	echo "local:      ${LOCAL_SITE:-(not set)}$([ -z "$LOCAL_SITE" ] || [ -n "$DOMAIN" ] || echo ' (not a .local or .test site)')"
+	echo "  secret:   $(shown "$(setting PRESSTEST_SECRET)")"
+	echo "  login:    $(shown "$(setting PRESSTEST_USERNAME)$(setting PRESSTEST_PASSWORD)")"
+	echo "  customer: $(shown "$(setting PRESSTEST_CUSTOMER_USERNAME)$(setting PRESSTEST_CUSTOMER_PASSWORD)")"
+	echo "staging:    ${STAGING_URL:-(none)}$([ -z "$STAGING_URL" ] || [ -n "$STAGING_OK" ] || echo ' (not a staging URL)')"
+	echo "  secret:   $(shown "$(setting PRESSTEST_STAGING_SECRET)")"
+	echo "  login:    $(shown "$(setting PRESSTEST_STAGING_USERNAME)$(setting PRESSTEST_STAGING_PASSWORD)")"
+	echo "  customer: $(shown "$(setting PRESSTEST_STAGING_CUSTOMER_USERNAME)$(setting PRESSTEST_STAGING_CUSTOMER_PASSWORD)")"
+	;;
+list)
+	need_suite; need_dir
+	(cd "$DIR/all-tests/$SUITE" && find . -name '*_test.js' -not -path '*/node_modules/*' | sed 's|^\./||' | sort)
+	;;
+run)
+	browser='chromium' env='local'
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			-b) [ $# -ge 2 ] || die '-b needs a browser'; browser="$2"; shift 2 ;;
+			--env) [ $# -ge 2 ] || die '--env needs local or staging'; env="$2"; shift 2 ;;
+			-*) die "unknown option: $1" ;;
+			*) break ;;
+		esac
+	done
+	[[ "$browser" =~ ^(chromium|firefox|webkit|mobile-chrome|mobile-safari)$ ]] || die "unknown browser: $browser"
+	need_suite; need_dir
+	case "$env" in
+	local)
+		[ -n "$LOCAL_SITE" ] || die 'no LOCAL_URL: add your local site to .claude/team/local.env'
+		[ -n "$DOMAIN" ] || die "LOCAL_URL must be a local site, on a .local or .test domain: $LOCAL_SITE"
+		URL="$LOCAL_SITE"; P='PRESSTEST' ;;
+	staging)
+		[ -n "$STAGING_URL" ] || die 'this project has no staging site for PressTest (PROJECT.md, Tests: PressTest staging)'
+		[ -n "$STAGING_OK" ] || die "the PressTest staging line in PROJECT.md must be a site's URL, not a local one: $STAGING_URL"
+		URL="$STAGING_URL"; P='PRESSTEST_STAGING' ;;
+	*) die "--env is local or staging; there is no PressTest from here on production: $env" ;;
+	esac
+	targets=''
+	for f in "$@"; do
+		[[ "$f" =~ ^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*_test\.js$ ]] || die "test files are named like checkout_test.js (see presstest list): $f"
+		[ -f "$DIR/all-tests/$SUITE/$f" ] || die "no $f in the $SUITE suite (see presstest list)"
+		targets="$targets $SUITE/$f"
+	done
+	targets="${targets# }"
+	[ -n "$targets" ] || targets="$SUITE"
+
+	command -v docker >/dev/null 2>&1 || die 'needs Docker, which is not installed'
+	docker info >/dev/null 2>&1 || die 'needs Docker running'
+
+	# A local run needs the site's domain mapped to the host in the container, which it is only if
+	# the container was created with it; if it isn't, Compose recreates it with this site's domain. A staging
+	# run only needs it running. The image is rebuilt as it starts, because the clone's Playwright
+	# config is copied into it, not mounted (Docker's cache makes that quick when nothing changed).
+	# The folder is made first, so Docker doesn't create it as root.
+	start() {
+		mkdir -p "$DIR/playwright/test-results"
+		(cd "$DIR" && LOCAL_SITE_DOMAIN="${DOMAIN:-presstest.local}" docker compose -f docker-compose.yml \
+			-f docker-compose.local.yml up -d --build --no-deps playwright) >&2 \
+			|| die "couldn't start the playwright container in $DIR"
+	}
+	# Only the compose mapping counts: Docker's DNS can pass on the host's /etc/hosts, where Local
+	# points the domain at ::1, which inside the container is the container itself.
+	mapped() { docker exec playwright awk -v d="$DOMAIN" '$1 !~ /^#/ { for (i = 2; i <= NF; i++) if ($i == d) f = 1 } END { exit !f }' /etc/hosts >/dev/null 2>&1; }
+	if [ "$env" = local ]; then
+		if ! mapped; then
+			echo "presstest: starting the playwright container for $DOMAIN"
+			start
+			mapped \
+				|| die "the playwright container still doesn't map $DOMAIN: does $DIR/docker-compose.local.yml use LOCAL_SITE_DOMAIN? Pull the clone."
+		fi
+		# A local site's certificate is self-signed; local-test.sh accepts it for these domains too.
+		tls=0 hint='is it started in Local?'
+	else
+		if ! docker exec playwright true >/dev/null 2>&1; then
+			echo 'presstest: starting the playwright container'
+			start
+		fi
+		tls=1 hint='is it up, and reachable from this machine?'
+	fi
+	# Exit 3: the site asks for a Basic auth password (such as a host's staging protection), which
+	# the suite can't give, so every test would fail on it.
+	answer=0
+	docker exec -e NODE_TLS_REJECT_UNAUTHORIZED="$tls" playwright node -e 'fetch(process.argv[1], {signal: AbortSignal.timeout(20000)}).then(r => process.exit(r.status === 401 && /(^|,)\s*basic\b/i.test(r.headers.get("www-authenticate") || "") ? 3 : 0), () => process.exit(1))' "$URL" \
+		|| answer=$?
+	[ "$answer" -ne 3 ] \
+		|| die "the site is password-protected (Basic auth), so the suite can't reach it: turn the protection off for the run, then back on afterwards ($URL)"
+	[ "$answer" -eq 0 ] || die "the site doesn't answer from Docker: $hint ($URL)"
+
+	user="$(setting "${P}_USERNAME")" pass="$(setting "${P}_PASSWORD")" secret="$(setting "${P}_SECRET")"
+	args=(-s "$URL" -t "$targets" -b "$browser")
+	[ -z "$user" ] || args+=(-u "$user")
+	[ -z "$pass" ] || args+=(-p "$pass")
+	[ -z "$secret" ] || args+=(-k "$secret")
+	echo "presstest: $env, $URL"
+	rc=0
+	CUSTOMER_USERNAME="$(setting "${P}_CUSTOMER_USERNAME")" CUSTOMER_PASSWORD="$(setting "${P}_CUSTOMER_PASSWORD")" \
+		bash "$DIR/local-test.sh" "${args[@]}" || rc=$?
+
+	report="$DIR/playwright/test-results/local-run/results.json"
+	if [ "$rc" -ne 0 ] || [ ! -f "$report" ]; then
+		echo 'presstest: failed, no report written'
+		exit 1
+	fi
+	# The numbers are the report's stats; the test entries hold strings, not numbers, under these keys.
+	count() { { grep -oE "\"$1\": *[0-9]+" "$report" || true; } | tail -1 | grep -oE '[0-9]+$' || echo 0; }
+	passed=$(( $(count expected) + $(count flaky) ))
+	failed="$(count unexpected)"
+	total=$(( passed + failed + $(count skipped) ))
+	if [ "$failed" -gt 0 ]; then
+		echo "presstest: failed $failed of $total"
+		exit 1
+	fi
+	echo "presstest: passed $passed"
+	;;
+*)
+	die "unknown command: $cmd. See the header of $0."
+	;;
+esac

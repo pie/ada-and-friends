@@ -267,7 +267,8 @@ again if the developer had to be asked. No code until you have approved.
    Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a
    Claudia re-review of the fix, then Tess again. When `DESIGN.md` says `Status: agreed`, Tess's
    design comparison needs Chrome: ask the developer whether she may run the local checks herself
-   (below). Without Chrome it is not verified.
+   (below). Without Chrome it is not verified. After a local suite run, copy her cleanup list
+   into `CHECKPOINT.md`.
 
 Spawn them one at a time (you may keep talking with the developer while one runs), unless they
 are independent: Tess planning and writing tests while Bob writes his plan is the only parallel
