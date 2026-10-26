@@ -99,10 +99,22 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
 
 1. Run every **terminal** check, including the unit tests (`tests/README.md`). Record the command
    and the result.
-2. Run the **suite** checks: the project's PressTest suite, with `local-test.sh` against the site
-   under test if a presstest.io clone and Docker are to hand (`TEST-AREAS.md`). If not, hand it to
-   the developer like a local check: trigger it from WP admin → Presstest on the review site once
-   the branch is merged there, and record the report.
+2. Run the **suite** checks with `presstest run`. It runs the project's suite against the local
+   site, so make sure the site runs this step's code first (`PROJECT.md`, Local copies). The
+   suite places orders on the shared local site, so before every local run, even when nobody
+   asked you to run local checks, check the preconditions in step 1 of **Running local checks
+   yourself** (the local safety checks, frozen background runners, nothing left over from an
+   earlier run). If any fails, don't run the suite: record what failed and report it under
+   Escalate. Afterwards, clean up as in step 6 of that section. Run the files that cover the
+   step (`presstest run checkout_test.js ...`; `presstest list` shows them), or the whole suite if
+   the step touches checkout or anything they share. Record the command and its last line
+   (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each failure the
+   test's name and error from the summary. If it stops before running (exit 2: no clone, no
+   Docker, the site not started or password-protected), record what it printed and hand the
+   suite to the developer like a local check: `presstest run` once they've fixed it, or WP admin
+   → Presstest on the review site once the branch is merged there. Run on staging (`presstest
+   run --env staging`) only if Ada's spawn says the developer asked, and say which site each
+   result is from. Never production.
 3. For **local** checks, give Ada the exact steps and expected result for the developer to carry
    out, one check at a time, and record what they report, with the clock time used. If nobody runs
    it, it is **Not verified**, with the reason. If Ada says the developer has asked you to run
@@ -143,8 +155,9 @@ go in the PR description where PIE can see them.
 
 ## Running local checks yourself
 
-Only when Ada says the developer asked for it. The local site is shared and holds a copy of real
-data, so:
+Only when Ada says the developer asked for it, except step 1 (and step 6 afterwards), which every
+local suite run needs (Run mode, step 2). The local site is shared and holds a copy of real data,
+so:
 
 1. **Preconditions, checked by you, not assumed.** The local safety checks in `PROJECT.md` (Local
    copies) all pass, run through the project's local WP-CLI recipe; the background runners are
@@ -166,7 +179,8 @@ data, so:
    test-fix modes never use the browser.
    - If the Chrome tools aren't already available, load them with `ToolSearch`.
    - Open only `LOCAL_URL` from `.claude/team/local.env`, and pages under it. Read it from the
-     file; never guess it. If it is missing, stop and say so under Escalate. Never open any
+     file (`presstest config`, or only the `LOCAL_URL` line: the file also holds the developer's
+     secrets); never guess it. If it is missing, stop and say so under Escalate. Never open any
      other host.
    - The developer is already logged in to the local admin. Never fill in a login form.
    - To view the site as the user a check names, use the User Switching plugin's "Switch To"
@@ -189,7 +203,9 @@ data, so:
      reason and give Ada their manual steps. Never retry in a loop.
 6. **Clean up, and list it.** Every order, subscription, adjustment, action or setting you
    created or changed, by ID, and what you did with it. Restore whatever the preconditions
-   changed. The list goes in TEST-REPORT and Ada copies it into the checkpoint.
+   changed. After a suite run, list the orders the suite placed: find them with WP-CLI by the
+   run's start and end times, give their IDs, and leave them for the developer (don't delete
+   them). The list goes in TEST-REPORT and Ada copies it into the checkpoint.
 
 ## Never
 

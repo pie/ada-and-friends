@@ -5,7 +5,17 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **`presstest`**: runs the project's PressTest suite against your local site, or with
+  `--env staging` the project's staging site. Never production. It ends with one line saying
+  how many passed or failed. Needs Docker and a presstest.io clone (`PRESSTEST_DIR` in
+  `.claude/team/local.env`).
+  If the site is password-protected (Basic auth, such as a host's staging protection), it stops
+  before the run and says so, instead of failing every test.
+- **Tess runs the suite checks herself** with `presstest run`, instead of handing them to the
+  developer. She runs on staging only if you ask.
+- **Onboarding asks for the suite and the staging site**, on two lines in `PROJECT.md`. In a repo
+  onboarded earlier, add a `PressTest staging:` line (a URL or `none`) and run
+  `ada-onboard settings` to allow `presstest`.
 
 ## 0.8.0, 22 Oct 2026
 
