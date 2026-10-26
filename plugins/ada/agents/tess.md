@@ -110,7 +110,7 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
    or the whole suite if the step touches checkout or anything they share. Record the command and
    its last line (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each
    failure the test's name and error from the summary. If it stops before running (exit 2: no
-   clone, no Docker, the site not started), record what it printed and hand the suite to the
+   clone, no Docker, the site not started or password-protected), record what it printed and hand the suite to the
    developer like a local check: `presstest run` once they've fixed it, or WP admin → Presstest on
    the review site once the branch is merged there. Run on staging (`presstest run --env
    staging`) only if Ada's spawn says the developer asked, and say which site each result is

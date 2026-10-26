@@ -3,7 +3,7 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1210681019800745/task/1219403227572186
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 23 Oct 2026, 59 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should. Real run on vandme.local the same day: product_type 3/3, failed_payment 1/1, whole suite 16 of 18 (no test customer set; the evening slot test expects 6-8PM, the site says 4-6PM)
+- Last run: 26 Oct 2026, 65 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should. Real run on PDS staging the same day: 90 passed, 2 skipped (mobile-only); with its password protection on, `presstest run --env staging` stopped with exit 2 and the password-protected message before any test ran. Earlier, 23 Oct 2026 on vandme.local: product_type 3/3, failed_payment 1/1, whole suite 16 of 18 (no test customer set; the evening slot test expects 6-8PM, the site says 4-6PM)
 
 ## Precondition
 
@@ -68,7 +68,7 @@ if [ "$1" = exec ]; then
   case "$*" in
     *getent*) exit 0 ;;  # Docker's DNS may resolve a Local domain to ::1; that must not count
     */etc/hosts*) [ -f "$STUB_LOG/mapped" ] && case "$*" in *"d=$(cat "$STUB_LOG/mapped") "*) exit 0 ;; esac; exit 1 ;;
-    *node*) exit 0 ;;
+    *node*) exit "${STUB_NODE_RC:-0}" ;;  # 3: the site asks for a Basic auth password; 1: no answer
   esac
 fi
 exit 0
@@ -171,6 +171,16 @@ t "an unfilled <example> is not sent" not grep -q '<admin' "$W/log/args"
 t "the local secret is not sent to staging" not grep -q 's3cr' "$W/log/args"
 t "the staging customer is passed, not the local one" grep -qx 'customer=stg-cust@example.com/stg-pass' "$W/log/env"
 t "a running container is left alone" not grep -q compose "$W/log/docker"
+for c in 3 1; do
+  rm -f "$W/log/"*
+  STUB_NODE_RC=$c run "$R" run --env staging
+  t "a site that answers $c is refused with exit 2" test "$(rc)" = 2
+  t "a site that answers $c: nothing ran" not test -e "$W/log/args"
+done
+STUB_NODE_RC=3 run "$R" run --env staging
+t "a password-protected site is named as such" grep -q 'password-protected (Basic auth)' "$W/err"
+STUB_NODE_RC=1 run "$R" run --env staging
+t "a site with no answer is told apart from one with a password" not grep -q 'password-protected' "$W/err"
 for e in production live ''; do
   rm -f "$W/log/"*
   run "$R" run --env "$e"

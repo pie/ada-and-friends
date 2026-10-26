@@ -9,6 +9,8 @@ Releasing in DEVELOPING.md).
   `--env staging` the project's staging site. Never production. It ends with one line saying
   how many passed or failed. Needs Docker and a presstest.io clone (`PRESSTEST_DIR` in
   `.claude/team/local.env`).
+  If the site is password-protected (Basic auth, such as a host's staging protection), it stops
+  before the run and says so, instead of failing every test.
 - **Tess runs the suite checks herself** with `presstest run`, instead of handing them to the
   developer. She runs on staging only if you ask.
 - **Onboarding asks for the suite and the staging site**, on two lines in `PROJECT.md`. In a repo
