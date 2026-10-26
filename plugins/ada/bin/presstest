@@ -46,7 +46,7 @@
 #
 # `run` ends with one line: `presstest: passed <n>` or `presstest: failed <n> of <total>`.
 # Exit status: 0 everything passed; 1 a test failed or no report was written; 2 a usage or
-# settings error.
+# settings error, or the site doesn't answer or is password-protected, so nothing ran.
 
 set -euo pipefail
 
@@ -223,7 +223,7 @@ run)
 	# Exit 3: the site asks for a Basic auth password (such as a host's staging protection), which
 	# the suite can't give, so every test would fail on it.
 	answer=0
-	docker exec -e NODE_TLS_REJECT_UNAUTHORIZED="$tls" playwright node -e 'fetch(process.argv[1], {signal: AbortSignal.timeout(20000)}).then(r => process.exit(r.status === 401 && /^\s*basic/i.test(r.headers.get("www-authenticate") || "") ? 3 : 0), () => process.exit(1))' "$URL" \
+	docker exec -e NODE_TLS_REJECT_UNAUTHORIZED="$tls" playwright node -e 'fetch(process.argv[1], {signal: AbortSignal.timeout(20000)}).then(r => process.exit(r.status === 401 && /(^|,)\s*basic\b/i.test(r.headers.get("www-authenticate") || "") ? 3 : 0), () => process.exit(1))' "$URL" \
 		|| answer=$?
 	[ "$answer" -ne 3 ] \
 		|| die "the site is password-protected (Basic auth), so the suite can't reach it: turn the protection off for the run, then back on afterwards ($URL)"

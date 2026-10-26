@@ -105,16 +105,16 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
    asked you to run local checks, check the preconditions in step 1 of **Running local checks
    yourself** (the local safety checks, frozen background runners, nothing left over from an
    earlier run). If any fails, don't run the suite: record what failed and report it under
-   Escalate. Afterwards, clean up as in step 6 of that section. Run the
-   files that cover the step (`presstest run checkout_test.js ...`; `presstest list` shows them),
-   or the whole suite if the step touches checkout or anything they share. Record the command and
-   its last line (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each
-   failure the test's name and error from the summary. If it stops before running (exit 2: no
-   clone, no Docker, the site not started or password-protected), record what it printed and hand the suite to the
-   developer like a local check: `presstest run` once they've fixed it, or WP admin → Presstest on
-   the review site once the branch is merged there. Run on staging (`presstest run --env
-   staging`) only if Ada's spawn says the developer asked, and say which site each result is
-   from. Never production.
+   Escalate. Afterwards, clean up as in step 6 of that section. Run the files that cover the
+   step (`presstest run checkout_test.js ...`; `presstest list` shows them), or the whole suite if
+   the step touches checkout or anything they share. Record the command and its last line
+   (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each failure the
+   test's name and error from the summary. If it stops before running (exit 2: no clone, no
+   Docker, the site not started or password-protected), record what it printed and hand the
+   suite to the developer like a local check: `presstest run` once they've fixed it, or WP admin
+   → Presstest on the review site once the branch is merged there. Run on staging (`presstest
+   run --env staging`) only if Ada's spawn says the developer asked, and say which site each
+   result is from. Never production.
 3. For **local** checks, give Ada the exact steps and expected result for the developer to carry
    out, one check at a time, and record what they report, with the clock time used. If nobody runs
    it, it is **Not verified**, with the reason. If Ada says the developer has asked you to run
@@ -203,7 +203,9 @@ so:
      reason and give Ada their manual steps. Never retry in a loop.
 6. **Clean up, and list it.** Every order, subscription, adjustment, action or setting you
    created or changed, by ID, and what you did with it. Restore whatever the preconditions
-   changed. The list goes in TEST-REPORT and Ada copies it into the checkpoint.
+   changed. After a suite run, list the orders the suite placed: find them with WP-CLI by the
+   run's start and end times, give their IDs, and leave them for the developer (don't delete
+   them). The list goes in TEST-REPORT and Ada copies it into the checkpoint.
 
 ## Never
 

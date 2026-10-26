@@ -3,13 +3,13 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1210681019800745/task/1219403227572186
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 26 Oct 2026, 65 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should. Real run on PDS staging the same day: 90 passed, 2 skipped (mobile-only); with its password protection on, `presstest run --env staging` stopped with exit 2 and the password-protected message before any test ran. Earlier, 23 Oct 2026 on vandme.local: product_type 3/3, failed_payment 1/1, whole suite 16 of 18 (no test customer set; the evening slot test expects 6-8PM, the site says 4-6PM)
+- Last run: 26 Oct 2026, 73 PASS, 0 failed under bash 5 (with node); under Docker bash 3.2 all PASS but the 8 Basic auth checks, which SKIP there (no node); broken copies fail as they should, including the Basic auth pattern reverted to first-scheme-only, a 403 check and a Bearer check. Real run on PDS staging the same day: 90 passed, 2 skipped (mobile-only); with its password protection on, `presstest run --env staging` stopped with exit 2 and the password-protected message before any test ran. Earlier, 23 Oct 2026 on vandme.local: product_type 3/3, failed_payment 1/1, whole suite 16 of 18 (no test customer set; the evening slot test expects 6-8PM, the site says 4-6PM)
 
 ## Precondition
 
 - This checkout (`REPO`). The script makes its own scratch repos, a stand-in presstest.io clone
   and a stand-in `docker` under a temporary folder. It never runs Docker or touches a real site.
-- `git`, `mktemp`. Nothing else.
+- `git`, `mktemp`. `node`, if installed, for the Basic auth checks; without it they are skipped.
 - Run the checkout's script by path, never the `presstest` on the PATH (that is the installed
   plugin).
 
@@ -68,7 +68,16 @@ if [ "$1" = exec ]; then
   case "$*" in
     *getent*) exit 0 ;;  # Docker's DNS may resolve a Local domain to ::1; that must not count
     */etc/hosts*) [ -f "$STUB_LOG/mapped" ] && case "$*" in *"d=$(cat "$STUB_LOG/mapped") "*) exit 0 ;; esac; exit 1 ;;
-    *node*) exit "${STUB_NODE_RC:-0}" ;;  # 3: the site asks for a Basic auth password; 1: no answer
+    *node*)
+      # With STUB_STATUS set and node here, run the real check with a stand-in fetch that answers
+      # STUB_STATUS and the WWW-Authenticate header STUB_AUTH. Otherwise answer STUB_NODE_RC
+      # (3: the site asks for a Basic auth password; 1: no answer).
+      if [ -n "${STUB_STATUS:-}" ] && command -v node >/dev/null 2>&1; then
+        js='' url=''; for a in "$@"; do js=$url; url=$a; done
+        node -e 'globalThis.fetch = async () => ({status: Number(process.env.STUB_STATUS), headers: {get: n => (n.toLowerCase() === "www-authenticate" && process.env.STUB_AUTH) || null}});'"$js" "$url"
+        exit $?
+      fi
+      exit "${STUB_NODE_RC:-0}" ;;
   esac
 fi
 exit 0
@@ -181,6 +190,22 @@ STUB_NODE_RC=3 run "$R" run --env staging
 t "a password-protected site is named as such" grep -q 'password-protected (Basic auth)' "$W/err"
 STUB_NODE_RC=1 run "$R" run --env staging
 t "a site with no answer is told apart from one with a password" not grep -q 'password-protected' "$W/err"
+# The check itself, run by node with a stand-in fetch: only a Basic auth challenge stops the run.
+if command -v node >/dev/null 2>&1; then
+  for c in '401|Basic realm="x"' '401|Digest realm="a", Basic realm="b"'; do
+    rm -f "$W/log/"*
+    STUB_STATUS=${c%%|*} STUB_AUTH=${c#*|} run "$R" run --env staging
+    t "$c is refused as password-protected" grep -q 'password-protected' "$W/err"
+    t "$c: nothing ran" not test -e "$W/log/args"
+  done
+  for c in '401|Bearer realm="x"' '401|' '403|Basic realm="x"' '200|'; do
+    rm -f "$W/log/"*
+    STUB_STATUS=${c%%|*} STUB_AUTH=${c#*|} run "$R" run --env staging
+    t "$c is not taken for a password: the suite runs" test -e "$W/log/args"
+  done
+else
+  echo "SKIP the Basic auth check itself (no node here)"
+fi
 for e in production live ''; do
   rm -f "$W/log/"*
   run "$R" run --env "$e"
@@ -209,7 +234,8 @@ rm -rf "$W"
 
 ## Expected
 
-Every line `PASS`, `0 failed`, exit 0, under both bashes. With the broken copy, the
+Every line `PASS`, `0 failed`, exit 0, under both bashes. Where node isn't installed (the
+`bash:3.2` image), the Basic auth checks print one `SKIP` line instead. With the broken copy, the
 `https://shop.example.com is refused` checks print `FAIL`.
 
 ## Observe at
