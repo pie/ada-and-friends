@@ -20,6 +20,8 @@ approve to move things along.
 1. `.claude/handoff/REVIEW-REQUEST.md`. Bob's account of what he built and where.
 2. `.claude/handoff/BRIEF.md`. What he was asked to build. The Definition of Done is your spec.
    If `.claude/handoff/DESIGN.md` says `Status: agreed`, it is part of the spec, for the UI.
+   The tokens it names (`{colors.primary}`) have their values in the project's `DESIGN.md`, at
+   the repo root, in its front matter.
 3. Your checklist: the PIE rules (P numbers, preloaded with you), the project's
    `.claude/team/STANDARDS.md` (S numbers) and the review checks in `PROJECT.md`. Cite rules by
    number.
@@ -44,9 +46,11 @@ approve to move things along.
    goes under Escalate, and you review against the wording that was agreed.
 2. **Does it match the design?** When `.claude/handoff/DESIGN.md` says `Status: agreed`, check
    the built UI against it: sizes, colours, spacing, states and breakpoints, value by value, and
-   against P32 to P39. A value that differs from `DESIGN.md` is Must Fix, citing its section.
-   With or without a design, UI that is built but specified by neither the brief nor `DESIGN.md`
-   is Must Fix when this test says a design step would be offered for it, citing the test:
+   against P32 to P39. Check that each value that comes from a token matches that token in the
+   project's `DESIGN.md`. A value that differs from the handoff `DESIGN.md` is Must Fix, citing
+   its section; one that differs from its token is Must Fix, citing the token. With or without a
+   design, UI that is built but specified by neither the brief nor the handoff `DESIGN.md` is
+   Must Fix when this test says a design step would be offered for it, citing the test:
 
    > **Offer a design step when the work adds or changes something a person sees or does:** a new page, section or component; a change to layout, to the order of steps in a flow, or to what shows at which screen size; or a new state (an error, an empty list, a confirmation) with no existing pattern on the site to follow.
    >

@@ -28,12 +28,14 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
   to run (`agents/tess.md`, Running local checks yourself).
 - **Subagents and the canvas.** No agent's `tools:` list has Artifact, so only the main session
   (Ada, and Iris in `skills/design/SKILL.md`) reaches a Design artifact. Bob, Claudia and Tess
-  work from `.claude/handoff/DESIGN.md` instead. Don't add Artifact to an agent to change this.
+  work from `.claude/handoff/DESIGN.md` instead, with token values from the project's root
+  `DESIGN.md`. Don't add Artifact to an agent to change this.
 - **Scripts** (`bin/`): on the Bash PATH while the plugin is enabled (`DEVELOPING.md:42,53`):
   `ada-brief`, `ada-plan`, `ada-size`, `ada-handoff-init`, `ada-onboard`, `prod-wp`, `presstest`. Each is bash
   with Python 3.8+ heredocs.
-- **Templates** (`templates/`): `handoff/` (the role handoff files), `plan/PLAN.md`, and `repo/`
-  (everything `/ada:onboard` copies into a project, including `PROJECT.md`).
+- **Templates** (`templates/`): `handoff/` (the role handoff files), `plan/PLAN.md`, `repo/`
+  (everything `/ada:onboard` copies into a project, including `PROJECT.md`), and `DESIGN.md` (the
+  skeleton Iris fills to create a project's root `DESIGN.md`; no script copies it).
 
 State the scripts read and write, in an onboarded project:
 
@@ -42,7 +44,8 @@ State the scripts read and write, in an onboarded project:
 | `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:66-93`) |
 | `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:65-71`, `90-93`); `ada-brief overlap` (`branches()`) |
 | `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*) | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
-| `.claude/handoff/plan/DESIGN-<task id>.md` | Iris, in a plan: the only file she writes then, and `DESIGN.md` stays the template (`skills/design/SKILL.md`, Write DESIGN.md) | Ada, who copies it to `DESIGN.md` when a unit that names it is built (`skills/planning/SKILL.md`) |
+| `.claude/handoff/plan/DESIGN-<task id>.md` | Iris, in a plan: the only handoff design file she writes then, and `.claude/handoff/DESIGN.md` stays the template (`skills/design/SKILL.md`, Write DESIGN.md); the project's root `DESIGN.md` is written at agreement, as in a step | Ada, who copies it to `.claude/handoff/DESIGN.md` when a unit that names it is built (`skills/planning/SKILL.md`) |
+| `DESIGN.md` at the repo root: the project's design system, in the DESIGN.md format (spec `version: alpha`: YAML front matter tokens, then the spec's 8 `##` sections). Committed in the PR of the step that builds from the design | Iris, from `templates/DESIGN.md`, when a design is agreed: created if missing, else new tokens added; an existing token changed or removed only with the developer's yes, recorded in the handoff `DESIGN.md`. Linted with the version pinned in `skills/design/SKILL.md` (Write DESIGN.md) when `npx` is available | Iris first (Look first); Bob, Claudia and Tess for token values; `/ada:onboard` sets `Design guide: DESIGN.md` when it exists |
 | `.claude/handoff/archive/<name>/` | `ada-handoff-init --archive` / `--archive-plan` (`bin/ada-handoff-init:21-42`) | people |
 | `.claude/handoff/plan/PLAN.md` and `plan/<task>.md` | `ada-plan init` / `briefs` (`bin/ada-plan:47-53`, `186-209`) | `ada-plan`, `ada-brief submit` |
 | `.claude/briefs/<task>.md`, `.claude/briefs/<epic>-plan.md` (committed) | `ada-brief submit` (`bin/ada-brief:390-418`) | `ada-brief status`/`body` via `git show` (`bin/ada-brief:117-119`, `463`) |
@@ -70,9 +73,10 @@ it, or (in this repo only) a push to `main` runs the Release workflow.
 2. Brief (`:91-124`): one PR or a plan (`ada:planning`); `.claude/handoff/BRIEF.md` with an
    `Expected review:` level. Before the rest of the brief, once "done" is pinned down, Ada
    applies the design test (begin, The design step); when it passes she offers the design step
-   and loads `ada:design`, and finishes the brief from `DESIGN.md`. The same test runs again if
-   undesigned UI turns up during the build. Before the brief is confirmed, `ada-brief overlap`
-   with its expected files; Ada fills `Overlaps:` and stops for the developer on any overlap.
+   and loads `ada:design`, and finishes the brief from `.claude/handoff/DESIGN.md`. The same
+   test runs again if undesigned UI turns up during the build. Before the brief is confirmed,
+   `ada-brief overlap` with its expected files; Ada fills `Overlaps:` and stops for the developer
+   on any overlap.
 3. Approval (`:129-151`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
    opens a draft PR and the session stops until `ada-brief status` says `approved`. Amendments are
    resubmitted (`:159-160`).
@@ -328,6 +332,11 @@ Traps:
   template's own line, `Status: draft | agreed | superseded`, means no design. When the developer
   says a standalone design isn't for this task, Ada sets it to `Status: superseded`; it stays
   until the step is archived, and the roles ignore it.
+- There are two `DESIGN.md` files. `.claude/handoff/DESIGN.md` is the step's design (status,
+  states, copy, contrast ratios) and names tokens (`{colors.primary}`) without their values. The
+  project's `DESIGN.md`, at the repo root, holds the token values and only the format's own
+  sections, so other tools can read it. `ada-handoff-init` copies only `templates/handoff/`
+  (`bin/ada-handoff-init:16`), never `templates/DESIGN.md`.
 - `templates/repo/` is PHP/WordPress-shaped (`phpunit.xml.dist`, `tools/composer.json`,
   `tests/unit/TestCase.php`). This repo was onboarded with them; its own knowledge files say
   where they don't apply.
