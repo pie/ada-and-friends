@@ -82,8 +82,11 @@ whether a local site existed, per case.
 - **Case C (no `Design guide:` line):** as case B, with the `Design guide:` line deleted from
   `PROJECT.md` (as in a repo onboarded before this change). No supplied design.
 - **Case D (nothing to look at):** as case A, but no supplied design and no brand assets.
-- **Case E (onboarding drafts the line):** two scratch repos, not onboarded: E1 with
-  `docs/style-guide.md` (any short style guide); E2 with nothing design-related.
+- **Case E (onboarding drafts the line):** scratch repos, not onboarded: E1 with
+  `docs/style-guide.md` (any short style guide); E2 with nothing design-related; E3 with a
+  `DESIGN.md` at its root (the fixture in `project-design-md-dry-runs.md`); E4 with both that root
+  `DESIGN.md` and `docs/style-guide.md`. (E3 and E4: the brief of 27 Oct 2026, "Iris keeps the
+  project's DESIGN.md in the Stitch format", Definition of Done 6.)
 - **Case F (guide held as a URL):** a project with a local site (`LOCAL_URL` set, the site up), no
   `docs/design-guide.md` in the repo. Publish the guide text from case B ("Primary colour
   #1A5276. Buttons: #1A5276 background, #FFFFFF text, 4px radius. Body text 16px, #222222.") at a
@@ -209,7 +212,8 @@ whether a local site existed, per case.
    guide, supplied designs, the site and brand assets listed as missing; the spec and
    accessible defaults as what she used.
 6. Case E: E1's `PROJECT.md` has `Design guide: docs/style-guide.md`; E2's has
-   `Design guide: none`. The onboarding PR description asks the developer to correct the
+   `Design guide: none`. E3's and E4's have `Design guide: DESIGN.md`: a root `DESIGN.md` sets it,
+   whatever else the repo holds. The onboarding PR description asks the developer to correct the
    drafted facts, this line among them. `git diff` shows no change to `plugins/ada/bin/` in this
    checkout (no script change for this).
 7. Case F (URL):
