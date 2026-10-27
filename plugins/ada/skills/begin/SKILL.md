@@ -36,9 +36,11 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
      so in one line ("previous step finished: PR #N merged; archiving it") and run
      `ada-handoff-init --archive <date>-<slug of that step>`. That moves the old handoff files to
      `.claude/handoff/archive/` and puts fresh templates in place; a plan in
-     `.claude/handoff/plan/` stays. Don't wait; carry on to 7. If it lists leftovers on the local
-     site (test orders, a changed clock, a frozen queue), tell the developer: they're cleared
-     before anything runs on the site.
+     `.claude/handoff/plan/` stays. Don't wait; carry on to 7. The one exception: if the step was
+     shelved before its PR and the project's `DESIGN.md` has uncommitted changes, before you
+     archive, show them to the developer and wait for their answer, as for a superseded design
+     (The design step). If it lists leftovers on the local site (test orders, a changed clock, a
+     frozen queue), tell the developer: they're cleared before anything runs on the site.
    - **Its step is still open:** report in one paragraph where we stopped, what was decided, the
      next action and any open questions. **Stop and wait** for the developer to confirm.
 7. If `.claude/handoff/plan/PLAN.md` exists and its status isn't `done`, a plan is under way:
@@ -110,25 +112,31 @@ changes the checkout layout. Shall Iris design it before I write the brief?" On 
 back once `.claude/handoff/DESIGN.md` says `Status: agreed`. On no, write the brief as usual. When
 the test says not to offer it, don't mention design.
 
-**A design from a standalone run.** `ada-handoff-init` always puts a `DESIGN.md` in place, so
-look at its `Status:` line, not whether it exists. The template's own line,
-`Status: draft | agreed | superseded`, means there is no design. A standalone run is a
+**A design from a standalone run.** `ada-handoff-init` always puts a `.claude/handoff/DESIGN.md`
+in place, so look at its `Status:` line, not whether it exists. The template's own line,
+`Status: draft | agreed | superseded`, means there is no design. A standalone run is a handoff
 `DESIGN.md` saying `draft` or `agreed` when no brief has been started (`BRIEF.md` has no Outcome
 yet): `/ada:design` ran on its own before this step. Before you write the brief, check with the
 developer that the design is for this task. If it isn't, set it to `Status: superseded`: it
-stays until the step is archived, and the roles ignore it. If it is, go through its requirements
-("The problem") with them, item by item: they are a draft, not agreed. If the design is only
-`draft`, offer Iris to finish it. A `draft` design in a step you started (the brief has its
-Outcome) is that step's design, not agreed yet: don't confirm its requirements again, and its
-visual parts wait until the developer chooses a fix or PIE waives the rule.
+stays until the step is archived, and the roles ignore it. Then show the developer the
+uncommitted changes the design made to the project's `DESIGN.md` (`git diff -- DESIGN.md`, or the
+whole file if the design created it) and revert them (`git checkout -- DESIGN.md`, or delete the
+file it created), unless the developer says to keep them. Kept changes go in their own commit and
+PR, not this step's. If the design is for this task, go through its requirements ("The problem")
+with them, item by item: they are a draft, not agreed. If the design is only `draft`, offer Iris
+to finish it. A `draft` design in a step you started (the brief has its Outcome) is that step's
+design, not agreed yet: don't confirm its requirements again, and its visual parts wait until the
+developer chooses a fix or PIE waives the rule.
 
-**Finish the brief from `DESIGN.md`.** Only from `Status: agreed`: when Iris hands back "Design
-not agreed:", the visual parts wait until the developer chooses a fix or PIE waives the rule. Bob,
-Claudia and Tess never open the canvas, so the brief carries what they need from it:
+**Finish the brief from `.claude/handoff/DESIGN.md`.** Only from `Status: agreed`: when Iris
+hands back "Design not agreed:", the visual parts wait until the developer chooses a fix or PIE
+waives the rule. Bob, Claudia and Tess never open the canvas, so the brief carries what they need
+from it:
 
-- **Constraints:** "`DESIGN.md` is the spec for the UI", the artifact link, and a summary of the
-  agreed design in a few lines. For a text-only design (`Artifact: text only`), copy its "The
-  agreed design" section into the Constraints, so the design travels with the brief.
+- **Constraints:** "`.claude/handoff/DESIGN.md` is the spec for the UI; its token values are in
+  the project's `DESIGN.md`", the artifact link, and a summary of the agreed design in a few
+  lines. For a text-only design (`Artifact: text only`), copy its "The agreed design" section
+  into the Constraints, so the design travels with the brief.
 - **Build order:** in the order the design builds up (shared tokens and styles, then each
   component, then its states).
 - **Definition of Done:** an observable item for each state and each breakpoint the design
@@ -149,10 +157,10 @@ point. Whoever finds it, you apply the test:
 | Tess, planning tests | She flags, under Escalate, a Definition of Done item that assumes UI no one has designed. |
 
 - **If the test passes:** pause the step and offer Iris. She designs only the new part, in the
-  same artifact, and updates `DESIGN.md`. Then amend the brief from it (the Amendments rules
-  below): it needs the developer's yes again, and approving again if the project needs approval.
-  `ada-brief` already requires this, because only an approval given after the brief last changed
-  counts.
+  same artifact, and updates the handoff `DESIGN.md` and the project's `DESIGN.md`. Then amend
+  the brief from it (the Amendments rules below): it needs the developer's yes again, and
+  approving again if the project needs approval. `ada-brief` already requires this, because only
+  an approval given after the brief last changed counts.
 - **If it fails** (the UI reuses an existing pattern unchanged): add a line to the brief's
   Constraints naming the pattern and where it is used, and the step carries on.
 
@@ -287,10 +295,10 @@ again if the developer had to be asked. No code until you have approved.
    (The design step) before Bob is spawned for it. Repeat until `Ready for PR: YES`.
 5. **Tess, run.** `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Run mode. Execute .claude/handoff/TEST-PLAN.md for step N against the current branch and write TEST-REPORT.md.")`
    Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a
-   Claudia re-review of the fix, then Tess again. When `DESIGN.md` says `Status: agreed`, Tess's
-   design comparison needs Chrome: ask the developer whether she may run the local checks herself
-   (below). Without Chrome it is not verified. After a local suite run, copy her cleanup list
-   into `CHECKPOINT.md`.
+   Claudia re-review of the fix, then Tess again. When `.claude/handoff/DESIGN.md` says
+   `Status: agreed`, Tess's design comparison needs Chrome: ask the developer whether she may run
+   the local checks herself (below). Without Chrome it is not verified. After a local suite run,
+   copy her cleanup list into `CHECKPOINT.md`.
 
 Spawn them one at a time (you may keep talking with the developer while one runs), unless they
 are independent: Tess planning and writing tests while Bob writes his plan is the only parallel
@@ -362,7 +370,9 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
 5. On yes:
    - Update `BUILD-LOG.md`.
    - Commit, credited as in **Commits and credit** below. Every commit says what changed and
-     what was verified (P20).
+     what was verified (P20). When the handoff `DESIGN.md` says `Status: agreed` and its
+     `Project DESIGN.md:` line says `created` or `updated`, stage the project's `DESIGN.md` at
+     the repo root too.
    - Push the branch.
    - Write the PR description to `.claude/handoff/PR.md`, following
      `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
@@ -389,8 +399,8 @@ When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the
      If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the
      Asana app's block):
      `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
-     `Approval:` line, and its `Design:` line from `DESIGN.md`: the artifact link, `text only, in
-     the brief` for a text-only design, or `none` when `DESIGN.md` isn't `Status: agreed`.
+     `Approval:` line, and its `Design:` line from `.claude/handoff/DESIGN.md`: the artifact link,
+     `text only, in the brief` for a text-only design, or `none` when it isn't `Status: agreed`.
      Without `gh`, give the developer the compare link and the description to paste. PRs are
      squash-merged; the `## Squash commit` section is the commit the merger pastes.
    - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
@@ -412,7 +422,7 @@ Code's default line, which the project's settings switch off:
 |---|---|
 | The tests (`tests/`) | `Co-Authored-By: Tess (Ada and friends, Claude Code) <tess@ada.pie.co.de>` |
 | The build (everything else) | `Co-Authored-By: Bob (Ada and friends, Claude Code) <bob@ada.pie.co.de>` and `Reviewed-by: Claudia (Ada and friends, Claude Code) <claudia@ada.pie.co.de>` |
-| The brief, onboarding, anything you write yourself | `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>` |
+| The brief, onboarding, the project's `DESIGN.md` (Iris), anything you write yourself | `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>` |
 
 Tests first, then the build, so the history shows the tests were written from the brief. Fix
 rounds after a review are folded into the build commit, not committed one by one, with one

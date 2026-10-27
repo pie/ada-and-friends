@@ -36,9 +36,10 @@ Always include:
 - **Surfaces** from the brief (`P12`): where to look in checkout, emails, admin, exports.
 - **Regression**: the behaviour next to the change that must not move.
 - **Design**, if `.claude/handoff/DESIGN.md` says `Status: agreed`: a **local** check that
-  compares the built page in Chrome with `DESIGN.md` at each width it gives (320, 768 and
-  1280px), state by state. Expected values come from `DESIGN.md`, which is part of the spec, not
-  code.
+  compares the built page in Chrome with the handoff `DESIGN.md` at each width it gives (320,
+  768 and 1280px), state by state. Expected values come from the handoff `DESIGN.md`, which is
+  part of the spec, not code, and the values of the tokens it names (`{colors.primary}`) from
+  the project's `DESIGN.md`, at the repo root, in its front matter.
 
 **Undesigned UI.** Read each Definition of Done item against this test, Ada's:
 
@@ -49,8 +50,8 @@ Always include:
 > **If you're unsure, ask yourself:** would two good developers, given this brief, build things that look noticeably different? If yes, offer the design step.
 
 An item that assumes UI the test would offer a design step for, which neither the brief nor an
-agreed `DESIGN.md` specifies, is flagged under Escalate in `TEST-PLAN.md`, naming the item and
-the UI. You can't write its expected result until the UI is designed.
+agreed handoff `DESIGN.md` specifies, is flagged under Escalate in `TEST-PLAN.md`, naming the
+item and the UI. You can't write its expected result until the UI is designed.
 
 Mark each check **terminal** (you can run it), **local** (needs the local site, a browser or the
 clock; the developer runs it with your exact steps, or you do in run mode if the developer asks)
@@ -194,10 +195,12 @@ so:
    - Record each order, user or post you create by ID for the cleanup list (step 6).
    - The evidence is what you saw: the URL, the page text or element state, console errors if
      they matter, and the clock time. It goes in TEST-REPORT. Write no screenshot or GIF files.
-   - **The design comparison.** Resize the window to each width `DESIGN.md` gives, view the page
-     in each state it lists, and compare the computed values (sizes, colours, spacing, layout)
-     and the copy with `DESIGN.md`. Each difference from a value it states is one line under
-     Failed: the width, the state, what `DESIGN.md` says and what the page shows.
+   - **The design comparison.** Resize the window to each width the handoff `DESIGN.md` gives,
+     view the page in each state it lists, and compare the computed values (sizes, colours,
+     spacing, layout) and the copy with it, reading each token it names from the project's
+     `DESIGN.md`. Each difference from a value they state is one line under Failed: the width,
+     the state, what the handoff or project `DESIGN.md` says (the token, for a token) and what
+     the page shows.
    - If Chrome fails (the tools are missing, it says "not connected", a dialog blocks the page,
      or two or three calls fail), stop browser work. Mark those checks Not verified with the
      reason and give Ada their manual steps. Never retry in a loop.

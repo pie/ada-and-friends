@@ -24,6 +24,13 @@ Releasing in DEVELOPING.md).
   gate with `ada-brief overlap --gate`, which takes the files the branch changed itself. Without
   `gh`, or with more open PRs or files than `gh` lists, the open PRs show as unknown and the
   rest still works.
+- **Iris keeps the project's `DESIGN.md`**, at the repo root, in the DESIGN.md format that
+  Stitch uses (README, Licence), so Stitch and other agents can use your design system. She
+  reads it first. When a design is agreed, she creates it or adds the new tokens. She changes or
+  removes an existing token only when you say yes, and lints the file with `npx` when it's
+  available. The step's design stays in `.claude/handoff/DESIGN.md`, which now names the
+  project's tokens instead of repeating their values. Bob, Claudia and Tess take token values
+  from the project's file. Onboarding sets `Design guide: DESIGN.md` when the repo has one.
 
 ## 0.8.0, 22 Oct 2026
 

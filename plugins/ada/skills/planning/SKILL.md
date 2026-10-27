@@ -82,9 +82,10 @@ asks.
 3. Copy the approved brief, `.claude/briefs/<task id>.md` on the branch (or the plan's draft if
    no approval was needed), to `.claude/handoff/BRIEF.md`. If its Constraints name a
    `plan/DESIGN-<task id>.md`, copy that to `.claude/handoff/DESIGN.md` too, over the template,
-   so Bob, Claudia and Tess have the design. From here it is an ordinary step, with
-   the unit's ID as step N: Tess, Bob, Claudia, Tess, and the PR gate. The PR goes into the
-   brief's `PR into:` branch.
+   so Bob, Claudia and Tess have the design. If the project's `DESIGN.md`, at the repo root,
+   has uncommitted changes from that design, this unit's PR commits them (`ada:begin`, the PR
+   gate). From here it is an ordinary step, with the unit's ID as step N: Tess, Bob, Claudia,
+   Tess, and the PR gate. The PR goes into the brief's `PR into:` branch.
 4. After its PR: archive the step (`ada-handoff-init --archive <date>-<unit slug>`; the plan
    stays), write the checkpoint, and go back to 1.
 

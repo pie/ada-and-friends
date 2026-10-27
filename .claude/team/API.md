@@ -53,7 +53,8 @@ big for one sitting>)` (`:177`), which goes in the PR. Rates at `:76-86`.
 ### `ada-handoff-init` (`bin/ada-handoff-init:1-13`)
 
 No args: copies missing `templates/handoff/*.md` into `.claude/handoff/` (`created` / `kept`),
-`DESIGN.md` among them.
+`.claude/handoff/DESIGN.md` among them. It never copies `templates/DESIGN.md`, the template for a
+project's root `DESIGN.md`.
 `--archive <name>`: moves `.claude/handoff/*.md` to `archive/<name>/` then copies fresh ones; the
 plan stays. `--archive-plan <name>`: moves `.claude/handoff/plan/` to `archive/<name>/plan/`.
 
@@ -84,7 +85,7 @@ non-zero changing nothing if Unreleased is empty. Run by `release.yml` only.
 | `begin` | `/ada:begin` | Ada's playbook: session start, brief, approval, roles, PR gate |
 | `pickup` | `/ada:pickup` | Resume from `CHECKPOINT.md` |
 | `bughunt` | `/ada:bughunt` | Grace's read-only investigation; writes `FINDINGS.md` |
-| `design` | `/ada:design` | Usually loaded by Ada from `begin` (or `planning`) when the design test passes. Iris designs on a Design artifact (Artifact `quickstart`, intent `design`) in the main session; writes `DESIGN.md`, or in a plan only `plan/DESIGN-<task id>.md` |
+| `design` | `/ada:design` | Usually loaded by Ada from `begin` (or `planning`) when the design test passes. Iris designs on a Design artifact (Artifact `quickstart`, intent `design`) in the main session; writes `.claude/handoff/DESIGN.md`, or in a plan only `plan/DESIGN-<task id>.md`, and creates or updates the project's root `DESIGN.md` (linted with the version pinned in the skill) |
 | `onboard` | `/ada:onboard` | Set a repo up; drafts the knowledge files |
 | `planning` | loaded by Ada | Work too big for one PR |
 | `standards` | preloaded (Bob, Claudia) | P rules except P29 and P32-P39 |

@@ -19,7 +19,8 @@ it first.
 
 1. `.claude/handoff/BRIEF.md`. Your only source of truth for what to build. If
    `.claude/handoff/DESIGN.md` says `Status: agreed`, it is part of the brief: the spec for the UI.
-   Any other status means there is no agreed design.
+   Any other status means there is no agreed design. The tokens it names (`{colors.primary}`)
+   have their values in the project's `DESIGN.md`, at the repo root, in its front matter.
 2. `.claude/handoff/REVIEW-FEEDBACK.md`, if you are back after a review.
 3. The standards, once per step: the PIE rules (P numbers, preloaded with you) and the project's
    `.claude/team/STANDARDS.md` (S numbers). Reviews cite them by number; so should your
@@ -49,9 +50,11 @@ the plan is approved.
 - Business data is read and written through the class that owns it (`P25`, `API.md`).
 - The review checks in `PROJECT.md` apply to your code as well: build so they pass.
 - Escape output (`P9`). Log with `wc_get_logger()` (`P15`).
-- Build UI to `DESIGN.md` when it says `Status: agreed`: its sizes, colours, spacing, states,
-  copy and breakpoints, as written. Don't invent UI the brief and `DESIGN.md` don't specify. The
-  UI that needs specifying is what this test, Ada's, would offer a design step for:
+- Build UI to `.claude/handoff/DESIGN.md` when it says `Status: agreed`: its sizes, colours,
+  spacing, states, copy and breakpoints, as written. Use the values of the tokens it names from
+  the project's `DESIGN.md` at the repo root. Don't invent UI the brief and the handoff `DESIGN.md`
+  don't specify. The UI that needs specifying is what this test, Ada's, would offer a design
+  step for:
 
   > **Offer a design step when the work adds or changes something a person sees or does:** a new page, section or component; a change to layout, to the order of steps in a flow, or to what shows at which screen size; or a new state (an error, an empty list, a confirmation) with no existing pattern on the site to follow.
   >
@@ -59,9 +62,9 @@ the plan is approved.
   >
   > **If you're unsure, ask yourself:** would two good developers, given this brief, build things that look noticeably different? If yes, offer the design step.
 
-  When the work needs such UI and neither the brief nor `DESIGN.md` specifies it (a state left
-  out, a breakpoint with no layout), stop that part. Record `UI not specified: <what>` in
-  REVIEW-REQUEST, one line for each, and build the rest. Ada applies the test and decides.
+  When the work needs such UI and neither the brief nor the handoff `DESIGN.md` specifies it (a
+  state left out, a breakpoint with no layout), stop that part. Record `UI not specified: <what>`
+  in REVIEW-REQUEST, one line for each, and build the rest. Ada applies the test and decides.
 - A function or method you touch is made phpcs-clean as a whole, not just your lines (`P30`).
   Write your new lines in the standard even when the function around them isn't, then reformat the
   rest of the function in a separate step with no behaviour change. Nothing outside the touched
