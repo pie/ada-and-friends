@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.9.0, 27 Oct 2026
+
 - **`presstest`**: runs the project's PressTest suite against your local site, or with
   `--env staging` the project's staging site. Never production. It ends with one line saying
   how many passed or failed. Needs Docker and a presstest.io clone (`PRESSTEST_DIR` in
