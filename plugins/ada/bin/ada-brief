@@ -15,7 +15,14 @@
 #   ada-brief submit <task-id> <base-branch> [<branch>]
 #       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
 #       opens a draft PR into <base-branch> with the brief as its description (or updates the
-#       branch's PR). Removes any brief-approved label, so a changed brief is approved again.
+#       branch's PR). Prints "opened   <url>", or for an existing PR one of:
+#         updated  <url> (approval kept)  an approver's label stays: the brief is the approved
+#                                         version, or compare says "allowed" (a PR comment lists
+#                                         the added Amendments rows); the description is
+#                                         replaced, and the comment posted, only when the
+#                                         description doesn't already show this brief
+#         updated  <url> (approval reset) compare says "reapprove", or there was no approval:
+#                                         the brief-approved label is removed
 #       With <branch> (a planned unit's branch that isn't checked out), the brief is
 #       .claude/handoff/plan/<task-id>.md and is committed to <branch> without a checkout.
 #       A brief whose "Plan:" line names a plan file takes .claude/handoff/plan/PLAN.md with it,
@@ -23,7 +30,30 @@
 #       PR (a part of a larger unit) can't be submitted until that brief is approved.
 #   ada-brief status [<branch>]
 #       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
-#       who approved, or the approvers' comments since the brief was last submitted.
+#       who approved, or the approvers' comments since the brief was last submitted. When an
+#       approver's label is older than the brief's last change, the approved version is compared
+#       with the pushed brief: "same" or "allowed" prints "approved @<login> <time>" and a second
+#       line "amended since approval; no re-approval needed"; "reapprove <reason>" gives the
+#       note "... the brief has changed since: <reason>".
+#   ada-brief compare <approved-brief> <current-brief>
+#       Whether an amended brief keeps its approval. Offline: two files in, paths relative to the
+#       repo root, nothing else read. Approved sections: Decisions, and Constraints less its
+#       "- Out of scope:" bullet. An added row is an Amendments data row in <current-brief> not in
+#       <approved-brief>, compared as text. Prints one line, then for "allowed" the added rows:
+#         same                            identical, ignoring trailing whitespace (CR included)
+#                                         and blank lines at the end
+#         reapprove <reason>              the first added row, in table order, that has
+#                                         Re-approval "needed: <trigger>" (the reason is the
+#                                         cell), no Agreed by ("amendment with no Agreed by"),
+#                                         or no "not needed" ("amendment with no re-approval
+#                                         decision", as for a four-column row); else an
+#                                         approved section changed with no added row
+#                                         ("approved section changed with no amendment
+#                                         recorded")
+#         allowed                         anything else
+#       Exits 0 for all three; 2 on wrong arguments or a file it can't read.
+#   The approved version is the brief as committed at or before the last time the
+#   brief-approved label was added, on the pushed branch.
 #   ada-brief body <task-id> [<branch>]
 #       Prints the draft PR description submit writes for the brief committed on the branch:
 #       what the approver checks, with the builder's details and the plan folded away.
@@ -59,8 +89,8 @@
 # classic Projects, which GitHub has retired).
 #
 # Approval is the brief-approved label on the PR, added by someone on the Approvers list after
-# the brief's last commit. GitHub records who added a label, so a label added by anyone else
-# doesn't count.
+# the brief's last commit, or before it when compare finds the amendments since need no
+# re-approval. GitHub records who added a label, so a label added by anyone else doesn't count.
 
 set -euo pipefail
 
@@ -142,20 +172,22 @@ repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
 # The PR for a branch (the current one when none is given).
 pr_number() { gh pr view ${1:+"$1"} --json number -q .number 2>/dev/null; }
 
-# The draft PR's description for a brief: what the approver checks, not the whole brief. The
-# outcome, decisions, scope and Definition of Done in full; the builder's constraints and build
-# order, and the plan, folded away. The full brief stays in .claude/briefs/ on the branch.
-# render_body <brief path in repo> <branch>
-render_body() {
-	local ref="$2"
-	git rev-parse --verify -q "refs/heads/$ref" >/dev/null || ref="origin/$2"
-	BRIEF="$1" REF="$ref" MARK="$MARK" LABEL="$LABEL" py - <<'PY'
-import json, os, re, subprocess
-ref, brief_path, mark, label = os.environ['REF'], os.environ['BRIEF'], os.environ['MARK'], os.environ['LABEL']
+# The Python that reads briefs, shared by every block that needs it: each such block runs as
+# { brief_py; cat <<'PY' ... } | py -, so there is one copy of each rule.
+brief_py() {
+	cat <<'PY'
+import json, os, re, subprocess, sys
 
-def show(path):
-    r = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True, text=True)
-    return re.sub(r'<!--.*?-->\n?', '', r.stdout, flags=re.S) if r.returncode == 0 else None
+# The Re-approval cell of an Amendments row: "not needed ..." or "needed: <trigger>".
+NOT_NEEDED, NEEDED = 'not needed', 'needed:'
+NO_AMENDMENT = 'approved section changed with no amendment recorded'
+
+def git_show(rev, path):
+    r = subprocess.run(['git', 'show', f'{rev}:{path}'], capture_output=True, encoding='utf-8')
+    return r.stdout if r.returncode == 0 else None
+
+def strip_comments(text):
+    return re.sub(r'<!--.*?-->\n?', '', text, flags=re.S)
 
 def split(text):
     head, secs, cur = [], {}, None
@@ -168,6 +200,134 @@ def split(text):
         else:
             secs[cur].append(line)
     return head, {k: '\n'.join(v).strip() for k, v in secs.items()}
+
+def table_rows(text):
+    rows = [l for l in text.splitlines() if l.strip().startswith('|')]
+    out = []
+    for l in rows[2:]:
+        cells = [c.strip() for c in l.strip().strip('|').split('|')]
+        if any(cells) and not all(c.startswith('<') or not c for c in cells):
+            out.append(cells)
+    return out
+
+def row_text(cells):
+    return '| ' + ' | '.join(cells) + ' |'
+
+def amendments_table(rows):
+    """The Amendments rows under their header: five columns if any row has five cells, a four-cell
+    row (from before the Re-approval column) then getting an empty Re-approval; else four."""
+    if any(len(r) == 5 for r in rows):
+        names = ['Date', 'What changed', 'Why', 'Re-approval', 'Agreed by']
+        rows = [r[:3] + [''] + r[3:] if len(r) == 4 else r for r in rows]
+    else:
+        names = ['Date', 'What changed', 'Why', 'Agreed by']
+    return [row_text(names), '|' + '---|' * len(names)] + [row_text(c) for c in rows]
+
+def lines_of(text):
+    """The text's lines without trailing whitespace (a CR included) or blank lines at the end."""
+    lines = [l.rstrip() for l in text.splitlines()]
+    while lines and not lines[-1]:
+        lines.pop()
+    return lines
+
+def approved_sections(lines):
+    """Decisions, and Constraints less its "- Out of scope:" bullet: what an approver approves."""
+    _, secs = split(strip_comments('\n'.join(lines)))
+    out = []
+    for name in ('decisions', 'constraints'):
+        kept, skipping = [], False
+        for line in secs.get(name, '').splitlines():
+            if name == 'constraints' and line.startswith('- '):
+                skipping = line.startswith('- Out of scope:')
+            elif skipping and line and not line.startswith(' '):
+                skipping = False
+            if not skipping:
+                kept.append(line)
+        out.append('\n'.join(kept).strip())
+    return out
+
+def amendments(lines):
+    _, secs = split(strip_comments('\n'.join(lines)))
+    return table_rows(secs.get('amendments', ''))
+
+def row_problem(cells):
+    """Why an added Amendments row needs re-approval, or None. A row of other than five cells
+    (one from before the Re-approval column) has no re-approval decision."""
+    decision = cells[3] if len(cells) == 5 else ''
+    if decision.startswith(NEEDED):
+        return decision
+    if not cells[-1]:
+        return 'amendment with no Agreed by'
+    if not decision.startswith(NOT_NEEDED):
+        return 'amendment with no re-approval decision'
+    return None
+
+def compare(approved, current):
+    """(verdict, added rows): "same", "allowed" or "reapprove <reason>", and the Amendments rows in
+    current that approved doesn't have, compared as text, in table order."""
+    old, new = lines_of(approved), lines_of(current)
+    if old == new:
+        return 'same', []
+    left = amendments(old)
+    added = []
+    for cells in amendments(new):
+        if cells in left:
+            left.remove(cells)
+        else:
+            added.append(cells)
+    # Added rows first: a recorded trigger stands whatever else changed.
+    for cells in added:
+        problem = row_problem(cells)
+        if problem:
+            return 'reapprove ' + problem, added
+    if not added and approved_sections(old) != approved_sections(new):
+        return 'reapprove ' + NO_AMENDMENT, added
+    return 'allowed', added
+
+def approved_version(rev, path, when):
+    """The brief as committed at <rev> at or before <when> (an approval's time), or None."""
+    found = subprocess.run(['git', 'log', '-1', '--format=%H', f'--until={when}', rev, '--', path],
+                           capture_output=True, encoding='utf-8').stdout.strip()
+    return git_show(found, path) if found else None
+
+def since_approval(rev, path, when):
+    """compare() of the approved version with the brief at <rev>, or None with no approved version."""
+    approved = approved_version(rev, path, when)
+    return None if approved is None else compare(approved, git_show(rev, path))
+
+# One page of 100 is plenty for a brief's PR, and works on older gh (no --slurp before 2.48).
+def gh(path):
+    return json.loads(subprocess.run(['gh', 'api', f'{path}?per_page=100'], check=True, capture_output=True, text=True).stdout)
+def flat(items):
+    return items
+
+def approval(repo, n, label, approvers, labels):
+    """While the label is on the PR: who added it last, when, and whether they are an approver.
+    None when it isn't on."""
+    if label not in labels:
+        return None
+    events = [e for e in flat(gh(f'repos/{repo}/issues/{n}/events')) if e.get('event') == 'labeled' and e.get('label', {}).get('name') == label]
+    if not events:
+        return None
+    last = events[-1]
+    who = (last.get('actor') or {}).get('login', '').lower()
+    return who, last['created_at'], who in approvers
+PY
+}
+
+# The draft PR's description for a brief: what the approver checks, not the whole brief. The
+# outcome, decisions, scope and Definition of Done in full; the builder's constraints and build
+# order, and the plan, folded away. The full brief stays in .claude/briefs/ on the branch.
+# render_body <brief path in repo> <branch>
+render_body() {
+	local ref="$2"
+	git rev-parse --verify -q "refs/heads/$ref" >/dev/null || ref="origin/$2"
+	{ brief_py; cat <<'PY'
+ref, brief_path, mark, label = os.environ['REF'], os.environ['BRIEF'], os.environ['MARK'], os.environ['LABEL']
+
+def show(path):
+    text = git_show(ref, path)
+    return None if text is None else strip_comments(text)
 
 def field(head, name):
     for line in head:
@@ -185,15 +345,6 @@ def bullets(text):
         elif items and (line.startswith('  ') or not line.strip()):
             items[-1] += '\n' + line
     return [i.rstrip() for i in items]
-
-def table_rows(text):
-    rows = [l for l in text.splitlines() if l.strip().startswith('|')]
-    out = []
-    for l in rows[2:]:
-        cells = [c.strip() for c in l.strip().strip('|').split('|')]
-        if any(cells) and not all(c.startswith('<') or not c for c in cells):
-            out.append(cells)
-    return out
 
 brief = show(brief_path) or ''
 head, sec = split(brief)
@@ -214,7 +365,7 @@ def take(name):
 out_of_scope = take('Out of scope')
 expected = take('Expected review')
 dod = [b for b in bullets(sec.get('definition of done', '')) if re.match(r'- \[.\]\s*\S', b)]
-amendments = table_rows(sec.get('amendments', ''))
+amendment_rows = table_rows(sec.get('amendments', ''))
 
 # The plan, if this brief is a unit of one.
 plan_path, unit, plan = '', '', None
@@ -305,9 +456,8 @@ if out_of_scope:
     items = [i.strip().rstrip('.') for i in items + [cur] if i.strip()]
     out += ['## Out of scope', ''] + [f'- {link(i)}' for i in items] + ['']
 out += ['## Definition of done', ''] + [link(d) for d in dod] + ['']
-if amendments:
-    out += ['## Amendments', '', '| Date | What changed | Why | Agreed by |', '|---|---|---|---|']
-    out += ['| ' + ' | '.join(c) + ' |' for c in amendments] + ['']
+if amendment_rows:
+    out += ['## Amendments', ''] + amendments_table(amendment_rows) + ['']
 builder = '\n'.join(constraints).strip()
 order = sec.get('build order', '').strip()
 if builder or order:
@@ -340,6 +490,7 @@ if plan:
 out.append(f'The full brief is `{brief_path}` on this branch.')
 print('\n'.join(out))
 PY
+	} | BRIEF="$1" REF="$ref" MARK="$MARK" LABEL="$LABEL" py -
 }
 
 # The Asana app for GitHub links a task by appending a block to the PR's description ("To see the
@@ -364,6 +515,43 @@ start = j if j >= 0 and lines[j].strip() == '---' else i
 block = '\n'.join(lines[start:]).strip('\n')
 open(sys.argv[1], 'w', encoding='utf-8', newline='\n').write(new.rstrip('\n') + '\n\n' + block + '\n')
 PY
+}
+
+# What submit does about an existing PR's approval, from the approved version and the brief it
+# has just pushed. Prints one of these, then the PR's URL:
+#   keep      same or allowed, and the PR's description already shows this brief (a repeat)
+#   patch     the brief is the approved one (same), but the description isn't (its plan changed)
+#   comment   amended with no re-approval needed (allowed), and the description doesn't show it
+#             yet; the PR comment is written to its file
+#   reset     re-approval is needed, or there is no approver's label to keep
+# after_submit <repo> <pr number> <branch> <brief path in repo> <approvers> <description file> <comment file>
+# The files are arguments, not environment, so Git Bash converts their paths for Python.
+after_submit() {
+	{ brief_py; cat <<'PY'
+repo, n, label, branch, path = (os.environ[k] for k in ('REPO', 'N', 'LABEL', 'BRANCH', 'FILE'))
+pr = gh(f'repos/{repo}/pulls/{n}')
+found = approval(repo, n, label, os.environ['APPROVERS'].split(), [l['name'] for l in pr['labels']])
+verdict = since_approval(f'origin/{branch}', path, found[1]) if found and found[2] else None
+with open(sys.argv[1], encoding='utf-8') as f:
+    shown = lines_of(pr['body'] or '') == lines_of(f.read())
+if verdict is None or verdict[0] not in ('same', 'allowed'):
+    print('reset')
+elif shown or verdict[0] == 'same':
+    print('keep' if shown else 'patch')
+else:
+    added = verdict[1]
+    text = [f'**Brief amended after approval; no re-approval needed.** Remove the `{label}` label to withdraw the approval.', '']
+    if added:
+        text += ['Amendments added since the approved version, each agreed and hitting no re-approval trigger:', '']
+        text += amendments_table(added)
+    else:
+        text += ['Only sections outside Decisions and Constraints changed, and no amendment was added.']
+    with open(sys.argv[2], 'w', encoding='utf-8', newline='\n') as f:
+        f.write('\n'.join(text) + '\n')
+    print('comment')
+print(pr['html_url'])
+PY
+	} | REPO="$1" N="$2" LABEL="$LABEL" BRANCH="$3" FILE="$4" APPROVERS="$5" py - "$6" "$7"
 }
 
 # Commits one or more files to a branch that isn't checked out, without touching the working
@@ -460,14 +648,31 @@ submit)
 	fi
 
 	gh label create "$LABEL" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
-	body="$(mktemp)"; trap 'rm -f "$body"' EXIT
+	body="$(mktemp)"; comment="$(mktemp)"; trap 'rm -f "$body" "$comment"' EXIT
 	render_body "$file" "$branch" >"$body"
 	if n="$(pr_number "$branch")"; then
 		r="$(repo)"
 		keep_asana "$n" "$body"
-		url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
-		gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
-		echo "updated  $url (approval reset)"
+		pol="$(policy)" || exit 2
+		approvers="${pol%%$'\n'*}"   # the first line: the approvers, or none or missing
+		case "$approvers" in missing|none) approvers='' ;; esac
+		kept="$(after_submit "$r" "$n" "$branch" "$file" "$approvers" "$body" "$comment")" || exit 2
+		{ read -r action; read -r url; } <<<"$kept"
+		case "$action" in
+		keep)
+			echo "updated  $url (approval kept)" ;;
+		patch)
+			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
+			echo "updated  $url (approval kept)" ;;
+		comment)
+			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
+			gh api -X POST "repos/$r/issues/$n/comments" -F "body=@$comment" >/dev/null
+			echo "updated  $url (approval kept)" ;;
+		reset)
+			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
+			gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
+			echo "updated  $url (approval reset)" ;;
+		esac
 	else
 		url="$(gh pr create --draft --base "$base" --head "$branch" --title "$title" --body-file "$body" 2>/dev/null)" ||
 			die "couldn't open the draft PR into $base"
@@ -487,40 +692,37 @@ status)
 	pr="$(gh pr view ${branch:+"$branch"} --json number,url,body,labels 2>/dev/null)" || { echo 'not-submitted'; exit 0; }
 	# The pushed branch, where the brief's last change is looked up.
 	if [ -n "$branch" ]; then pushed="origin/$branch"; else pushed='@{upstream}'; fi
-	PR="$pr" PUSHED="$pushed" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py - <<'PY'
-import json, os, re, subprocess, sys
+	{ brief_py; cat <<'PY'
 pr = json.loads(os.environ['PR'])
 approvers = os.environ['APPROVERS'].split()
-label, mark, repo = os.environ['LABEL'], os.environ['MARK'], os.environ['REPO']
-# One page of 100 is plenty for a brief's PR, and works on older gh (no --slurp before 2.48).
-def gh(path):
-    return json.loads(subprocess.run(['gh', 'api', f'{path}?per_page=100'], check=True, capture_output=True, text=True).stdout)
-def flat(items):
-    return items
+label, mark, repo, pushed = os.environ['LABEL'], os.environ['MARK'], os.environ['REPO'], os.environ['PUSHED']
 m = re.search(re.escape(mark) + r'\s*(\S+)\s*-->', pr['body'] or '')
 if not m:
     print('not-submitted'); print(f"{pr['url']} has no ada-brief marker: submit with ada-brief submit"); sys.exit()
 brief = m.group(1)
 # When the brief last changed on the pushed branch: approval and comments count after this.
-since = subprocess.run(['git', 'log', '-1', '--format=%cI', os.environ['PUSHED'], '--', brief], capture_output=True, text=True).stdout.strip()
+since = subprocess.run(['git', 'log', '-1', '--format=%cI', pushed, '--', brief], capture_output=True, text=True).stdout.strip()
 if not since:
     print('not-submitted'); print(f'{brief} is not on the pushed branch'); sys.exit()
 from datetime import datetime
 def t(s): return datetime.fromisoformat(s.replace('Z', '+00:00'))
 since_t = t(since)
 n = pr['number']
-labelled = any(l['name'] == label for l in pr['labels'])
-events = [e for e in flat(gh(f'repos/{repo}/issues/{n}/events')) if e.get('event') == 'labeled' and e.get('label', {}).get('name') == label]
+found = approval(repo, n, label, approvers, [l['name'] for l in pr['labels']])
 notes = []
-if labelled and events:
-    last = events[-1]
-    who = (last.get('actor') or {}).get('login', '').lower()
-    if who not in approvers:
+if found:
+    who, when, by_approver = found
+    if not by_approver:
         notes.append(f'the {label} label was added by @{who}, who is not an approver, so it does not count')
-    elif t(last['created_at']) < since_t:
-        notes.append(f'@{who} approved an earlier version; the brief has changed since')
+    elif t(when) >= since_t:
+        print(f'approved @{who} {when}'); print(pr['url']); sys.exit()
     else:
-        print(f"approved @{who} {last['created_at']}"); print(pr['url']); sys.exit()
+        # Approved before the brief last changed: the amendments since decide.
+        verdict = since_approval(pushed, brief, when)
+        if verdict and verdict[0] in ('same', 'allowed'):
+            print(f'approved @{who} {when}'); print('amended since approval; no re-approval needed'); print(pr['url']); sys.exit()
+        reason = ': ' + verdict[0][len('reapprove '):] if verdict else ''
+        notes.append(f'@{who} approved an earlier version; the brief has changed since{reason}')
 # The approvers' words since the brief last changed: reviews, line comments and PR comments.
 said = []
 for r in flat(gh(f'repos/{repo}/pulls/{n}/reviews')):
@@ -540,6 +742,32 @@ for when, who, where, body in sorted(said):
     print(body.strip())
 print(pr['url'])
 PY
+	} | PR="$pr" PUSHED="$pushed" REPO="$(repo)" APPROVERS="${approvers[*]}" LABEL="$LABEL" MARK="$MARK" py -
+	;;
+
+compare)
+	[ $# -eq 2 ] || die 'usage: ada-brief compare <approved-brief> <current-brief>'
+	for f in "$@"; do
+		case "$f" in *[[:cntrl:]]*) die "a file path can't hold a control character such as a newline: $f" ;; esac
+		[ -f "$f" ] && [ -r "$f" ] || die "can't read $f"
+	done
+	# The files are arguments, not environment, so Git Bash converts their paths for Python.
+	{ brief_py; cat <<'PY'
+texts = []
+for path in sys.argv[1:]:
+    try:
+        with open(path, encoding='utf-8') as f:
+            texts.append(f.read())
+    except UnicodeDecodeError as e:
+        print(f"ada-brief: can't read {path} as UTF-8: {e}", file=sys.stderr)
+        sys.exit(2)
+verdict, added = compare(*texts)
+print(verdict)
+if verdict == 'allowed':
+    for cells in added:
+        print(row_text(cells))
+PY
+	} | py - "$1" "$2"
 	;;
 
 body)
@@ -693,6 +921,6 @@ PY
 	;;
 
 *)
-	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | body <task-id> [<branch>] | ready <title> <file> | overlap [<file>... | --gate] (see the header of this script)'
+	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | compare <approved-brief> <current-brief> | body <task-id> [<branch>] | ready <title> <file> | overlap [<file>... | --gate] (see the header of this script)'
 	;;
 esac

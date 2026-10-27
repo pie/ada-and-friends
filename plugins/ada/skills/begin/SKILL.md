@@ -158,9 +158,8 @@ point. Whoever finds it, you apply the test:
 
 - **If the test passes:** pause the step and offer Iris. She designs only the new part, in the
   same artifact, and updates the handoff `DESIGN.md` and the project's `DESIGN.md`. Then amend
-  the brief from it (the Amendments rules below): it needs the developer's yes again, and
-  approving again if the project needs approval. `ada-brief` already requires this, because only
-  an approval given after the brief last changed counts.
+  the brief from it (the Amendments rules below): it needs the developer's yes again. Check it
+  against the re-approval triggers there; new UI that the customer sees usually hits one.
 - **If it fails** (the UI reuses an existing pattern unchanged): add a line to the brief's
   Constraints naming the pattern and where it is used, and the step carries on.
 
@@ -243,21 +242,51 @@ Confirm the brief with the developer. Once it's agreed and needs no approval, en
 `ada-brief status` prints the state on its first line:
 
 - `approved @login <time>`: record "approved by @login on <date>" on the `Approval:` line and
-  carry on.
+  carry on. A second line, `amended since approval; no re-approval needed`, means the brief has
+  changed since the label and every change was recorded as `not needed`: carry on.
 - `changes-requested`, followed by what the approvers said: go through each point with the
   developer, change the brief, and `ada-brief submit` again. That resets the approval.
-- `waiting`: say so, with any note it prints (an earlier version was approved; a label added by
-  someone who isn't an approver doesn't count), and stop.
+- `waiting`: say so, with any note it prints (an earlier version was approved, and why the
+  changes since need approving again; a label added by someone who isn't an approver doesn't
+  count), and stop.
 
 **The brief is a contract with the developer.** Once they have agreed it, any change to the
 Outcome, Decisions, Out of scope or Definition of Done needs their explicit yes **before** it
 takes effect. Present the evidence, the proposed wording and what happens if they say no, then
 stop and wait. Telling the developer you are making a change is not asking. While you wait, the
 step pauses. Record each agreed change under Amendments in the brief, with the developer's name.
-If the brief needed approval, an amendment does too: `ada-brief submit` it again and wait for
-`approved` before the change takes effect.
 Wording without that line is not part of the brief: Tess reports against the agreed wording, and
 Claudia escalates the difference.
+
+**Amending an approved brief.** If the brief was approved by an approver, an amendment needs
+approving again only when it hits a re-approval trigger. Decisions, and Constraints less its
+`- Out of scope:` bullet, are what the approver approved; the rest of the brief is the
+developer's. For each agreed change:
+
+1. Check it against the triggers: the defaults below, and any the project adds on the
+   `- **Re-approval triggers:**` line of `PROJECT.md`'s Brief approval section.
+2. Record the row with the Re-approval column filled: `not needed`, or `needed: <trigger>`
+   naming the trigger it hits. Tell the developer which, and why.
+3. Run `ada-brief submit` with the same arguments as before. It compares the brief with the
+   approved version and prints the result:
+   - `updated <url> (approval kept)`: carry on. The approver gets a PR comment listing the new
+     rows.
+   - `updated <url> (approval reset)`: the label is gone. Set the brief's status to
+     `awaiting approval`, write `CHECKPOINT.md` and stop until `ada-brief status` says
+     `approved`.
+
+The default triggers. An amendment needs approving again when:
+
+- it reaches a fragile area the brief didn't name;
+- something the customer sees or pays changes;
+- it adds a new dependency, external service, data repair or migration;
+- it touches a security, auth or payment path;
+- the Expected review level goes up;
+- it reverses a Decision.
+
+When unsure, record `needed:`. Give every change to Decisions or Constraints its own row.
+`ada-brief` resets the approval when they changed and no row was added, but once one row has
+been added it can't tell which change a row is for.
 
 Then:
 

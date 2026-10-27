@@ -46,11 +46,14 @@ The guidance in comments like this one doesn't show in the draft PR. -->
 ## Amendments
 
 <!-- Changes to the agreed brief. Each one needs the developer's yes before it takes effect; an
-entry without "Agreed by" is not part of the brief. -->
+entry without "Agreed by" is not part of the brief. Decisions, and Constraints less its
+"- Out of scope:" bullet, are the approved sections: an approver approved them. Re-approval is
+"not needed" or "needed: <trigger>", from the triggers in /ada:begin and PROJECT.md. A change
+to an approved section with no row here needs approving again. -->
 
-| Date | What changed (old → new) | Why (evidence) | Agreed by |
-|---|---|---|---|
-| | | | |
+| Date | What changed (old → new) | Why (evidence) | Re-approval | Agreed by |
+|---|---|---|---|---|
+| | | | | |
 
 ## Builder questions
 
