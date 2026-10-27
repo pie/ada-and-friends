@@ -49,7 +49,7 @@ couldn't find or aren't sure of, and wait for answers:
 | How local copies are made safe | ask |
 | PressTest suite | the folder names under `all-tests/` in a pie/presstest.io clone, if the developer has one (ask where); then ask them to confirm which is this project's, or `none` |
 | PressTest staging site | ask: the staging URL PressTest may run against, or `none` if there's no staging or Cloudflare's bot challenge blocks PressTest there. Never production |
-| Design guide (what Iris designs within) | a style guide or pattern library in the repo (e.g. under `docs/`, a `styleguide` folder), or a link to one in the README; else `none`, for the developer to correct with a URL or a design system artifact link |
+| Design guide (what Iris designs within) | if the repo has a root `DESIGN.md`, `Design guide: DESIGN.md`; else a style guide or pattern library in the repo (e.g. under `docs/`, a `styleguide` folder), or a link to one in the README; else `none`, for the developer to correct with a URL or a design system artifact link |
 
 ## 3. Copy the templates and write the settings
 
@@ -88,11 +88,11 @@ existing docs:
 
 - **`PROJECT.md`:** the facts from step 2. Fill every section; write "none" rather than leaving a
   prompt. Fill the `Design guide:` line under The project (add it if `PROJECT.md` was there
-  before and has none): a path in the repo, a URL, a design system artifact link, or `none`.
-  Iris reads it first when she designs (`ada:design`, Look first). Write the `PressTest suite:`
-  line as the suite's folder name in a code span, first on the line (`` `vandme` ``), and the
-  `PressTest staging:` line as the staging URL in a code span, or `none` for either:
-  `presstest run` reads them.
+  before and has none): `DESIGN.md` for a root `DESIGN.md`, another path in the repo, a URL, a
+  design system artifact link, or `none`. Iris reads it when she designs (`ada:design`, Look
+  first). Write the `PressTest suite:` line as the suite's folder name in a code span, first on
+  the line (`` `vandme` ``), and the `PressTest staging:` line as the staging URL in a code span,
+  or `none` for either: `presstest run` reads them.
 - **`SYSTEM.md`:** the model, what fires when (hooks, scheduled actions, webhooks, cron), each
   fragile area, the environments, and the gotchas. Trace each claim to code and cite it
   (`file:line`). Mark anything you inferred but couldn't trace with *(unverified)*.

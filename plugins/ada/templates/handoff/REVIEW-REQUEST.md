@@ -10,8 +10,9 @@ Two or three sentences against the brief's Definition of Done.
 
 UI not specified: none
 
-<!-- If a part was left unbuilt because neither the brief nor an agreed DESIGN.md specifies it,
-replace `none` with what was left unbuilt, one line per part, such as the empty basket state. -->
+<!-- If a part was left unbuilt because neither the brief nor an agreed
+.claude/handoff/DESIGN.md specifies it, replace `none` with what was left unbuilt, one line per
+part, such as the empty basket state. -->
 
 ## Files changed
 

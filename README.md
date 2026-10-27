@@ -15,7 +15,7 @@ builds it, reviews it and tests it, and gives you a pull request (PR) for PIE to
 | **Claudia**, the reviewer | Reviews Bob's code against PIE's standards and the project's rules. |
 | **Tess**, the tester | Writes tests from the brief. Runs them. Reports what she checked and what she didn't. |
 | **Grace**, the bug hunter | Finds the cause of a problem on the live site, reading production only. Hands her findings to Ada. |
-| **Iris**, the designer | Designs what people will see, as options on a Claude Design canvas, with you. Checks it meets the accessibility rules. Hands the agreed design to Ada. |
+| **Iris**, the designer | Designs what people will see, as options on a Claude Design canvas, with you. Checks it meets the accessibility rules. Keeps your project's design system in `DESIGN.md`. Hands the agreed design to Ada. |
 
 In a build you talk only to Ada. She gets the other agents to do their work. When a change needs
 designing, Ada brings Iris in, and you work with Iris on the design in the same session. For a
@@ -137,4 +137,5 @@ To change the plugin or make a release, see [DEVELOPING.md](DEVELOPING.md).
 ## Licence
 
 MIT. The team's structure comes from Three Man Team (MIT, Russell Aaron). Both notices are in
-[LICENSE](LICENSE).
+[LICENSE](LICENSE). A project's `DESIGN.md` follows Google's
+[DESIGN.md format](https://github.com/google-labs-code/design.md), the one Stitch uses.

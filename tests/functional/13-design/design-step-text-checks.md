@@ -3,7 +3,7 @@
 - Area: 13 Design (`/ada:design`, Iris); also 08 Session flow, 09 Roles, 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
 - Automate as: none (part A is a self-checking shell script; part B is read by a person)
-- Last run: 21 Oct 2026, part A 165 PASS, 0 failed; part B all 51 items found (see the PR)
+- Last run: 27 Oct 2026, part A 164 PASS, 1 failed (.template-hashes, KG-2, also fails on the base); part B not run (see the PR)
 
 ## Precondition
 

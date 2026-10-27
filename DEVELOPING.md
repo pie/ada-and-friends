@@ -176,11 +176,16 @@ only been run on 3.12.
   files, so each stands on its own: change all four together.
 - **Only the main session reaches the canvas.** The canvas is the Design Artifact type, found
   through Artifact `quickstart` with intent `design`, which returns the type URL to publish with.
-  No agent's `tools:` list has Artifact, so Bob, Claudia and Tess work from `DESIGN.md` instead.
+  No agent's `tools:` list has Artifact, so Bob, Claudia and Tess work from
+  `.claude/handoff/DESIGN.md` instead, with token values from the project's root `DESIGN.md`.
   Checked on 21 Oct 2026: `quickstart` offers the Design type in a main session. Whether a plugin
   subagent could call Artifact at all hasn't been checked.
-- **`DESIGN.md` is always there**, because `ada-handoff-init` copies every handoff template. The
-  roles act on it only when its `Status:` line says `agreed`.
+- **`.claude/handoff/DESIGN.md` is always there**, because `ada-handoff-init` copies every
+  handoff template. The roles act on it only when its `Status:` line says `agreed`.
+- **Two DESIGN.md files.** `.claude/handoff/DESIGN.md` is the step's design. The project's
+  `DESIGN.md`, at the repo root, is its design system in the DESIGN.md format, which Iris
+  creates from `templates/DESIGN.md` and keeps. `ada-handoff-init` copies only
+  `templates/handoff/`, so it never copies the root template.
 
 ## Cost
 
