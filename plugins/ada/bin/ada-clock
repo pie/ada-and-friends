@@ -2,8 +2,12 @@
 # Puts the developer's local WordPress site at a fake time, for Tess and for people testing
 # date-dependent behaviour, and checks and undoes it. Run from inside the project repo.
 #
-#   ada-clock set "<when>"   records the fake time in the state file and prints the steps to put
-#                            the computer's clock at it. <when> is either
+#   ada-clock set "<when>"   records the fake time in the state file and applies it the
+#                            setup's way: under manual, prints the steps to put the computer's
+#                            clock at it; under local-linux, writes the offset to the site's
+#                            clock file (exit 2 when libfaketime is missing, or before install)
+#                            and prints a warning that payment webhooks fail while the clock is
+#                            moved. <when> is either
 #                              YYYY-MM-DD HH:MM[:SS]        in the site's timezone (read through
 #                                                           WP-CLI), or
 #                              YYYY-MM-DDTHH:MM[:SS]<zone>  ISO 8601, <zone> Z or +HH:MM / -HH:MM;
@@ -16,19 +20,35 @@
 #   ada-clock status         first line, one of:
 #                              ada-clock: real
 #                              ada-clock: fake <site-local time> <timezone> (<setup>)
+#                            under local-linux, then `wrapper: installed <php-fpm>` or
+#                            `wrapper: missing <php-fpm>, run ada-clock install`, and
+#                            `pool: loaded <www.conf>` or `pool: needs restart <www.conf>` (the
+#                            compiled pool file in Local's run folder lacks the env lines);
 #                            then `mu-plugin: installed <path>`, `mu-plugin: not installed <path>`
 #                            or `mu-plugin: not installed, another file is at <path>`, then
 #                            `site time: <UTC time> (<n> s from <what it is compared with>)`
 #                            from the mu-plugin's endpoint.
-#   ada-clock reset          deletes the state file, if there is one, and prints the steps to
-#                            switch the computer's automatic time back on.
+#   ada-clock reset          deletes the state file, if there is one. Under manual, prints the
+#                            steps to switch the computer's automatic time back on; under
+#                            local-linux, writes +0s to the clock file when there is one.
 #   ada-clock install        copies the mu-plugin to <LOCAL_WP_PATH>/wp-content/mu-plugins/
 #                            ada-clock.php. Replaces only its own earlier copy (the header line
 #                            "Ada clock: copied by ada-clock install, which replaces it."); any
 #                            other file there exits 2 and is left alone. Adds the mu-plugin and
 #                            the state file to .git/info/exclude when they are inside this repo.
+#                            Under local-linux, first checks everything below, so a refusal
+#                            changes nothing; then puts the php-fpm wrapper in place of the
+#                            site's php-fpm (kept as php-fpm.real), adds the pool block to the
+#                            site's www.conf.hbs, and writes the clock file: the state's offset
+#                            when there is a state file, else +0s. Exits 2 when libfaketime is
+#                            missing, or php-fpm is a script that isn't ada-clock's wrapper.
+#   ada-clock uninstall      exits 2 while the state file exists (run reset first). Removes the
+#                            mu-plugin when it is ada-clock's. Under local-linux, also removes
+#                            the pool block and the clock file, and puts php-fpm.real back as
+#                            php-fpm unless another site's clock file still uses that php-fpm.
 #   ada-clock wp <args...>   runs WP-CLI against the local site with <args> appended. Every
-#                            WP-CLI call ada-clock makes goes through it.
+#                            WP-CLI call ada-clock makes goes through it. Under local-linux, when
+#                            the clock file exists, WP-CLI runs under libfaketime at its offset.
 #
 # Settings are the developer's own, in .claude/team/local.env (git-ignored), as KEY=value lines,
 # read as presstest reads them: parsed, never executed; a comment is a line starting with #, or
@@ -39,27 +59,42 @@
 #                                        localhost, 127.0.0.1, or ends in .local or .test.
 #   LOCAL_WP_PATH=~/Local Sites/x/app/public
 #                                        the site's WordPress root, where wp-config.php is
-#   ADA_CLOCK_ADAPTER=manual             how the time is applied. Only manual (the computer's
-#                                        clock, changed by hand) exists; unset means manual.
+#   ADA_CLOCK_ADAPTER=manual             how the time is applied: manual (the computer's clock,
+#                                        changed by hand) or local-linux (libfaketime around
+#                                        Local's php-fpm, Linux only). Unset means manual.
+#   ADA_CLOCK_LOCAL_SITE=rh2ziZudA       local-linux only: the site's ID in Local's
+#                                        ~/.config/Local/sites.json. Unset means the site whose
+#                                        <path>/app/public is LOCAL_WP_PATH.
 #   LOCAL_WP=my-wp                       the command that runs WP-CLI on the local site, split
 #                                        on spaces (no quoting inside it). Unset means
 #                                        wp --path=<LOCAL_WP_PATH>.
 #
 # The state file, <LOCAL_WP_PATH>/wp-content/ada-clock.json, is the one record of the fake time:
 #   {"timestamp": <UTC Unix time>, "local": "<YYYY-MM-DD HH:MM[:SS]>", "timezone": "<zone>",
-#    "setup": "manual", "set_at": <the computer's Unix time when set ran>}
+#    "setup": "manual" or "local-linux", "set_at": <the computer's Unix time when set ran>}
 # The mu-plugin, on a local site only, makes the database's NOW() follow PHP's clock while the
 # state file exists, keeps logins for ten years, sets an `ada_clock` cookie to PHP's time() (and
 # expires it when there is no state file), and answers GET /wp-json/ada-clock/v1/time with
 # {"now": <PHP time()>, "fake": <state file exists>, "timezone": "<wp_timezone_string()>"}.
 #
+# local-linux keeps, outside the repo: the clock file ~/.config/ada-clock/<site ID>, holding the
+# offset +<n>s or -<n>s (timestamp minus set_at; +0s is real time; never emptied while the
+# wrapper is installed); the wrapper templates/clock/php-fpm-wrapper.sh in place of Local's
+# lightning-services/php-<version>/bin/linux/sbin/php-fpm, shared by every site on that PHP; and
+# the pool block, three env[FAKETIME_*] lines between ada-clock comments, in the site's
+# conf/php/php-fpm.d/www.conf.hbs. Local reads the wrapper and the pool block only when the site
+# starts: restart the site in Local after install and uninstall.
+#
 # Nothing here runs sudo: the steps that change the computer's clock are printed, not run.
 #
-# Exit status: 0 done; for status, the site's time is within 120 seconds of the state's
-# timestamp (of this computer's time when there is no state). Under manual that is a check for
-# just after the clock is changed: the clock runs on from the fake time, so after two minutes
-# status exits 1 again. 1 status found the site's time further away than that. 2 a usage or
-# settings error, or the site's endpoint doesn't answer, so nothing was checked.
+# Exit status: 0 done; for status, the site's time is within 120 seconds of the expected time,
+# and under local-linux the wrapper and pool are in place. The expected time is this computer's
+# time when there is no state; the state's timestamp under manual; under local-linux, this
+# computer's time plus the offset. Under manual that is a check for just after the clock is
+# changed: the clock runs on from the fake time, so after two minutes status exits 1 again.
+# 1 status found the site's time further away than that, or under local-linux the wrapper missing
+# or the pool needing a restart. 2 a usage or settings error, or the site's endpoint doesn't
+# answer, so nothing was checked.
 
 set -euo pipefail
 
@@ -84,7 +119,7 @@ py() { "${PY[@]}" "$@" | tr -d '\r'; }
 
 # The developer's settings, from local.env, parsed as bin/presstest parses them (a copy: scripts
 # can't share a file outside templates/). Each known KEY is held as KEY_FILE.
-KEYS='LOCAL_URL LOCAL_WP_PATH ADA_CLOCK_ADAPTER LOCAL_WP'
+KEYS='LOCAL_URL LOCAL_WP_PATH ADA_CLOCK_ADAPTER ADA_CLOCK_LOCAL_SITE LOCAL_WP'
 KEYLIST=" $KEYS "
 for key in $KEYS; do printf -v "${key}_FILE" '%s' ''; done
 if [ -f "$conf" ]; then
@@ -111,12 +146,30 @@ WP_PATH="$(setting LOCAL_WP_PATH)"
 case "$WP_PATH" in "~/"*) WP_PATH="$HOME/${WP_PATH#"~/"}" ;; esac
 ADAPTER="$(setting ADA_CLOCK_ADAPTER)"
 [ -n "$ADAPTER" ] || ADAPTER='manual'
+SITE_ID_SETTING="$(setting ADA_CLOCK_LOCAL_SITE)"
 WP_COMMAND="$(setting LOCAL_WP)"
 
 STATE_NAME='ada-clock.json'
 MARKER='Ada clock: copied by ada-clock install, which replaces it.'
 # How far, in seconds, the site's time may be from the expected time for status to pass.
 TOLERANCE=120
+
+# local-linux: Local's own folder, and where the clock files live.
+LOCAL_DIR="$HOME/.config/Local"
+CLOCK_DIR="$HOME/.config/ada-clock"
+# A Local site ID, as sites.json and the run folders name it. The wrapper applies the same rule.
+SITE_ID_PATTERN='^[A-Za-z0-9_-]+$'
+# Line 2 of the wrapper (templates/clock/php-fpm-wrapper.sh), and how the V&Me proof's wrapper's
+# line 2 starts. Both are replaced by install.
+WRAPPER_HEADER='# ada-clock: php-fpm wrapper, written by ada-clock install, which replaces it.'
+PROOF_HEADER='# ada-clock proof:'
+# The pool block's first and last lines, and the proof's one comment line. Handlebars comments,
+# so they don't reach the compiled www.conf.
+POOL_START='{{! ada-clock: start, written by ada-clock install, which replaces it }}'
+POOL_END='{{! ada-clock: end }}'
+POOL_PROOF='{{! ada-clock proof }}'
+RELOAD_LINE='Reload any page that was open before the jump: its nonces are from the other time.'
+WEBHOOK_LINE='Payments: Stripe (and other) webhooks to this site fail their signature checks while the clock is moved more than about 5 minutes, so run payment tests on real time.'
 
 # Whether a URL's host is a local one: localhost, 127.0.0.1, or a name ending in .local or .test.
 # The mu-plugin's ada_clock_is_local_site() applies the same rule to home_url(); change both.
@@ -133,7 +186,302 @@ need_wp_path() {
 	[ -d "$WP_PATH/wp-content" ] || die "no wp-content folder in LOCAL_WP_PATH ($WP_PATH)"
 }
 
+# Prints "<site ID><TAB><site folder><TAB><PHP version>" from Local's sites.json, for the ID given,
+# or, with an empty ID, for the one site whose <path>/app/public is the WordPress root given.
+# Returns 3 for an ID not in the file, 4 for no single site at that root, 1 for a file it can't read.
+local_site_line() {
+	py -c '
+import json, os, sys
+sites_file, wanted, wp_path = sys.argv[1:4]
+with open(sites_file, encoding="utf-8") as f:
+    sites = json.load(f)
+def folder(site_id):
+    return os.path.expanduser(sites[site_id]["path"])
+if wanted:
+    if wanted not in sites:
+        sys.exit(3)
+    found = [wanted]
+else:
+    root = os.path.realpath(wp_path)
+    found = [key for key in sites if os.path.realpath(os.path.join(folder(key), "app", "public")) == root]
+    if len(found) != 1:
+        sys.exit(4)
+print("%s\t%s\t%s" % (found[0], folder(found[0]), sites[found[0]]["services"]["php"]["version"]))
+' "$LOCAL_DIR/sites.json" "$1" "${2:-}"
+}
+
+# Sets SITE_ID, SITE_PATH and PHP_VERSION for the site: ADA_CLOCK_LOCAL_SITE, else the Local site
+# whose app/public is LOCAL_WP_PATH. Exits 2 when there isn't one.
+SITE_ID=''
+need_local_site() {
+	local sites="$LOCAL_DIR/sites.json" line code=0
+	[ -z "$SITE_ID" ] || return 0
+	need_wp_path
+	[ -f "$sites" ] || die "no Local sites list at $sites: is Local installed and run by this user?"
+	if [ -n "$SITE_ID_SETTING" ]; then
+		[[ "$SITE_ID_SETTING" =~ $SITE_ID_PATTERN ]] \
+			|| die "ADA_CLOCK_LOCAL_SITE is not a Local site ID (letters, digits, - and _): $SITE_ID_SETTING"
+	fi
+	line="$(local_site_line "$SITE_ID_SETTING" "$WP_PATH")" || code=$?
+	case "$code" in
+		0) ;;
+		3) die "ADA_CLOCK_LOCAL_SITE ($SITE_ID_SETTING) is not a site in $sites" ;;
+		4) die "no Local site in $sites has LOCAL_WP_PATH ($WP_PATH) as its app/public folder: set ADA_CLOCK_LOCAL_SITE to the site's ID" ;;
+		*) die "can't read the sites in $sites" ;;
+	esac
+	IFS=$'\t' read -r SITE_ID SITE_PATH PHP_VERSION <<<"$line"
+	# The ID goes into the clock file's path, the run folder's and the pool block, and the wrapper
+	# ignores a site whose ID breaks the rule. ADA_CLOCK_LOCAL_SITE was checked above, so this
+	# catches an ID found through LOCAL_WP_PATH.
+	[[ "$SITE_ID" =~ $SITE_ID_PATTERN ]] \
+		|| die "the Local site at LOCAL_WP_PATH ($WP_PATH) has an ID ada-clock can't use (letters, digits, - and _ only): $SITE_ID"
+}
+
+# Prints the php-fpm a Local site starts: the one lightning-services/php-<version>[+<build>]
+# folder named in the compiled php.ini in its run folder, which is the build the site last
+# started with. Local keeps old builds beside new ones, so the version alone can't name it.
+# Returns 1, printing why, when there isn't one folder for that version.
+php_fpm_of() {
+	local id="$1" version="$2" ini folders folder
+	ini="$LOCAL_DIR/run/$id/conf/php/php.ini"
+	if [ ! -f "$ini" ]; then
+		echo "site $id has no compiled php.ini at $ini"
+		return 1
+	fi
+	folders="$(grep -o 'lightning-services/php-[^/]*/' "$ini" | sort -u)" || true
+	case "$folders" in
+		'') echo "$ini names no Local PHP folder"; return 1 ;;
+		*$'\n'*) echo "$ini names more than one Local PHP folder"; return 1 ;;
+	esac
+	folder="${folders#lightning-services/}"
+	folder="${folder%/}"
+	case "$folder" in
+		"php-$version" | "php-$version+"[0-9]*) ;;
+		*) echo "site $id is set to PHP $version in Local, but last started with $folder"; return 1 ;;
+	esac
+	echo "$LOCAL_DIR/lightning-services/$folder/bin/linux/sbin/php-fpm"
+}
+
+# Sets PHP_FPM for the site, or exits 2 saying what to do in Local.
+PHP_FPM=''
+need_php_fpm() {
+	need_local_site
+	[ -z "$PHP_FPM" ] || return 0
+	PHP_FPM="$(php_fpm_of "$SITE_ID" "$PHP_VERSION")" \
+		|| die "$PHP_FPM: start the site in Local (or stop and start it, if it is running) once, then run this again"
+}
+
+# Prints the libfaketime library: the Debian and Ubuntu path, else the one ldconfig knows.
+find_libfaketime() {
+	local path
+	path="/usr/lib/$(uname -m)-linux-gnu/faketime/libfaketime.so.1"
+	if [ -f "$path" ]; then
+		echo "$path"
+		return 0
+	fi
+	command -v ldconfig >/dev/null 2>&1 || return 1
+	path="$(ldconfig -p | sed -n 's/^[[:space:]]*libfaketime\.so\.1 .*=> //p')" || true
+	path="${path%%$'\n'*}"
+	[ -n "$path" ] && [ -f "$path" ] && echo "$path"
+}
+
+# Sets LIBFAKETIME, or exits 2 with the command that installs it. ada-clock never runs sudo.
+LIBFAKETIME=''
+need_libfaketime() {
+	[ -z "$LIBFAKETIME" ] || return 0
+	LIBFAKETIME="$(find_libfaketime)" || die 'libfaketime is not installed: run sudo apt install faketime, then this again'
+}
+
+clock_file() { echo "$CLOCK_DIR/$SITE_ID"; }
+
+# The fake clock's offset from this computer's clock, in seconds: the state's timestamp minus its
+# set_at (this computer's time when set ran).
+offset_seconds() {
+	echo $(( $1 - $2 ))
+}
+
+# The offset for a number of seconds, as libfaketime reads it: +<n>s or -<n>s.
+offset_text() {
+	if [ "$1" -ge 0 ]; then echo "+${1}s"; else echo "${1}s"; fi
+}
+
+# Replaces the clock file through a temporary file and a rename, so php-fpm workers reading it
+# never see it empty.
+write_clock() {
+	local temp="$CLOCK_DIR/.$SITE_ID.tmp"
+	mkdir -p "$CLOCK_DIR" || die "couldn't make $CLOCK_DIR"
+	printf '%s\n' "$1" > "$temp" || die "couldn't write $temp"
+	mv -f "$temp" "$(clock_file)" || die "couldn't write $(clock_file)"
+}
+
+# What a php-fpm path holds: binary (an ELF file: Local's own), ours (the ada-clock wrapper),
+# proof (the V&Me proof's wrapper), missing, or other (a link, or any other file).
+php_fpm_kind() {
+	local file="$1" second
+	if [ -L "$file" ]; then
+		echo other
+		return 0
+	fi
+	if [ ! -e "$file" ]; then
+		echo missing
+		return 0
+	fi
+	if [ ! -f "$file" ]; then
+		echo other
+		return 0
+	fi
+	if [ "$(head -c 4 "$file" | od -An -c | tr -d ' \n')" = '177ELF' ]; then
+		echo binary
+		return 0
+	fi
+	if [ "$(head -c 2 "$file")" != '#!' ]; then
+		echo other
+		return 0
+	fi
+	second="$(sed -n 2p "$file")"
+	if [ "$second" = "$WRAPPER_HEADER" ]; then
+		echo ours
+	elif [[ "$second" == "$PROOF_HEADER"* ]]; then
+		echo proof
+	else
+		echo other
+	fi
+}
+
+# Exits 2, ending the message with the second argument, unless the php-fpm.real beside a wrapper
+# is Local's binary. A wrapper there would exec itself in a loop, and uninstall would put it back
+# as php-fpm.
+need_real_binary() {
+	[ "$(php_fpm_kind "$1.real")" = 'binary' ] \
+		|| die "$1 is ada-clock's wrapper but $1.real is missing or not Local's php-fpm: $2"
+}
+
+# Exits 2 unless install can put the wrapper in place of a php-fpm of this kind.
+check_wrapper_kind() {
+	case "$2" in
+		binary) ;;
+		ours | proof) need_real_binary "$1" 'reinstall PHP in Local, then install again' ;;
+		missing) die "there is no $1: reinstall PHP in Local, then install again" ;;
+		other) die "$1 is not Local's php-fpm or ada-clock's wrapper: left as it is. Put Local's php-fpm back, then install again." ;;
+	esac
+}
+
+# Puts the wrapper in place of php-fpm, keeping Local's binary as php-fpm.real. A hard link and a
+# rename in the same folder leave a php-fpm there at every moment, for a site Local starts meanwhile.
+install_wrapper() {
+	local fpm="$1" kind="$2" temp="$1.ada-clock.tmp" word
+	if [ "$kind" = 'binary' ]; then
+		# A php-fpm.real beside Local's binary is from before Local replaced php-fpm: the binary wins.
+		ln -f "$fpm" "$fpm.real" || die "couldn't keep $fpm as $fpm.real"
+		word='installed'
+	else
+		word='replaced'
+	fi
+	py -c '
+import sys
+source, target, lib, clocks = sys.argv[1:5]
+with open(source, encoding="utf-8") as f:
+    text = f.read()
+with open(target, "w", encoding="utf-8", newline="\n") as f:
+    f.write(text.replace("@LIBFAKETIME@", lib).replace("@CLOCK_DIR@", clocks))
+' "$here/../templates/clock/php-fpm-wrapper.sh" "$temp" "$LIBFAKETIME" "$CLOCK_DIR" || die "couldn't write $temp"
+	chmod 755 "$temp" || die "couldn't make $temp runnable"
+	mv -f "$temp" "$fpm" || die "couldn't put the wrapper at $fpm"
+	echo "wrapper: $word $fpm"
+}
+
+# Checks, adds or removes the pool block in a www.conf.hbs: the three env[FAKETIME_*] lines for
+# the clock file, between POOL_START and POOL_END. The proof's block (POOL_PROOF and the same
+# three lines) is removed too. Prints added, replaced, removed or none (check prints nothing).
+# Exits 2, file untouched, for a start without its end, an end without its start, or two blocks.
+pool_block() {
+	local word code=0
+	word="$(py -c '
+import os, re, stat, sys
+action, path, clock, start, end, proof = sys.argv[1:7]
+env = ["env[FAKETIME_TIMESTAMP_FILE] = \"%s\"" % clock, "env[FAKETIME_NO_CACHE] = 1", "env[FAKETIME_DONT_FAKE_MONOTONIC] = 1"]
+with open(path, encoding="utf-8", newline="") as f:
+    lines = f.read().split("\n")
+def proof_body(body):
+    return len(body) == 3 and re.match(r"env\[FAKETIME_TIMESTAMP_FILE\] = \"[^\"]*\"$", body[0]) is not None and body[1:] == env[1:]
+kept, found, i = [], 0, 0
+while i < len(lines):
+    line = lines[i]
+    if line == start:
+        if end not in lines[i + 1:] or start in lines[i + 1:lines.index(end, i + 1)]:
+            sys.exit(3)
+        found += 1
+        i = lines.index(end, i + 1) + 1
+    elif line == end:
+        sys.exit(3)
+    elif line == proof and proof_body(lines[i + 1:i + 4]):
+        found += 1
+        i += 4
+    else:
+        kept.append(line)
+        i += 1
+if found > 1:
+    sys.exit(4)
+if action == "check":
+    sys.exit(0)
+if action == "add":
+    block = [start] + env + [end]
+    if kept[-1] == "":
+        kept[-1:] = block + [""]
+    else:
+        kept += block + [""]
+    word = "replaced" if found else "added"
+else:
+    word = "removed" if found else "none at"
+if action == "add" or found:
+    temp = path + ".ada-clock.tmp"
+    with open(temp, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(kept))
+    os.chmod(temp, stat.S_IMODE(os.stat(path).st_mode))
+    os.replace(temp, path)
+print(word)
+' "$1" "$2" "$(clock_file)" "$POOL_START" "$POOL_END" "$POOL_PROOF")" || code=$?
+	case "$code" in
+		0) ;;
+		3) die "$2 has an ada-clock pool block without its start or end line: left as it is. Fix the block by hand, then run this again." ;;
+		4) die "$2 has more than one ada-clock pool block: left as it is. Remove them by hand, then run this again." ;;
+		*) die "couldn't update $2" ;;
+	esac
+	[ "$1" = 'check' ] || echo "pool: $word $2"
+}
+
+# Whether the compiled pool file in the site's run folder has all three env lines for its clock
+# file, which means the site has started since install.
+pool_loaded() {
+	[ -f "$1" ] \
+		&& grep -qxF -- "env[FAKETIME_TIMESTAMP_FILE] = \"$(clock_file)\"" "$1" \
+		&& grep -qxF -- 'env[FAKETIME_NO_CACHE] = 1' "$1" \
+		&& grep -qxF -- 'env[FAKETIME_DONT_FAKE_MONOTONIC] = 1' "$1"
+}
+
+# Prints the IDs, space-separated, of the other sites with a clock file that use this php-fpm,
+# or whose php-fpm can't be worked out (gone from Local, or never started): those keep the
+# wrapper, because removing it from a site that uses it puts that site on real time unannounced.
+other_clock_sites() {
+	local file id line version fpm users=''
+	for file in "$CLOCK_DIR"/*; do
+		[ -f "$file" ] || continue
+		id="$(basename "$file")"
+		[[ "$id" =~ $SITE_ID_PATTERN ]] || continue
+		[ "$id" != "$SITE_ID" ] || continue
+		if line="$(local_site_line "$id")"; then
+			version="${line##*$'\t'}"
+			if fpm="$(php_fpm_of "$id" "$version")" && [ "$fpm" != "$PHP_FPM" ]; then
+				continue
+			fi
+		fi
+		users="$users $id"
+	done
+	echo "${users# }"
+}
+
 # Runs WP-CLI against the local site: LOCAL_WP with the arguments appended, else wp --path.
+# Under local-linux, once the clock file exists, it runs under libfaketime at the site's offset.
 ada_wp() {
 	local wp_command=()
 	if [ -n "$WP_COMMAND" ]; then
@@ -143,6 +491,13 @@ ada_wp() {
 		wp_command=(wp "--path=$WP_PATH")
 	fi
 	command -v "${wp_command[0]}" >/dev/null 2>&1 || die "WP-CLI command not found: ${wp_command[0]} (LOCAL_WP, or wp on the PATH)"
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		need_local_site
+		if [ -f "$(clock_file)" ]; then
+			need_libfaketime
+			wp_command=(env "LD_PRELOAD=$LIBFAKETIME${LD_PRELOAD:+ $LD_PRELOAD}" "FAKETIME_TIMESTAMP_FILE=$(clock_file)" FAKETIME_NO_CACHE=1 FAKETIME_DONT_FAKE_MONOTONIC=1 "${wp_command[@]}")
+		fi
+	fi
 	"${wp_command[@]}" ${1+"$@"}
 }
 
@@ -195,13 +550,13 @@ print("%d\t%s\t%s" % (int(when.timestamp()), shown, zone))
 state_file() { echo "$WP_PATH/wp-content/$STATE_NAME"; }
 mu_plugin_file() { echo "$WP_PATH/wp-content/mu-plugins/ada-clock.php"; }
 
-# Prints "<timestamp><TAB><local><TAB><timezone><TAB><setup>" from the state file.
+# Prints "<timestamp><TAB><local><TAB><timezone><TAB><setup><TAB><set_at>" from the state file.
 read_state() {
 	py -c '
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as f:
     state = json.load(f)
-print("%d\t%s\t%s\t%s" % (state["timestamp"], state["local"], state["timezone"], state["setup"]))
+print("%d\t%s\t%s\t%s\t%d" % (state["timestamp"], state["local"], state["timezone"], state["setup"], state["set_at"]))
 ' "$(state_file)" || die "can't read the state file $(state_file): run ada-clock set again, or reset"
 }
 
@@ -271,7 +626,7 @@ manual_reset_steps() {
 [ $# -ge 1 ] || die "no command. See the header of $0."
 cmd="$1"; shift
 case "$cmd" in
-	set|status|reset|install|wp) ;;
+	set|status|reset|install|uninstall|wp) ;;
 	*) die "unknown command: $cmd. See the header of $0." ;;
 esac
 
@@ -279,16 +634,29 @@ esac
 [ -n "$LOCAL_SITE" ] || die 'no LOCAL_URL: add your local site to .claude/team/local.env'
 is_local_url "$LOCAL_SITE" \
 	|| die "LOCAL_URL must be a local site (localhost, 127.0.0.1, or a .local or .test domain): $LOCAL_SITE"
-[ "$ADAPTER" = 'manual' ] || die "unknown ADA_CLOCK_ADAPTER $ADAPTER: the setups are manual"
+case "$ADAPTER" in
+	manual) ;;
+	local-linux)
+		[ "$(uname -s)" = 'Linux' ] || die "ADA_CLOCK_ADAPTER local-linux runs only on Linux, not $(uname -s): use manual"
+		;;
+	*) die "unknown ADA_CLOCK_ADAPTER $ADAPTER: the setups are manual and local-linux" ;;
+esac
 
 case "$cmd" in
 set)
 	[ $# -eq 1 ] || die 'set takes one time, in quotes: ada-clock set "2026-11-06 11:55"'
-	os="$(os_kind)"
 	need_wp_path
+	if [ "$ADAPTER" = 'manual' ]; then
+		os="$(os_kind)"
+	else
+		need_local_site
+		need_libfaketime
+		[ -f "$(clock_file)" ] || die "no clock file at $(clock_file): run ada-clock install first"
+	fi
 	when_line="$(parse_when "$1")"
 	IFS=$'\t' read -r timestamp local_text zone <<<"$when_line"
-	py -c '
+	# Prints set_at, from which local-linux's offset is worked out.
+	set_at="$(py -c '
 import json, os, sys, time
 path, timestamp, local_text, zone, setup = sys.argv[1:6]
 state = {"timestamp": int(timestamp), "local": local_text, "timezone": zone, "setup": setup, "set_at": int(time.time())}
@@ -297,37 +665,84 @@ with open(temp, "w", encoding="utf-8", newline="\n") as f:
     json.dump(state, f)
     f.write("\n")
 os.replace(temp, path)
-' "$(state_file)" "$timestamp" "$local_text" "$zone" "$ADAPTER" || die "couldn't write the state file $(state_file)"
+print(state["set_at"])
+' "$(state_file)" "$timestamp" "$local_text" "$zone" "$ADAPTER")" || die "couldn't write the state file $(state_file)"
 	echo "ada-clock: fake $local_text $zone ($ADAPTER), written to $(state_file)"
 	exclude_path "$(state_file)"
-	manual_set_steps "$os" "$timestamp"
+	if [ "$ADAPTER" = 'manual' ]; then
+		manual_set_steps "$os" "$timestamp"
+	else
+		offset="$(offset_text "$(offset_seconds "$timestamp" "$set_at")")"
+		write_clock "$offset"
+		echo "clock file: $(clock_file) ($offset)"
+		echo "$RELOAD_LINE"
+		echo "$WEBHOOK_LINE"
+		echo "Then run ada-clock status."
+	fi
 	;;
 reset)
 	[ $# -eq 0 ] || die 'reset takes no arguments'
-	os="$(os_kind)"
 	need_wp_path
+	if [ "$ADAPTER" = 'manual' ]; then
+		os="$(os_kind)"
+	else
+		need_local_site
+	fi
 	if [ -f "$(state_file)" ]; then
 		rm -f "$(state_file)"
 		echo "ada-clock: real, deleted $(state_file)"
 	else
 		echo "ada-clock: real, no state file at $(state_file)"
 	fi
-	manual_reset_steps "$os"
+	if [ "$ADAPTER" = 'manual' ]; then
+		manual_reset_steps "$os"
+	else
+		if [ -f "$(clock_file)" ]; then
+			write_clock '+0s'
+			echo "clock file: $(clock_file) (+0s)"
+		else
+			echo "clock file: none at $(clock_file) (ada-clock install not run)"
+		fi
+		echo "$RELOAD_LINE"
+	fi
 	;;
 status)
 	[ $# -eq 0 ] || die 'status takes no arguments'
 	need_wp_path
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		need_php_fpm
+	fi
 	fake=0
 	if [ -f "$(state_file)" ]; then
 		fake=1
 		state_line="$(read_state)"
-		IFS=$'\t' read -r expected local_text zone setup <<<"$state_line"
+		IFS=$'\t' read -r expected local_text zone setup set_at <<<"$state_line"
 		echo "ada-clock: fake $local_text $zone ($setup)"
 		against='the fake time'
+		if [ "$setup" = 'local-linux' ]; then
+			# The fake clock runs on from set at a fixed offset from this computer's clock.
+			expected=$(( $(date +%s) + $(offset_seconds "$expected" "$set_at") ))
+		fi
 	else
 		echo 'ada-clock: real'
 		expected="$(date +%s)"
 		against="this computer's time"
+	fi
+	broken=0
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		if [ "$(php_fpm_kind "$PHP_FPM")" = 'ours' ]; then
+			echo "wrapper: installed $PHP_FPM"
+		else
+			echo "wrapper: missing $PHP_FPM, run ada-clock install"
+			broken=1
+		fi
+		pool="$LOCAL_DIR/run/$SITE_ID/conf/php/php-fpm.d/www.conf"
+		if pool_loaded "$pool"; then
+			echo "pool: loaded $pool"
+		else
+			echo "pool: needs restart $pool"
+			broken=1
+		fi
 	fi
 	if [ ! -f "$(mu_plugin_file)" ]; then
 		echo "mu-plugin: not installed $(mu_plugin_file)"
@@ -361,6 +776,7 @@ print("%d\t%d\t%s" % (now, fake, utc))
 	[ "$diff" -ge 0 ] || diff=$(( -diff ))
 	echo "site time: $site_utc ($diff s from $against)"
 	[ "$diff" -le "$TOLERANCE" ] || exit 1
+	[ "$broken" -eq 0 ] || exit 1
 	;;
 install)
 	[ $# -eq 0 ] || die 'install takes no arguments'
@@ -371,6 +787,28 @@ install)
 	if [ -f "$target" ]; then
 		grep -qF -- "$MARKER" "$target" \
 			|| die "$target is another plugin's file, not ada-clock's: left as it is. Move it, then install again."
+	fi
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		# Every local-linux check comes before the first change, so a refusal changes nothing.
+		need_libfaketime
+		need_php_fpm
+		[ -f "$here/../templates/clock/php-fpm-wrapper.sh" ] \
+			|| die "the plugin's php-fpm wrapper template is missing: $here/../templates/clock/php-fpm-wrapper.sh"
+		# The wrapper holds both paths in single quotes.
+		[[ "$LIBFAKETIME$CLOCK_DIR" != *"'"* ]] || die "a path with ' in it can't go in the wrapper: $LIBFAKETIME, $CLOCK_DIR"
+		fpm_kind="$(php_fpm_kind "$PHP_FPM")"
+		check_wrapper_kind "$PHP_FPM" "$fpm_kind"
+		pool_file="$SITE_PATH/conf/php/php-fpm.d/www.conf.hbs"
+		[ -f "$pool_file" ] || die "no pool template at $pool_file: is $SITE_PATH the Local site's folder?"
+		pool_block check "$pool_file"
+		offset='+0s'
+		if [ -f "$(state_file)" ]; then
+			state_line="$(read_state)"
+			IFS=$'\t' read -r timestamp local_text zone setup set_at <<<"$state_line"
+			offset="$(offset_text "$(offset_seconds "$timestamp" "$set_at")")"
+		fi
+	fi
+	if [ -f "$target" ]; then
 		word='replaced'
 	else
 		mkdir -p "$(dirname "$target")"
@@ -380,7 +818,75 @@ install)
 	echo "$word $target"
 	exclude_path "$target"
 	exclude_path "$(state_file)"
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		install_wrapper "$PHP_FPM" "$fpm_kind"
+		pool_block add "$pool_file"
+		write_clock "$offset"
+		echo "clock file: $(clock_file) ($offset)"
+		echo "Restart the site in Local once (Stop site, then Start site): php-fpm reads the wrapper and the pool block only when it starts."
+	fi
 	echo "Log in to the local admin again once, with Remember Me ticked: that login then stays valid for ten years, so a clock moved forward doesn't log you out."
+	;;
+uninstall)
+	[ $# -eq 0 ] || die 'uninstall takes no arguments'
+	need_wp_path
+	[ ! -f "$(state_file)" ] || die "the site is on a fake time ($(state_file)): run ada-clock reset first, then uninstall"
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		# Checked before the first change, so a refusal changes nothing.
+		need_php_fpm
+		fpm_kind="$(php_fpm_kind "$PHP_FPM")"
+		case "$fpm_kind" in
+			ours | proof) need_real_binary "$PHP_FPM" 'left as it is. Reinstall PHP in Local.' ;;
+		esac
+		pool_file="$SITE_PATH/conf/php/php-fpm.d/www.conf.hbs"
+		[ ! -f "$pool_file" ] || pool_block check "$pool_file"
+	fi
+	target="$(mu_plugin_file)"
+	if [ ! -f "$target" ]; then
+		echo "mu-plugin: none at $target"
+	elif grep -qF -- "$MARKER" "$target"; then
+		rm -f "$target"
+		echo "mu-plugin: removed $target"
+	else
+		echo "mu-plugin: left $target, not ada-clock's"
+	fi
+	if [ "$ADAPTER" = 'local-linux' ]; then
+		if [ -f "$pool_file" ]; then
+			pool_block remove "$pool_file"
+		else
+			echo "pool: none at $pool_file"
+		fi
+		if [ -f "$(clock_file)" ]; then
+			rm -f "$(clock_file)"
+			echo "clock file: removed $(clock_file)"
+		else
+			echo "clock file: none at $(clock_file)"
+		fi
+		users="$(other_clock_sites)"
+		case "$fpm_kind" in
+			ours | proof)
+				if [ -n "$users" ]; then
+					echo "wrapper: kept $PHP_FPM, still used by $users"
+				else
+					mv -f "$PHP_FPM.real" "$PHP_FPM" || die "couldn't put $PHP_FPM.real back as $PHP_FPM"
+					echo "wrapper: removed, php-fpm.real put back as $PHP_FPM"
+				fi
+				;;
+			binary)
+				# Local's binary is back in place, so the copy install kept is out of date. It is
+				# deleted only when no other site with a clock file uses this php-fpm.
+				if [ -f "$PHP_FPM.real" ] && [ -z "$users" ]; then
+					rm -f "$PHP_FPM.real"
+					echo "wrapper: none at $PHP_FPM; deleted the old copy $PHP_FPM.real"
+				else
+					echo "wrapper: none at $PHP_FPM"
+				fi
+				;;
+			missing) echo "wrapper: none at $PHP_FPM" ;;
+			other) echo "wrapper: left $PHP_FPM, not ada-clock's" ;;
+		esac
+		echo "Restart the site in Local (Stop site, then Start site): its running php-fpm keeps the fake clock until then."
+	fi
 	;;
 wp)
 	ada_wp ${1+"$@"}

@@ -393,9 +393,11 @@ Traps:
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
   overridable, and `PRESSTEST_SUITE` / `PRESSTEST_STAGING_URL` override `PROJECT.md`. This repo's
   suite is `none`. `ada-clock` reads `LOCAL_URL`, `LOCAL_WP_PATH` (the site's WordPress root),
-  `ADA_CLOCK_ADAPTER` (only `manual`; unset means `manual`) and `LOCAL_WP` (the command that runs
-  WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`) from the same file, likewise
-  overridable, with the same parser copied in (`bin/ada-clock:85-108`). It refuses any `LOCAL_URL`
+  `ADA_CLOCK_ADAPTER` (`manual` or `local-linux`; unset means `manual`), `ADA_CLOCK_LOCAL_SITE` (the
+  Local site ID, local-linux only; unset means the site whose `app/public` is `LOCAL_WP_PATH`) and
+  `LOCAL_WP` (the command that runs WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`)
+  from the same file, likewise overridable, with the same parser copied in
+  (`bin/ada-clock:120-143`). It refuses any `LOCAL_URL`
   whose host isn't `localhost`, `127.0.0.1`, `.local` or `.test`. This repo has no site.
 - **Platforms** (`DEVELOPING.md:138-148`): bash 3.2+ (all scripts tested under 3.2.57), Python
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
@@ -409,6 +411,40 @@ Traps:
     0.3.0 records the bug this fixed (`CHANGELOG.md:191-192`).
   - Empty arrays are guarded before `"${arr[@]}"` under `set -u` (`bin/ada-brief:595`,
     `bin/ada-size:58`), which bash before 4.4 treats as unbound.
+
+## What `ada-clock install` changes outside the repo
+
+Under `ADA_CLOCK_ADAPTER=local-linux` (Local on Linux), `install` changes four things outside the
+repo, beside the mu-plugin and state file inside the site. Each is written only by `ada-clock`
+(`STANDARDS.md`, Owning classes), and `uninstall` undoes each one. `uninstall` exits 2 while the
+state file exists, so the clock file says `+0s` when it goes.
+
+| What | Where | `install` | `uninstall` | By hand |
+|---|---|---|---|---|
+| The site | `~/.config/Local/sites.json` | Read only: the site's ID, folder and PHP version. `ADA_CLOCK_LOCAL_SITE` overrides the match on `LOCAL_WP_PATH` | Read only | — |
+| The wrapper | `~/.config/Local/lightning-services/php-<version>[+<build>]/bin/linux/sbin/php-fpm`, the folder named in the run folder's compiled `php.ini` | Local's binary is hard-linked to `php-fpm.real`, then the wrapper (`templates/clock/php-fpm-wrapper.sh`, line 2 its header) is renamed over `php-fpm`. Replaces its own wrapper and the V&Me proof's when `php-fpm.real` is Local's binary; any other script, a link, a missing file, or a wrapper whose `php-fpm.real` is missing or not Local's binary exits 2, untouched | Moves `php-fpm.real` back over the wrapper, unless another clock file's site uses the same `php-fpm` (or can't be resolved): then the wrapper stays and the IDs are named. A wrapper whose `php-fpm.real` is missing or not Local's binary exits 2, untouched. Deletes a stale `php-fpm.real` when `php-fpm` is Local's binary again and no other clock file's site uses it | `mv php-fpm.real php-fpm` in that folder |
+| The pool block | `<site folder>/conf/php/php-fpm.d/www.conf.hbs` | Appends the three `env[FAKETIME_*]` lines between `{{! ada-clock: start, … }}` and `{{! ada-clock: end }}`. Replaces its own block and the proof's (`{{! ada-clock proof }}` and the same three lines). A start without its end, or two blocks, exits 2, untouched | Removes the block (and a proof block) | Delete the block's five lines |
+| The clock file | `~/.config/ada-clock/<site ID>` | `+0s`, or the state's offset when a state file exists | Deleted | `rm` it, after `reset` |
+
+How it works:
+
+- The wrapper is shared by every Local site on that PHP build. It reads the site ID from Local's
+  arguments (`…/Local/run/<id>/…`) and preloads libfaketime only when `~/.config/ada-clock/<id>`
+  and the library both exist, so a site with no clock file runs `php-fpm.real` unchanged.
+- php-fpm clears the environment of its workers, so the workers get the `FAKETIME_*` variables
+  from the pool block; libfaketime itself is inherited from the master.
+- The clock file holds an offset (`+<n>s`, `-<n>s`), the state's `timestamp − set_at`. It is
+  replaced by a rename, never emptied, because `FAKETIME_NO_CACHE=1` makes each worker reread it
+  on every call: `set` and `reset` take effect on the next page load, with no restart. An
+  absolute `@time` is not used: libfaketime counts it from each process's start, so php-fpm
+  workers drift apart.
+- Local reads the wrapper and compiles the pool template only when a site starts: restart the
+  site in Local after `install` and after `uninstall`. Until then `status` says
+  `pool: needs restart`. A Local update that replaces `php-fpm` makes `status` say
+  `wrapper: missing`; `install` puts it back.
+- WP-CLI through `ada-clock wp` runs under the same four variables while the clock file exists.
+  MySQL isn't faked: the mu-plugin's `SET timestamp` makes `NOW()` follow PHP. `SYSDATE()` is
+  not covered.
 
 ## Known gotchas
 
