@@ -65,7 +65,11 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   root and the WP-CLI command are the developer's (`.claude/team/local.env`); it refuses any site
   not on `localhost`, `127.0.0.1`, `.local` or `.test`. `install` copies a mu-plugin from
   `templates/clock/` into the site, which does nothing on any other host. Under the `manual` setup
-  it prints the steps to change the computer's clock and never runs `sudo` itself.
+  it prints the steps to change the computer's clock and never runs `sudo` itself. Under
+  `local-linux` (Local on Linux, with libfaketime), `install` also puts a wrapper from
+  `templates/clock/` in place of Local's `php-fpm` and adds three lines to the site's pool
+  template, outside the repo; `uninstall` undoes them (`.claude/team/SYSTEM.md`, What
+  `ada-clock install` changes outside the repo).
 - Reading files bundled in the plugin needs a permission rule, so the team avoids it:
   - **Shared standards** are non-invocable skills, preloaded into each agent (`skills:` in its
     frontmatter).
