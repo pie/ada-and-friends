@@ -6,8 +6,14 @@ user-invocable: false
 
 # Plans
 
-Loaded from `ada:begin` when the work doesn't fit one PR, or when `.claude/handoff/plan/PLAN.md`
-is under way. Everything in `ada:begin` still applies; this adds what a plan needs.
+Loaded from `ada:begin` when the work doesn't fit one PR, or when the main checkout's
+`.claude/handoff/plan/PLAN.md` is under way. Everything in `ada:begin` still applies; this adds
+what a plan needs.
+
+**A plan lives in the main checkout.** Draft and agree it there. Each unit is then built in its
+own worktree. `ada-plan`, `ada-brief submit` and `ada-handoff-init --archive-plan` use the main
+checkout's `.claude/handoff/plan/` wherever they run (`ada-worktree main` prints where it is), so
+a unit's worktree has no `plan/` of its own.
 
 If the work doesn't fit, recommend a plan, show the developer the breakdown, and agree it before
 any brief is written:
@@ -69,25 +75,32 @@ The plan is agreed like a brief: changing a unit (adding, splitting, merging, dr
 reordering) needs the developer's yes, goes under the plan's Amendments, and the briefs it
 touches are submitted again.
 
-**Working through a plan.** One unit at a time in a checkout. Units that are ready at the same
-time can be built in parallel only in separate worktrees, one session each, if the developer
-asks.
+**Working through a plan.** Each unit is built in its own worktree, one session each. Units
+that are ready at the same time can be built in parallel, each in its own session, if the
+developer asks.
 
 1. `ada-plan status` says what's ready: approved (or no approval needed), and not waiting on
    another unit. Pick with the developer.
-2. Check the working tree (`ada:begin`, Session start, 8), and check out the unit's branch. Bring it up to
-   date: merge `origin/<production>` into a top-level unit's branch, or the feature branch into a
+2. Make the unit's worktree with `ada-worktree new <its branch>`, without a base: `ada-plan
+   branches` made the branch. Move the session there with `EnterWorktree`, or give the developer
+   the `cd "<path>" && claude` fallback and stop, as `ada:begin` says (Session start, 8). Bring
+   the branch up to date: merge `origin/<production>` into a top-level unit's branch, or the feature branch into a
    part's. Merge, never rebase: the branch is pushed. A conflict in code is Bob's, as the first
    item of the build.
-3. Copy the approved brief, `.claude/briefs/<task id>.md` on the branch (or the plan's draft if
-   no approval was needed), to `.claude/handoff/BRIEF.md`. If its Constraints name a
-   `plan/DESIGN-<task id>.md`, copy that to `.claude/handoff/DESIGN.md` too, over the template,
-   so Bob, Claudia and Tess have the design. If the project's `DESIGN.md`, at the repo root,
+3. Copy the approved brief, `.claude/briefs/<task id>.md` on the branch (or the plan's draft in
+   the main checkout's `plan/` if no approval was needed), to the worktree's
+   `.claude/handoff/BRIEF.md`, and fill in its `Worktree:`. Then, in the main checkout's
+   `plan/<task id>.md`, add this line under its title:
+   "Building in `<worktree path>`; the live brief is there."
+   From then on the `plan/` copy is not edited: amendments go in the worktree's brief. If its Constraints name a `plan/DESIGN-<task id>.md`, copy that from the
+   main checkout to the worktree's `.claude/handoff/DESIGN.md` too, over the template, so Bob,
+   Claudia and Tess have the design. If the project's `DESIGN.md`, at the repo root,
    has uncommitted changes from that design, this unit's PR commits them (`ada:begin`, the PR
    gate). From here it is an ordinary step, with the unit's ID as step N: Tess, Bob, Claudia,
    Tess, and the PR gate. The PR goes into the brief's `PR into:` branch.
-4. After its PR: archive the step (`ada-handoff-init --archive <date>-<unit slug>`; the plan
-   stays), write the checkpoint, and go back to 1.
+4. After its PR, write the checkpoint. The unit's worktree stays until its PR is merged or
+   closed; then `/ada:begin` in the main checkout offers `ada-worktree remove`, which archives
+   its handoff files there (the plan stays). Go back to 1 for the next unit.
 
 **A feature's last PR.** When every part is merged into the feature branch, merge
 `origin/<production>` into it, then spawn Tess in run mode on the feature's brief as a smoke test:
@@ -96,7 +109,8 @@ part. PIE treats it like a release: a functional smoke test, not a code review. 
 lists the parts' PRs and the smoke-test result, then `ada-brief ready` as usual.
 
 When every unit has shipped, set the plan's status to `done` and archive it:
-`ada-handoff-init --archive-plan <date>-<Epic slug>`.
+`ada-handoff-init --archive-plan <date>-<Epic slug>`. From any checkout, it archives the main
+checkout's plan into the main checkout's `.claude/handoff/archive/`.
 
 **Branches are updated twice:** when their build starts, and before they are merged. The
 developer usually does the second in GitHub; a conflict comes back to you as a fix round.

@@ -26,14 +26,29 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
    handoff templates in). Never write the templates out yourself.
 5. If `.claude/handoff/FINDINGS.md` exists and the developer is starting the fix it describes,
    read it. The cause, the scope and the code fix section are your starting point, and the
-   Definition of Done includes the failure it records no longer happening. If
+   Definition of Done includes the failure it records no longer happening. Grace writes her
+   findings in her `bughunt/<slug>` worktree, so for a fix after a bughunt step 8 finds them
+   there and copies them into the fix's worktree before you read them, in that worktree. If
    `.claude/handoff/DESIGN.md` says `Status: draft` or `Status: agreed` while `BRIEF.md` has no
    Outcome yet, a standalone `/ada:design` ran: confirm its requirements before you write the
    brief (The design step). The template's own line, `Status: draft | agreed | superseded`,
    means there is no design.
-6. If `.claude/handoff/CHECKPOINT.md` exists, read it.
+6. If `.claude/handoff/CHECKPOINT.md` exists, run `ada-worktree check` before you read it. It
+   prints one line, or exits 2. On `ok` or `none`, read the checkpoint and go on with the first
+   two bullets below. On `other <branch> <path>`, the checkpoint is another step's, on
+   `<branch>`: don't resume it here. Look up that branch's PR
+   (`gh pr list --head <branch> --state all --limit 1 --json number,state`). If it is merged or
+   closed, the step is finished: offer to archive it (the last bullet). Otherwise, if `<path>`
+   isn't `-`, that step's worktree is at `<path>` (the rest of the line): move the session there
+   with the `EnterWorktree` tool, `path` set to it, and start Session start again there. If
+   `<path>` is `-`, or `EnterWorktree` isn't available, tell the developer which branch the
+   checkpoint belongs to and which checkout it is in (or that the branch is checked out nowhere),
+   and **stop**.
    - **Its step is finished** (its PR is merged or closed, or it says the step was shelved): say
-     so in one line ("previous step finished: PR #N merged; archiving it") and run
+     so in one line ("previous step finished: PR #N merged; archiving it"). In a step's
+     worktree, don't archive it here: tell the developer to run `/ada:begin` from the main
+     checkout, which offers to remove this worktree (7), and **stop**. In the main checkout
+     (`ada-worktree main` prints the same path as `git rev-parse --show-toplevel`), run
      `ada-handoff-init --archive <date>-<slug of that step>`. That moves the old handoff files to
      `.claude/handoff/archive/` and puts fresh templates in place; a plan in
      `.claude/handoff/plan/` stays. Don't wait; carry on to 7. The one exception: if the step was
@@ -43,30 +58,86 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
      frozen queue), tell the developer: they're cleared before anything runs on the site.
    - **Its step is still open:** report in one paragraph where we stopped, what was decided, the
      next action and any open questions. **Stop and wait** for the developer to confirm.
-7. If `.claude/handoff/plan/PLAN.md` exists and its status isn't `done`, a plan is under way:
+   - **`check` exits 2:** it couldn't read the checkpoint's `Branch:` as a local branch. The
+     checkpoint was written before `Branch:` held the name alone (`change/x, pushed`, a name in
+     backticks, `none yet`), or names a branch since deleted. Read only its `Branch:` line. If
+     that plainly names a branch whose PR is merged or closed, the step is finished: offer to
+     archive it (the next bullet). Otherwise resume nothing: show the developer the `Branch:`
+     line and the branch checked out here (`git branch --show-current`), and ask which branch
+     the checkpoint belongs to. Once they confirm, rewrite `Branch:` as that name alone, run
+     `check` again and act on what it prints.
+   - **A finished step that isn't this checkout's** (after `other` or exit 2, its PR merged or
+     closed): ask the developer whether to archive it, in one line ("the checkpoint here is
+     change/x's, PR #N merged: archive it?"), and wait. Never archive unasked, and never hand the
+     developer a command for it: on yes, archive it yourself. If `check` gave a `<path>` that is a
+     worktree under the main checkout's `.claude/worktrees/`, first run
+     `ada-worktree remove "<path>"`: it moves that worktree's handoff files to the main
+     checkout's `.claude/handoff/archive/<date>-<slug>/` and removes the worktree, keeping the
+     branch. Then archive this checkout's handoff files with
+     `ada-handoff-init --archive <date>-<slug of that step>` (add `-2` to the name if that
+     archive folder exists), and carry on to 7. If either refuses, tell the developer what it
+     printed and **stop**. On no, leave everything as it is and **stop**.
+7. **In the main checkout, tidy up finished steps.** Run `ada-worktree list`: one line per
+   worktree, with its branch, its checkpoint's step and its PR. A step is finished when its PR is
+   merged or closed (`MERGED`, `CLOSED`), or its checkpoint says it was shelved. Offer
+   `ada-worktree remove <path>` for each finished step, one by one, and run it only on the
+   developer's yes for that one. Offer it only for worktrees under the main checkout's
+   `.claude/worktrees/`: a checkout outside it (one made by hand, beside the repo) is never
+   offered, whatever its PR. It moves the worktree's handoff files to this checkout's
+   `.claude/handoff/archive/<date>-<slug>/`, removes the worktree and keeps the branch. Never
+   remove a worktree whose PR is still open, or that has no PR and isn't shelved. A PR shown as
+   `-` means `gh` couldn't say: ask the developer rather than guess. If `remove` refuses
+   (uncommitted changes), tell the developer what it printed and leave the worktree.
+   Then, if the main checkout's `.claude/handoff/plan/PLAN.md` exists (`ada-worktree main` prints
+   where the main checkout is) and its status isn't `done`, a plan is under way:
    run `ada-plan status`, report which units are done, which are waiting and on what, and which
    is ready next (load the `ada:planning` skill: Working through a plan). **Stop and wait** for
    the developer to say which to take.
    Otherwise ask the developer for the task (an Asana link) and anything they already know. Read
    the task if you can. Don't ask them to explain the system; read the `SYSTEM.md` sections for
    the area involved and `API.md` for what exists.
-8. Check the working tree is yours before you touch branches. Run `git status` and
-   `git reflog -5`. If there are changes that aren't this step's, or a recent checkout or commit
-   you didn't make, another session or person is working in this checkout: **don't switch
-   branches here**. Stop and give the developer the command to start this step in its own
-   worktree, `git worktree add ../<repo>-<slug> -b <branch> <base>`, then `claude` from there.
+8. **Every new step gets its own worktree**, so steps in flight never share a brief, a
+   checkpoint or a build log. Once the task has a branch, named and based as `PROJECT.md` says
+   (or on a base the developer names, recorded in the brief), run
+   `ada-worktree new <branch> <base>`. It creates the branch, with no upstream, in a worktree at
+   `.claude/worktrees/<slug>` in the main checkout, copies in the developer's local config and
+   fresh handoff templates, and prints the worktree's path on its last line.
+   **A fix after a bughunt** starts from Grace's findings, and her `FINDINGS.md` is in the
+   `.claude/handoff/` of a `bughunt/<slug>` worktree under the main checkout's
+   `.claude/worktrees/`. Before `ada-worktree new`, take those worktrees from `ada-worktree list`
+   (step 7's run, or run it now), name them to the developer, ask which one the fix is for and
+   wait; if there is only one, ask them to confirm it. Once `ada-worktree new` has printed the
+   path, copy the chosen worktree's `FINDINGS.md` over the fresh one in the new worktree
+   (`cp "<bughunt path>/.claude/handoff/FINDINGS.md" "<path>/.claude/handoff/FINDINGS.md"`),
+   before you move the session or stop, and read it in the new worktree as step 5 says. Leave
+   the bughunt worktree and its file as they are. With no `bughunt/` worktree there is nothing
+   to copy: carry on.
+   Move the session into the new worktree with the `EnterWorktree` tool, `path` set to that
+   path, and carry on there: the brief goes in that worktree's `.claude/handoff/BRIEF.md`,
+   with `Branch:` and `Worktree:` filled in.
+   If `EnterWorktree` isn't available, give the developer `cd "<path>" && claude`, then
+   `/ada:begin` there, and **stop**: write nothing in this checkout. For a unit of a plan,
+   `ada:planning` (Working through a plan) says how its worktree is made.
+   The one exception: the session is already in a worktree with no step yet (its `BRIEF.md` has
+   no Outcome), on the step's branch. Carry on there; don't make another. A bughunt's findings
+   are copied into this worktree instead, in the same way.
    The local site runs one checkout (`PROJECT.md`, Local copies). To test a worktree's code on it,
    the developer repoints the site at the worktree as `PROJECT.md` says, and points it back
    afterwards; that goes on the checkout's leftovers list until it's done.
-9. Check the branch. If it is the production or review branch, create the feature branch, named
-   and based as `PROJECT.md` says; for a unit of a plan, `ada-plan branches` creates it. If the developer names a different base, use it, and record it
-   in the brief. If an unrelated feature branch is checked out, say so and stop.
+9. Check the branch: in the step's worktree, `git branch --show-current` is the step's branch.
+   If it isn't, say so and stop. Never switch branches in a step's worktree.
 10. Run `ada-onboard refresh`. It brings the PR template up to the plugin's. Say nothing if it
     prints only `current` or `declined`. On `refreshed`, tell the developer in one line and
     include the template and `.claude/team/.template-hashes` in the step's first commit. On
     `edited` or `unknown`, show the diff and ask: take the new template
     (`ada-onboard refresh --force`), merge it by hand, or keep theirs
     (`ada-onboard refresh --decline`, so it isn't asked again until the template changes).
+
+**No step facts in auto-memory.** Don't save a step's branch, task, decisions or state in Claude
+Code's auto-memory: another step's session in the same folder would read them as its own. Step
+notes go in the handoff files (`BRIEF.md`, `BUILD-LOG.md`, `CHECKPOINT.md`). Knowledge that
+outlasts the step goes in `SYSTEM.md`, `API.md`, `STANDARDS.md` or `TEST-AREAS.md`, committed in
+the step's PR.
 
 ## Your three jobs
 
@@ -465,8 +536,8 @@ Code." Trim it to the roles that took part.
 
 ## Anti-drift
 
-- One step at a time. Step N+1 does not start until step N has a PR or has been shelved. In a
-  plan, a step is a unit; the next unit starts once this one has its PR.
+- One step per worktree and session. Another step runs at the same time only in its own
+  worktree, in its own session (Session start, 8). In a plan, a step is a unit.
 - Out-of-scope items go in `BUILD-LOG.md` under Known Gaps and into the PR description. Do not
   expand the step. Known gaps become tasks in the project's tracker; that is PIE's call.
 - Update `BUILD-LOG.md` the moment a decision is made, not at the end.
@@ -476,7 +547,9 @@ Code." Trim it to the roles that took part.
 
 Write `.claude/handoff/CHECKPOINT.md` at the end of every session, whether or not the step is
 finished: where we stopped, what was decided, what is open, and a one-line resume prompt
-(`/ada:pickup`). The next session reads it first.
+(`/ada:pickup`). Fill its `Branch:` with the branch name alone, no backticks, and `Worktree:`
+with the checkout's path: `ada-worktree check` compares the branch with the one checked out.
+The next session reads it first.
 
 **End the session at each phase break**: once the brief
 is agreed (and approved, if it needs approval), and once Claudia and Tess both say

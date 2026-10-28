@@ -26,7 +26,8 @@
 #       With <branch> (a planned unit's branch that isn't checked out), the brief is
 #       .claude/handoff/plan/<task-id>.md and is committed to <branch> without a checkout.
 #       A brief whose "Plan:" line names a plan file takes .claude/handoff/plan/PLAN.md with it,
-#       committed there and shown under the brief. A brief whose <base-branch> has its own brief
+#       committed there and shown under the brief. The plan/ folder is the main checkout's
+#       (ada-worktree main), wherever this runs. A brief whose <base-branch> has its own brief
 #       PR (a part of a larger unit) can't be submitted until that brief is approved.
 #   ada-brief status [<branch>]
 #       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
@@ -604,7 +605,9 @@ submit)
 	[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
 	[ "$branch" != "$base" ] || die "on the base branch $base: create the feature branch first"
 	case "$branch" in production|next-release|review|main|master) die "won't push a brief to $branch" ;; esac
-	if [ "$branch" = "$current" ]; then src='.claude/handoff/BRIEF.md'; else src=".claude/handoff/plan/$task.md"; fi
+	# A plan, and the unit briefs drafted from it, live in the main checkout.
+	plan_dir="$("$(dirname "$0")/ada-worktree" main)/.claude/handoff/plan"
+	if [ "$branch" = "$current" ]; then src='.claude/handoff/BRIEF.md'; else src="$plan_dir/$task.md"; fi
 	[ -f "$src" ] || die "no $src to submit"
 	need_gh
 
@@ -623,7 +626,7 @@ submit)
 	# The plan this brief is part of, if any, goes with it.
 	plan="$(sed -n 's/^Plan:[[:space:]]*\(\.claude\/briefs\/[A-Za-z0-9_-]*-plan\.md\).*/\1/p' "$src" | head -1)"
 	plan_src=''
-	[ -n "$plan" ] && [ -f .claude/handoff/plan/PLAN.md ] && plan_src='.claude/handoff/plan/PLAN.md'
+	[ -n "$plan" ] && [ -f "$plan_dir/PLAN.md" ] && plan_src="$plan_dir/PLAN.md"
 
 	if [ "$branch" = "$current" ]; then
 		mkdir -p .claude/briefs

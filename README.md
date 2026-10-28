@@ -92,6 +92,31 @@ the customer sees or pays.
 **Start a new session when Ada tells you to.** She does this at the end of each stage. Run
 `/ada:pickup` in the new session. A new session uses fewer tokens than a long one.
 
+### Several steps at once
+
+Each step gets its own worktree: a separate checkout of the repo, on the step's branch, in
+`.claude/worktrees/<slug>`. Ada makes it with `ada-worktree new` when the step starts and moves
+the session into it. So you can run several steps at once, each in its own session. No session
+reads another step's brief, checkpoint or build log.
+
+- **`/ada:pickup` checks the checkpoint is this branch's.** If it belongs to another step, Ada
+  moves to that step's worktree, or tells you where it is and stops. If that step's PR is merged
+  or closed, she asks whether to archive it, and does it once you say yes.
+- **A plan stays in the main checkout.** Agree it there. Each unit is built in its own worktree.
+- **A fix after a bughunt starts from Grace's findings, when she tried a fix in a worktree.**
+  She writes them in the worktree she tried her fix in. `/ada:begin` asks which bughunt the fix
+  is for and copies its `FINDINGS.md` into the fix's worktree.
+- **Finished steps are tidied from the main checkout.** When a step's PR is merged or closed,
+  `/ada:begin` in the main checkout offers to remove its worktree. It asks about each one. The
+  branch stays, and the step's handoff files go to `.claude/handoff/archive/`.
+- **`ada-worktree list`** shows each worktree with its branch, step and PR.
+- **Your local site still runs one checkout.** To test a step on it, point the site at the
+  step's worktree, as `PROJECT.md` says.
+
+If your Claude Code can't move a session into a worktree, Ada gives you a `cd … && claude`
+command to run instead. `ada-onboard gitignore` keeps `.claude/worktrees/` out of git;
+`ada-worktree new` refuses until it has.
+
 ### Large pieces of work
 
 A PR must be small enough to review in one sitting. If the work is too large, Ada makes a plan.

@@ -16,8 +16,11 @@
 #       their own, asked again when the plugin's copy changes); or edited, or unknown (no hash
 #       recorded), followed by the diff, with the file left alone. --force takes the plugin's
 #       copy; --decline keeps the project's and records that.
-#   ada-onboard gitignore
-#       Adds the team's ignore lines to .gitignore if they're missing.
+#   ada-onboard gitignore [--list]
+#       Adds the team's ignore lines to .gitignore if they're missing, among them
+#       .claude/worktrees/, where ada-worktree makes each step's worktree. Prints kept or added
+#       per line. With --list, prints the lines, one per line, and changes nothing: ada-worktree
+#       new copies the ones that name a file (the developer's local config) into a new worktree.
 #   ada-onboard settings
 #       Merges the plugin, the marketplace and the team's permissions into .claude/settings.json,
 #       keeping whatever is there. Switches off Claude Code's default commit and PR attribution;
@@ -150,8 +153,19 @@ if changed:
 PY
 	;;
 gitignore)
+	# ada-worktree new copies the lines that name a file into a new worktree (--list).
+	ignore_lines=('.claude/handoff/' '.claude/worktrees/' '.claude/settings.local.json' '.claude/team/local.env' '.phpunit.cache/' 'tools/vendor/')
+	case "${1:-}" in
+	--list)
+		[ $# -eq 1 ] || die 'usage: ada-onboard gitignore [--list]'
+		printf '%s\n' "${ignore_lines[@]}"
+		exit 0
+		;;
+	'') ;;
+	*) die 'usage: ada-onboard gitignore [--list]' ;;
+	esac
 	gi="$root/.gitignore"; touch "$gi"
-	for line in '.claude/handoff/' '.claude/settings.local.json' '.claude/team/local.env' '.phpunit.cache/' 'tools/vendor/'; do
+	for line in "${ignore_lines[@]}"; do
 		grep -qxF "$line" "$gi" && echo "kept     $line" || { echo "$line" >> "$gi"; echo "added    $line"; }
 	done
 	;;
@@ -181,6 +195,8 @@ def add(kind, rules):
             lst.append(r)
 add('allow', [
     'Bash(ada-handoff-init*)', 'Bash(ada-onboard refresh)', 'Bash(prod-wp *)', 'Bash(presstest *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
+    # ada-worktree new and remove make and delete a directory, so they still ask.
+    'Bash(ada-worktree check)', 'Bash(ada-worktree list)', 'Bash(ada-worktree main)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
     'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',

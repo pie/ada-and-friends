@@ -2,7 +2,9 @@
 # Plans: a piece of work broken into units, each with its own brief, branch and PR. Ada runs it
 # from /ada:begin and /ada:pickup; a developer can too. Run from inside the project repo. The
 # plan is .claude/handoff/plan/PLAN.md, and the briefs drafted from it sit beside it as
-# .claude/handoff/plan/<task id>.md until each is submitted (ada-brief submit) or built.
+# .claude/handoff/plan/<task id>.md until each is submitted (ada-brief submit) or built. Both
+# are in the main checkout (ada-worktree main), wherever this runs: run from a unit's
+# worktree, it reads and writes the main checkout's plan/, and the worktree has none of its own.
 #
 #   ada-plan init
 #       Copies the plan template to .claude/handoff/plan/PLAN.md.
@@ -26,9 +28,10 @@
 set -euo pipefail
 
 die() { echo "ada-plan: $*" >&2; exit 2; }
-root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
-cd "$root"
 here="$(cd "$(dirname "$0")" && pwd)"
+# The plan is the main checkout's, wherever this runs: each unit is built in its own worktree.
+root="$("$here/ada-worktree" main)" || die 'run me from inside the project repo'
+cd "$root"
 templates="$(cd "$here/../templates" && pwd)"
 # Python 3.8+, found as in ada-brief.
 PY=()

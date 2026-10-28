@@ -10,10 +10,14 @@
 #                                        A plan in .claude/handoff/plan/ stays.
 #   ada-handoff-init --archive-plan <name>
 #                                        when every unit of a plan has shipped: move
-#                                        .claude/handoff/plan/ to .claude/handoff/archive/<name>/plan/.
+#                                        .claude/handoff/plan/ to .claude/handoff/archive/<name>/plan/,
+#                                        both in the main checkout (ada-worktree main), wherever
+#                                        this runs. The other forms work on this checkout's own
+#                                        .claude/handoff/.
 set -euo pipefail
 die() { echo "ada-handoff-init: $*" >&2; exit 2; }
-src="$(cd "$(dirname "$0")/../templates/handoff" && pwd)"
+here="$(cd "$(dirname "$0")" && pwd)"
+src="$(cd "$here/../templates/handoff" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 dest="$root/.claude/handoff"
 mkdir -p "$dest"
@@ -33,12 +37,17 @@ if [ "${1:-}" = '--archive' ]; then
 elif [ "${1:-}" = '--archive-plan' ]; then
 	name="${2:-}"
 	[[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || die 'usage: ada-handoff-init --archive-plan <name> (letters, digits, . _ -)'
-	[ -d "$dest/plan" ] || die 'no .claude/handoff/plan/ to archive'
-	to="$dest/archive/$name"
+	# The plan lives in the main checkout; outside a repo there is only this folder.
+	plan_home="$dest"
+	if git rev-parse --git-dir >/dev/null 2>&1; then
+		plan_home="$("$here/ada-worktree" main)/.claude/handoff"
+	fi
+	[ -d "$plan_home/plan" ] || die 'no .claude/handoff/plan/ to archive'
+	to="$plan_home/archive/$name"
 	[ -e "$to/plan" ] && die "archive/$name/plan already exists"
 	mkdir -p "$to"
-	mv "$dest/plan" "$to/plan"
-	echo "archived the plan to .claude/handoff/archive/$name/plan/"
+	mv "$plan_home/plan" "$to/plan"
+	echo "archived the plan to .claude/handoff/archive/$name/plan/ in the main checkout"
 	exit 0
 elif [ $# -gt 0 ]; then
 	die 'usage: ada-handoff-init [--archive <name> | --archive-plan <name>]'

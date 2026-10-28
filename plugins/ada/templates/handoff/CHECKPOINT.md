@@ -6,6 +6,7 @@ Read this before anything else. Written by Ada at the end of every session.
 - Step:
 - Plan: <none | .claude/handoff/plan/PLAN.md: unit <ID> of <n>; next ready: <IDs>>
 - Branch:
+- Worktree:
 
 ## Where we stopped
 

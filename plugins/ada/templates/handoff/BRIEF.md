@@ -2,6 +2,7 @@
 
 Asana: <task URL>
 Branch: <branch name>
+Worktree: <.claude/worktrees/<slug>: the step's worktree, from ada-worktree new>
 PR into: <the release branch PROJECT.md names | the feature branch this is a part of>
 Plan: <none | .claude/briefs/<Epic task id>-plan.md, Unit <ID>>
 Ships: <independent | after Unit <ID>, Unit <ID>: built once they are in production (a part: merged into the feature branch)>
@@ -10,7 +11,9 @@ Status: draft | agreed | awaiting approval | building | in review | testing | re
 Approval: <not needed (why) | approved by @login on <date> | awaiting @approvers>
 
 <!-- Overwritten each step. This is the contract, not a log; the log is BUILD-LOG.md. A unit of
-a plan is drafted as .claude/handoff/plan/<task id>.md and copied here when its build starts.
+a plan is drafted as .claude/handoff/plan/<task id>.md in the main checkout and copied here, into
+the unit's worktree, when its build starts. The plan/ copy is then marked with this worktree and
+no longer edited: amendments go here.
 The guidance in comments like this one doesn't show in the draft PR. -->
 
 ## Outcome

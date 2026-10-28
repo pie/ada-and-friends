@@ -21,8 +21,9 @@ No classes. Each script owns its state, and nothing else writes it:
 |---|---|
 | `.claude/briefs/*.md`, the `brief-approved` label's removal, draft PR bodies | `ada-brief` |
 | `.claude/team/.template-hashes`, `.claude/settings.json` merges | `ada-onboard` |
-| `.claude/handoff/plan/PLAN.md` (created), unit briefs and branches | `ada-plan` |
-| `.claude/handoff/` templates and `archive/` | `ada-handoff-init` |
+| `.claude/handoff/plan/PLAN.md` (created, in the main checkout), unit briefs and branches | `ada-plan` |
+| `.claude/handoff/` templates and `archive/` | `ada-handoff-init`; `ada-worktree remove` adds a removed worktree's handoff files to the main checkout's `archive/` |
+| `.claude/worktrees/<slug>/` (making and removing a step's worktree) | `ada-worktree` |
 | `plugin.json` version, CHANGELOG release headings, tags, `next-release` recreation | the Release workflow and `release-bump.py` |
 
 ## Project rules
@@ -30,17 +31,17 @@ No classes. Each script owns its state, and nothing else writes it:
 **S100. Scripts run on bash 3.2 and Git Bash.** No `mapfile`, associative arrays, `${x,,}` or
 other bash 4+ features; guard `"${arr[@]}"` on possibly empty arrays under `set -u`. Use only
 POSIX-compatible `sed`/`grep` options that BSD tools also have. Evidence: the 0.3.0 Mac fix
-(`CHANGELOG.md:191-192`), `bin/ada-brief:352`, `DEVELOPING.md:140-148`.
+(`CHANGELOG.md:191-192`), `bin/ada-brief:353`, `DEVELOPING.md:140-148`.
 
 **S101. Python in scripts is 3.8+, found through the `PY` block.** Try `python3`, `python`,
 `py -3` with a version check; strip `\r` from output; write files with `newline='\n'`; read with
 `encoding='utf-8'`. No syntax or library newer than 3.8 (no `match`, no `str.removeprefix`, no
-`X | Y` types). Evidence: `bin/ada-brief:48-59`, `CHANGELOG.md:193-194`.
+`X | Y` types). Evidence: `bin/ada-brief:49-60`, `CHANGELOG.md:193-194`.
 
 **S102. Every script keeps the shared shape.** `set -euo pipefail`; a `die` that prints
 `<script>: <message>` to stderr and exits 2; `cd` to `git rev-parse --show-toplevel`; validate
 every argument used in a git ref or path with a regex before use; a header comment that is the
-complete usage text, kept current with the code. Evidence: `bin/ada-brief:1-47`, `:371-374`.
+complete usage text, kept current with the code. Evidence: `bin/ada-brief:1-48`, `:372-375`.
 
 **S103. Script output words are interfaces.** A status word or line format that a skill or
 another script reads (`API.md`) changes only with every reader in the same PR.
