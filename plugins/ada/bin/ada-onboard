@@ -193,19 +193,34 @@ def add(kind, rules):
     for r in rules:
         if r not in lst:
             lst.append(r)
+# Rules earlier versions added that allowed more than reading: git branch* also matched -D, -f
+# and -m, git reflog* matched delete and expire, sed -n * matched -i and the w command, and
+# gh api user* matched writes to /user. They come out here; the read-only forms below are added.
+retired = {'Bash(git branch*)', 'Bash(git reflog*)', 'Bash(sed -n *)', 'Bash(gh api user*)'}
+perms['allow'] = [r for r in perms.get('allow', []) if r not in retired]
 add('allow', [
     'Bash(ada-handoff-init*)', 'Bash(ada-onboard refresh)', 'Bash(prod-wp *)', 'Bash(presstest *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
     # ada-worktree new and remove make and delete a directory, so they still ask.
     'Bash(ada-worktree check)', 'Bash(ada-worktree list)', 'Bash(ada-worktree main)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
-    'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git branch*)', 'Bash(git merge-base *)',
+    'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git merge-base *)',
+    # git branch lists only in these forms. A rule ending in * matches any flags after it, so a
+    # wildcard goes only after an option git refuses to combine with -D, -m, -c or
+    # --set-upstream-to (--list, --contains, --merged, --no-merged); -a, -r and -v don't refuse
+    # (git branch -v -D x deletes x), so those rules are exact.
+    'Bash(git branch)', 'Bash(git branch --show-current)', 'Bash(git branch -a)', 'Bash(git branch -r)',
+    'Bash(git branch -vv)', 'Bash(git branch -avv)', 'Bash(git branch --list*)',
+    'Bash(git branch --contains *)', 'Bash(git branch --merged*)', 'Bash(git branch --no-merged*)',
+    # git reflog with an option first, or show, is a listing; delete and expire still ask.
+    'Bash(git reflog)', 'Bash(git reflog -*)', 'Bash(git reflog show*)',
     # Read-only commands the roles use all the time. The efficiency skill asks for one simple
-    # command per call, so these match; a compound command still asks.
-    'Bash(git show *)', 'Bash(git rev-parse *)', 'Bash(git reflog*)', 'Bash(git worktree list*)',
+    # command per call, so these match; a compound command still asks. Files are read with the
+    # Read tool: no sed rule, since sed -n also takes -i and the w command.
+    'Bash(git show *)', 'Bash(git rev-parse *)', 'Bash(git worktree list*)',
     'Bash(grep *)', 'Bash(rg *)', 'Bash(ls *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(tail *)',
-    'Bash(cat *)', 'Bash(sed -n *)', 'Bash(which *)',
-    'Bash(gh pr view*)', 'Bash(gh api user*)',
+    'Bash(cat *)', 'Bash(which *)',
+    'Bash(gh pr view*)', 'Bash(gh api user)', 'Bash(gh api user -q .login)', 'Bash(gh api user --jq .login)',
     # The roles write their handoff files and Tess writes tests; nothing else is pre-allowed.
     'Edit(/.claude/handoff/**)', 'Edit(/tests/**)',
 ])
