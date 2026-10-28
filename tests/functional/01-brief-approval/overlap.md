@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219790041247935
 - Automate as: none (part A is a self-checking shell script with a stub `gh`; part B needs GitHub)
-- Last run: 26 Oct 2026, part A 0 failed under bash 5 and Docker bash 3.2 (156 PASS each); part B not run this round (needs an open PR on GitHub; last run about 23 Oct 2026, 11 PASS, 0 failed against PR #34, logged as 5 Nov by a clock set 13 days fast, before sections 10 and 11 existed); see the PR
+- Last run: 28 Oct 2026 (after the rebase onto PR #39), part A 0 failed (156 PASS) under bash 5 and Docker bash 3.2; part B not run this round; see the PR
 
 ## Precondition
 

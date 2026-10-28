@@ -15,6 +15,22 @@ Releasing in DEVELOPING.md).
   amendments; `ada-brief status` then says `amended since approval; no re-approval needed`. A new
   `ada-brief compare` makes the decision offline. Resubmitting an unchanged brief no longer
   resets its approval.
+- **One worktree per step.** Each new step now gets its own git worktree in
+  `.claude/worktrees/`, made by the new `ada-worktree` script, and Ada moves the session into
+  it. You can run several steps at once, each in its own session, and no session reads another
+  step's brief, checkpoint or build log. `/ada:pickup` checks the checkpoint belongs to the
+  branch it's on; a checkpoint from an earlier version, whose `Branch:` isn't a plain name, is
+  confirmed with you first, and one for a finished step elsewhere is archived once you say yes.
+  A plan stays in the main checkout. When a step's PR is merged or closed, `/ada:begin` in the
+  main checkout offers to remove its worktree, one at a time, archiving its handoff files and
+  keeping the branch. A fix after a bughunt starts from the findings in Grace's worktree, when
+  she tried a fix in one: `/ada:begin` asks which bughunt it's for and copies its
+  `FINDINGS.md` into the fix's worktree. Run `ada-onboard gitignore` (adds `.claude/worktrees/`; until then
+  `ada-worktree new` refuses) and `ada-onboard settings` (allows `ada-worktree check`, `list`
+  and `main`) once in each onboarded project.
+- **`ada-brief submit` and `ada-onboard check` work when started by a relative path from a
+  subfolder.** Before, `submit` of a brief whose base branch has a PR stopped with "No such file
+  or directory", and `check` reported `error brief approval`.
 
 ## 0.9.0, 27 Oct 2026
 

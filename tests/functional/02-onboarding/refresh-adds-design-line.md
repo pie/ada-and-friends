@@ -3,13 +3,15 @@
 - Area: 02 Onboarding and refresh (`ada-onboard`); 11 Templates; 12 Platforms
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 21 Oct 2026, 28 PASS, 0 failed under bash 5 and Docker bash 3.2; broken copy fails as it should (see the PR)
+- Last run: 28 Oct 2026 (after the rebase onto PR #39), 0 failed (28 PASS) under bash 5, BASE pinned to 05a5365^; see the PR
 
 ## Precondition
 
-- This checkout (`REPO`), with `origin/next-release` fetched. The script onboards scratch repos
-  with the **released** `ada-onboard` exported from there (the old, unedited PR template), then
-  refreshes them with this checkout's `ada-onboard`, run by path.
+- This checkout (`REPO`). The script onboards scratch repos with the `ada-onboard` as it was before
+  the `Design:` line existed, exported from `BASE`, which defaults to `05a5365^` (the commit
+  before #30 added the line: it is pinned because `origin/next-release` has had the line since #30
+  merged, KG-5), then refreshes them with this checkout's `ada-onboard`, run by path. The commit
+  must be in this clone's history.
 - `git`, `tar`, `cmp`, and `sha256sum` or `shasum`. Python 3.8+ (for `ada-onboard`).
 - Nothing in this checkout is touched; scratch repos live under `$TMPDIR`.
 
@@ -25,10 +27,13 @@
 ```bash
 #!/bin/bash
 # refresh brings the Design: line to onboarded repos. PASS/FAIL per check; exit 1 if any FAIL.
-# Env: REPO, BASE (default origin/next-release), PLUGIN (default $REPO/plugins/ada), OLD_PLUGIN.
+# Env: REPO, BASE (default 05a5365^), PLUGIN (default $REPO/plugins/ada), OLD_PLUGIN.
+# BASE is pinned to the commit before #30 (05a5365) added the Design: line, not origin/next-release,
+# which has had the line since #30 merged: against it the "old template has no Design: line"
+# baseline checks fail for that reason alone (KG-5).
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
-BASE=${BASE:-origin/next-release}
+BASE=${BASE:-05a5365^}
 PLUGIN=${PLUGIN:-$REPO/plugins/ada}
 W=$(mktemp -d)
 if [ -z "${OLD_PLUGIN:-}" ]; then
