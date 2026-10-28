@@ -392,7 +392,11 @@ Traps:
   (`bin/prod-wp:17-24`). No production server exists for this repo, so `prod-wp` is never used here.
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
   overridable, and `PRESSTEST_SUITE` / `PRESSTEST_STAGING_URL` override `PROJECT.md`. This repo's
-  suite is `none`.
+  suite is `none`. `ada-clock` reads `LOCAL_URL`, `LOCAL_WP_PATH` (the site's WordPress root),
+  `ADA_CLOCK_ADAPTER` (only `manual`; unset means `manual`) and `LOCAL_WP` (the command that runs
+  WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`) from the same file, likewise
+  overridable, with the same parser copied in (`bin/ada-clock:85-108`). It refuses any `LOCAL_URL`
+  whose host isn't `localhost`, `127.0.0.1`, `.local` or `.test`. This repo has no site.
 - **Platforms** (`DEVELOPING.md:138-148`): bash 3.2+ (all scripts tested under 3.2.57), Python
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:
