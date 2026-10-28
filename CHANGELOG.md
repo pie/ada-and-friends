@@ -5,6 +5,14 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **`ada-clock` puts your local WordPress site at a fake time.** Add `LOCAL_WP_PATH` (and, if
+  WP-CLI needs a wrapper, `LOCAL_WP`) to `.claude/team/local.env`, run `ada-clock install` once,
+  then `ada-clock set "2026-11-06 11:55"` (the site's timezone) or an ISO time with an offset. It
+  records the time in `wp-content/ada-clock.json` and prints the steps to change your computer's
+  clock; it never runs `sudo`. The mu-plugin it installs makes the database's `NOW()` follow
+  PHP's clock, keeps logins for ten years, and gives the site's time at
+  `/wp-json/ada-clock/v1/time`. `ada-clock status` checks the site has the time, `ada-clock reset`
+  undoes it. It only works on sites on `localhost`, `127.0.0.1`, `.local` or `.test`.
 - **`ada-onboard settings` allows only read-only git, and no longer allows `sed`.** `git branch*`
   also allowed `git branch -D`, `-f` and `-m` without a prompt, and `git reflog*` allowed
   `reflog delete` and `expire`, which wipe the history used to recover lost commits. `sed -n *`

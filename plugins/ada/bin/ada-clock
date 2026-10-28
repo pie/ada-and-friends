@@ -1,0 +1,388 @@
+#!/usr/bin/env bash
+# Puts the developer's local WordPress site at a fake time, for Tess and for people testing
+# date-dependent behaviour, and checks and undoes it. Run from inside the project repo.
+#
+#   ada-clock set "<when>"   records the fake time in the state file and prints the steps to put
+#                            the computer's clock at it. <when> is either
+#                              YYYY-MM-DD HH:MM[:SS]        in the site's timezone (read through
+#                                                           WP-CLI), or
+#                              YYYY-MM-DDTHH:MM[:SS]<zone>  ISO 8601, <zone> Z or +HH:MM / -HH:MM;
+#                                                           no WP-CLI needed, and the state keeps
+#                                                           the time and zone as given.
+#                            Anything else exits 2, as does a site-local time that doesn't exist
+#                            in the site's timezone (a day that isn't in the calendar, or an hour
+#                            skipped when the clocks go forward). Adds the state file to
+#                            .git/info/exclude when it is inside this repo (as install does).
+#   ada-clock status         first line, one of:
+#                              ada-clock: real
+#                              ada-clock: fake <site-local time> <timezone> (<setup>)
+#                            then `mu-plugin: installed <path>`, `mu-plugin: not installed <path>`
+#                            or `mu-plugin: not installed, another file is at <path>`, then
+#                            `site time: <UTC time> (<n> s from <what it is compared with>)`
+#                            from the mu-plugin's endpoint.
+#   ada-clock reset          deletes the state file, if there is one, and prints the steps to
+#                            switch the computer's automatic time back on.
+#   ada-clock install        copies the mu-plugin to <LOCAL_WP_PATH>/wp-content/mu-plugins/
+#                            ada-clock.php. Replaces only its own earlier copy (the header line
+#                            "Ada clock: copied by ada-clock install, which replaces it."); any
+#                            other file there exits 2 and is left alone. Adds the mu-plugin and
+#                            the state file to .git/info/exclude when they are inside this repo.
+#   ada-clock wp <args...>   runs WP-CLI against the local site with <args> appended. Every
+#                            WP-CLI call ada-clock makes goes through it.
+#
+# Settings are the developer's own, in .claude/team/local.env (git-ignored), as KEY=value lines,
+# read as presstest reads them: parsed, never executed; a comment is a line starting with #, or
+# ` #` after an unquoted value; a value still in <angle brackets> counts as unset; an environment
+# variable of the same name overrides the file.
+#
+#   LOCAL_URL=https://my-site.local      the site. Every subcommand refuses unless its host is
+#                                        localhost, 127.0.0.1, or ends in .local or .test.
+#   LOCAL_WP_PATH=~/Local Sites/x/app/public
+#                                        the site's WordPress root, where wp-config.php is
+#   ADA_CLOCK_ADAPTER=manual             how the time is applied. Only manual (the computer's
+#                                        clock, changed by hand) exists; unset means manual.
+#   LOCAL_WP=my-wp                       the command that runs WP-CLI on the local site, split
+#                                        on spaces (no quoting inside it). Unset means
+#                                        wp --path=<LOCAL_WP_PATH>.
+#
+# The state file, <LOCAL_WP_PATH>/wp-content/ada-clock.json, is the one record of the fake time:
+#   {"timestamp": <UTC Unix time>, "local": "<YYYY-MM-DD HH:MM[:SS]>", "timezone": "<zone>",
+#    "setup": "manual", "set_at": <the computer's Unix time when set ran>}
+# The mu-plugin, on a local site only, makes the database's NOW() follow PHP's clock while the
+# state file exists, keeps logins for ten years, sets an `ada_clock` cookie to PHP's time() (and
+# expires it when there is no state file), and answers GET /wp-json/ada-clock/v1/time with
+# {"now": <PHP time()>, "fake": <state file exists>, "timezone": "<wp_timezone_string()>"}.
+#
+# Nothing here runs sudo: the steps that change the computer's clock are printed, not run.
+#
+# Exit status: 0 done; for status, the site's time is within 120 seconds of the state's
+# timestamp (of this computer's time when there is no state). Under manual that is a check for
+# just after the clock is changed: the clock runs on from the fake time, so after two minutes
+# status exits 1 again. 1 status found the site's time further away than that. 2 a usage or
+# settings error, or the site's endpoint doesn't answer, so nothing was checked.
+
+set -euo pipefail
+
+die() { echo "ada-clock: $*" >&2; exit 2; }
+# This script's folder, worked out before the cd below so a relative $0 still resolves.
+here="$(cd "$(dirname "$0")" && pwd)"
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+cd "$root"
+conf="$root/.claude/team/local.env"
+# Python 3.8+: python3 on Mac and Linux. On Windows (Git Bash) it's often python or py -3, and
+# the python3 there can be a Microsoft Store shortcut that runs nothing, so each is tried.
+PY=()
+for c in python3 python 'py -3'; do
+	read -ra try <<<"$c"
+	if "${try[@]}" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+		PY=("${try[@]}"); break
+	fi
+done
+[ ${#PY[@]} -gt 0 ] || die 'Python 3.8 or later is needed (as python3, python or py -3)'
+# Windows Pythons print CRLF; the shell compares plain lines.
+py() { "${PY[@]}" "$@" | tr -d '\r'; }
+
+# The developer's settings, from local.env, parsed as bin/presstest parses them (a copy: scripts
+# can't share a file outside templates/). Each known KEY is held as KEY_FILE.
+KEYS='LOCAL_URL LOCAL_WP_PATH ADA_CLOCK_ADAPTER LOCAL_WP'
+KEYLIST=" $KEYS "
+for key in $KEYS; do printf -v "${key}_FILE" '%s' ''; done
+if [ -f "$conf" ]; then
+	while IFS= read -r line || [ -n "$line" ]; do
+		line="${line%$'\r'}"
+		[[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+		[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+		key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+		[[ "$KEYLIST" == *" $key "* ]] || continue
+		if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?[[:space:]]*$ || "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?[[:space:]]*$ ]]; then
+			val="${BASH_REMATCH[1]}"
+		else
+			val="${val%%[[:space:]]#*}"
+			val="${val%"${val##*[![:space:]]}"}"
+		fi
+		[[ "$val" == '<'*'>' ]] && val=''
+		printf -v "${key}_FILE" '%s' "$val"
+	done < "$conf"
+fi
+# The environment's value, else the file's.
+setting() { local file="${1}_FILE"; local env="${!1:-}"; echo "${env:-${!file}}"; }
+LOCAL_SITE="$(setting LOCAL_URL)"
+WP_PATH="$(setting LOCAL_WP_PATH)"
+case "$WP_PATH" in "~/"*) WP_PATH="$HOME/${WP_PATH#"~/"}" ;; esac
+ADAPTER="$(setting ADA_CLOCK_ADAPTER)"
+[ -n "$ADAPTER" ] || ADAPTER='manual'
+WP_COMMAND="$(setting LOCAL_WP)"
+
+STATE_NAME='ada-clock.json'
+MARKER='Ada clock: copied by ada-clock install, which replaces it.'
+# How far, in seconds, the site's time may be from the expected time for status to pass.
+TOLERANCE=120
+
+# Whether a URL's host is a local one: localhost, 127.0.0.1, or a name ending in .local or .test.
+# The mu-plugin's ada_clock_is_local_site() applies the same rule to home_url(); change both.
+is_local_url() {
+	local host
+	[[ "$1" =~ ^[Hh][Tt][Tt][Pp][Ss]?://([^/:?#]+)(:[0-9]+)?([/?#].*)?$ ]] || return 1
+	host="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
+	[ "$host" = 'localhost' ] || [ "$host" = '127.0.0.1' ] || [[ "$host" =~ ^([a-z0-9-]+\.)+(local|test)$ ]]
+}
+
+need_wp_path() {
+	[ -n "$WP_PATH" ] || die "no LOCAL_WP_PATH: add the site's WordPress root to .claude/team/local.env"
+	[ -f "$WP_PATH/wp-config.php" ] || die "no wp-config.php in LOCAL_WP_PATH ($WP_PATH): is it the site's WordPress root?"
+	[ -d "$WP_PATH/wp-content" ] || die "no wp-content folder in LOCAL_WP_PATH ($WP_PATH)"
+}
+
+# Runs WP-CLI against the local site: LOCAL_WP with the arguments appended, else wp --path.
+ada_wp() {
+	local wp_command=()
+	if [ -n "$WP_COMMAND" ]; then
+		read -ra wp_command <<<"$WP_COMMAND"
+	else
+		need_wp_path
+		wp_command=(wp "--path=$WP_PATH")
+	fi
+	command -v "${wp_command[0]}" >/dev/null 2>&1 || die "WP-CLI command not found: ${wp_command[0]} (LOCAL_WP, or wp on the PATH)"
+	"${wp_command[@]}" ${1+"$@"}
+}
+
+# This computer's system, for the manual steps.
+os_kind() {
+	local name
+	name="$(uname -s)"
+	case "$name" in
+		Linux) echo linux ;;
+		Darwin) echo mac ;;
+		MINGW*|MSYS*|CYGWIN*) echo windows ;;
+		*) die "no steps for changing the clock on this system: $name" ;;
+	esac
+}
+
+# Prints "<UTC timestamp><TAB><local text><TAB><timezone>" for a <when>, or exits 2.
+parse_when() {
+	local when="$1" with_seconds='' out normal
+	if [[ "$when" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[+-][0-9]{2}:[0-9]{2})$ ]]; then
+		[ -z "${BASH_REMATCH[1]}" ] || with_seconds=1
+		py -c '
+import datetime, sys
+text, with_seconds = sys.argv[1], sys.argv[2]
+zone = "+00:00" if text.endswith("Z") else text[-6:]
+if text.endswith("Z"):
+    text = text[:-1] + zone
+try:
+    when = datetime.datetime.fromisoformat(text)
+except ValueError:
+    sys.exit(1)
+shown = when.strftime("%Y-%m-%d %H:%M:%S" if with_seconds else "%Y-%m-%d %H:%M")
+print("%d\t%s\t%s" % (int(when.timestamp()), shown, zone))
+' "$when" "$with_seconds" || die "no such time: $when"
+	elif [[ "$when" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}(:[0-9]{2})?$ ]]; then
+		normal="$when"
+		[ -n "${BASH_REMATCH[1]}" ] || normal="$when:00"
+		# The value is only digits, '-', ':' and one space (the regex above), so it is safe in the PHP.
+		# The result line is marked, because WP-CLI can print a site's PHP notices on stdout too.
+		out="$(ada_wp eval '$when = DateTimeImmutable::createFromFormat( "!Y-m-d H:i:s", "'"$normal"'", wp_timezone() ); if ( false === $when ) { exit( 1 ); } echo "ada-clock-when\t", $when->getTimestamp(), "\t", wp_timezone_string(), "\t", $when->format( "Y-m-d H:i:s" ), "\n";')" \
+			|| die "WP-CLI couldn't read the time $when in the site's timezone"
+		out="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^ada-clock-when	//p' | tail -1)"
+		[[ "$out" =~ ^(-?[0-9]+)$'\t'([^$'\t']+)$'\t'(.+)$ ]] || die "WP-CLI gave no time for $when"
+		[ "${BASH_REMATCH[3]}" = "$normal" ] || die "$when doesn't exist in the site's timezone (${BASH_REMATCH[2]}): it would be ${BASH_REMATCH[3]}"
+		printf '%s\t%s\t%s\n' "${BASH_REMATCH[1]}" "$when" "${BASH_REMATCH[2]}"
+	else
+		die "the time is YYYY-MM-DD HH:MM[:SS] in the site's timezone, or ISO 8601 with a zone such as 2026-11-06T11:55:00+00:00: $when"
+	fi
+}
+
+state_file() { echo "$WP_PATH/wp-content/$STATE_NAME"; }
+mu_plugin_file() { echo "$WP_PATH/wp-content/mu-plugins/ada-clock.php"; }
+
+# Prints "<timestamp><TAB><local><TAB><timezone><TAB><setup>" from the state file.
+read_state() {
+	py -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    state = json.load(f)
+print("%d\t%s\t%s\t%s" % (state["timestamp"], state["local"], state["timezone"], state["setup"]))
+' "$(state_file)" || die "can't read the state file $(state_file): run ada-clock set again, or reset"
+}
+
+# Adds a path to .git/info/exclude when it is inside this repo's work tree, so it can't be
+# committed. The exclude file is the one git names, so a worktree uses the shared one.
+exclude_path() {
+	local dir real root_real rel line exclude
+	dir="$(cd "$(dirname "$1")" && pwd -P)"
+	real="$dir/$(basename "$1")"
+	root_real="$(pwd -P)"
+	case "$real" in "$root_real/"*) ;; *) return 0 ;; esac
+	rel="${real#"$root_real/"}"
+	# A leading / anchors the line to the root; glob characters in the path are escaped.
+	line="/$(printf '%s' "$rel" | sed 's/[][*?\\]/\\&/g')"
+	exclude="$(git rev-parse --git-path info/exclude)"
+	mkdir -p "$(dirname "$exclude")"
+	if [ -f "$exclude" ] && grep -qxF -- "$line" "$exclude"; then
+		echo "kept     $rel"
+		return 0
+	fi
+	# The line goes on a line of its own, even when the file doesn't end in a newline.
+	if [ -s "$exclude" ] && [ -n "$(tail -c 1 "$exclude")" ]; then echo >> "$exclude"; fi
+	printf '%s\n' "$line" >> "$exclude"
+	echo "excluded $rel"
+}
+
+# Prints the manual steps that put this computer's clock at a UTC timestamp.
+manual_set_steps() {
+	local os="$1" times shown mac zone
+	times="$(py -c '
+import datetime, sys
+when = datetime.datetime.fromtimestamp(int(sys.argv[1]))
+mac = when.strftime("%m%d%H%M%y") + (when.strftime(".%S") if when.second else "")
+print("%s\t%s\t%s" % (when.strftime("%Y-%m-%d %H:%M:%S"), mac, when.astimezone().strftime("%Z")))
+' "$2")"
+	IFS=$'\t' read -r shown mac zone <<<"$times"
+	echo "Put this computer's clock at $shown ($zone, this computer's timezone):"
+	case "$os" in
+		linux)
+			echo "  sudo timedatectl set-ntp false"
+			echo "  sudo date -s '$shown'"
+			;;
+		mac)
+			echo "  System Settings > General > Date & Time: turn off \"Set time and date automatically\"."
+			echo "  sudo date $mac"
+			;;
+		windows)
+			echo "  Settings > Time & language > Date & time: turn off \"Set time automatically\"."
+			echo "  Then, under \"Set the date and time manually\", choose Change and set $shown."
+			;;
+	esac
+	echo "Then reload any page that was open before the clock changed: its nonces are older."
+	echo "Then run ada-clock status."
+}
+
+# Prints the manual steps that switch this computer's automatic time back on.
+manual_reset_steps() {
+	echo "Switch this computer's automatic time back on:"
+	case "$1" in
+		linux) echo "  sudo timedatectl set-ntp true" ;;
+		mac) echo "  System Settings > General > Date & Time: turn on \"Set time and date automatically\"." ;;
+		windows) echo "  Settings > Time & language > Date & time: turn on \"Set time automatically\", then Sync now." ;;
+	esac
+	echo "Then reload any page that was open before the clock changed."
+}
+
+[ $# -ge 1 ] || die "no command. See the header of $0."
+cmd="$1"; shift
+case "$cmd" in
+	set|status|reset|install|wp) ;;
+	*) die "unknown command: $cmd. See the header of $0." ;;
+esac
+
+# Checked before any subcommand runs, so nothing touches a site that isn't local.
+[ -n "$LOCAL_SITE" ] || die 'no LOCAL_URL: add your local site to .claude/team/local.env'
+is_local_url "$LOCAL_SITE" \
+	|| die "LOCAL_URL must be a local site (localhost, 127.0.0.1, or a .local or .test domain): $LOCAL_SITE"
+[ "$ADAPTER" = 'manual' ] || die "unknown ADA_CLOCK_ADAPTER $ADAPTER: the setups are manual"
+
+case "$cmd" in
+set)
+	[ $# -eq 1 ] || die 'set takes one time, in quotes: ada-clock set "2026-11-06 11:55"'
+	os="$(os_kind)"
+	need_wp_path
+	when_line="$(parse_when "$1")"
+	IFS=$'\t' read -r timestamp local_text zone <<<"$when_line"
+	py -c '
+import json, os, sys, time
+path, timestamp, local_text, zone, setup = sys.argv[1:6]
+state = {"timestamp": int(timestamp), "local": local_text, "timezone": zone, "setup": setup, "set_at": int(time.time())}
+temp = path + ".tmp"
+with open(temp, "w", encoding="utf-8", newline="\n") as f:
+    json.dump(state, f)
+    f.write("\n")
+os.replace(temp, path)
+' "$(state_file)" "$timestamp" "$local_text" "$zone" "$ADAPTER" || die "couldn't write the state file $(state_file)"
+	echo "ada-clock: fake $local_text $zone ($ADAPTER), written to $(state_file)"
+	exclude_path "$(state_file)"
+	manual_set_steps "$os" "$timestamp"
+	;;
+reset)
+	[ $# -eq 0 ] || die 'reset takes no arguments'
+	os="$(os_kind)"
+	need_wp_path
+	if [ -f "$(state_file)" ]; then
+		rm -f "$(state_file)"
+		echo "ada-clock: real, deleted $(state_file)"
+	else
+		echo "ada-clock: real, no state file at $(state_file)"
+	fi
+	manual_reset_steps "$os"
+	;;
+status)
+	[ $# -eq 0 ] || die 'status takes no arguments'
+	need_wp_path
+	fake=0
+	if [ -f "$(state_file)" ]; then
+		fake=1
+		state_line="$(read_state)"
+		IFS=$'\t' read -r expected local_text zone setup <<<"$state_line"
+		echo "ada-clock: fake $local_text $zone ($setup)"
+		against='the fake time'
+	else
+		echo 'ada-clock: real'
+		expected="$(date +%s)"
+		against="this computer's time"
+	fi
+	if [ ! -f "$(mu_plugin_file)" ]; then
+		echo "mu-plugin: not installed $(mu_plugin_file)"
+	elif grep -qF -- "$MARKER" "$(mu_plugin_file)"; then
+		echo "mu-plugin: installed $(mu_plugin_file)"
+	else
+		echo "mu-plugin: not installed, another file is at $(mu_plugin_file)"
+	fi
+	command -v curl >/dev/null 2>&1 || die 'status needs curl, which is not installed'
+	# rest_route reaches the same route as /wp-json/ whatever the site's permalink setting.
+	url="${LOCAL_SITE%/}/?rest_route=/ada-clock/v1/time"
+	body="$(curl -sk --max-time 10 "$url")" || body=''
+	site="$(printf '%s' "$body" | py -c '
+import datetime, json, sys
+try:
+    answer = json.load(sys.stdin)
+except ValueError:
+    sys.exit(1)
+if not isinstance(answer, dict) or set(answer) != {"now", "fake", "timezone"}:
+    sys.exit(1)
+now, fake, zone = answer["now"], answer["fake"], answer["timezone"]
+if type(now) is not int or type(fake) is not bool or type(zone) is not str:
+    sys.exit(1)
+utc = datetime.datetime.fromtimestamp(now, datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+print("%d\t%d\t%s" % (now, fake, utc))
+')" || die "the site's time endpoint doesn't answer at $url: is the site started, and ada-clock install run?"
+	IFS=$'\t' read -r site_now site_fake site_utc <<<"$site"
+	[ "$site_fake" = "$fake" ] \
+		|| die "the site at LOCAL_URL ($LOCAL_SITE) and the state file in LOCAL_WP_PATH ($WP_PATH) are not the same site"
+	diff=$(( site_now - expected ))
+	[ "$diff" -ge 0 ] || diff=$(( -diff ))
+	echo "site time: $site_utc ($diff s from $against)"
+	[ "$diff" -le "$TOLERANCE" ] || exit 1
+	;;
+install)
+	[ $# -eq 0 ] || die 'install takes no arguments'
+	need_wp_path
+	source_file="$here/../templates/clock/ada-clock.php"
+	[ -f "$source_file" ] || die "the plugin's mu-plugin template is missing: $source_file"
+	target="$(mu_plugin_file)"
+	if [ -f "$target" ]; then
+		grep -qF -- "$MARKER" "$target" \
+			|| die "$target is another plugin's file, not ada-clock's: left as it is. Move it, then install again."
+		word='replaced'
+	else
+		mkdir -p "$(dirname "$target")"
+		word='installed'
+	fi
+	cp "$source_file" "$target"
+	echo "$word $target"
+	exclude_path "$target"
+	exclude_path "$(state_file)"
+	echo "Log in to the local admin again once, with Remember Me ticked: that login then stays valid for ten years, so a clock moved forward doesn't log you out."
+	;;
+wp)
+	ada_wp ${1+"$@"}
+	;;
+esac

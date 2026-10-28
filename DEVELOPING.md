@@ -41,7 +41,7 @@ plugins/ada/
   skills/standards-accessibility/ P32-P39, visual accessibility (WCAG 2.2 AA), preloaded into Bob and Claudia, not a command
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
-  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-worktree, ada-onboard, prod-wp, presstest
+  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-worktree, ada-onboard, prod-wp, presstest, ada-clock
   templates/handoff/              the files the roles hand over through
   templates/plan/                 the plan, for work too big for one PR
   templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
@@ -61,6 +61,11 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   There is no production option: the suites place orders, and nothing marks a test as safe for
   live. It only touches the clone's `playwright` container, recreating it when the local site's
   domain isn't mapped into it.
+- `ada-clock` puts the developer's local WordPress site at a fake time. The site, its WordPress
+  root and the WP-CLI command are the developer's (`.claude/team/local.env`); it refuses any site
+  not on `localhost`, `127.0.0.1`, `.local` or `.test`. `install` copies a mu-plugin from
+  `templates/clock/` into the site, which does nothing on any other host. Under the `manual` setup
+  it prints the steps to change the computer's clock and never runs `sudo` itself.
 - Reading files bundled in the plugin needs a permission rule, so the team avoids it:
   - **Shared standards** are non-invocable skills, preloaded into each agent (`skills:` in its
     frontmatter).

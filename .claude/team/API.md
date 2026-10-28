@@ -91,6 +91,36 @@ Runs the project's PressTest suite on the developer's local site or the project'
 settings, usage and Docker errors exit 2. Tess reads the last line (`agents/tess.md`, Run mode).
 Not used in this repo (no suite).
 
+### `ada-clock` (`bin/ada-clock:1-62`)
+
+Puts the developer's local WordPress site at a fake time. Settings from `.claude/team/local.env`,
+overridable by environment: `LOCAL_URL`, `LOCAL_WP_PATH`, `ADA_CLOCK_ADAPTER` (only `manual`;
+unset means `manual`), `LOCAL_WP` (the WP-CLI command; unset means `wp --path=<LOCAL_WP_PATH>`).
+Every subcommand exits 2 unless `LOCAL_URL`'s host is `localhost`, `127.0.0.1`, or ends in
+`.local` or `.test` (`is_local_url`), and for any other adapter. Nothing runs `sudo`.
+
+| Subcommand | Does | Output others rely on |
+|---|---|---|
+| `set "<when>"` | `<when>`: `YYYY-MM-DD HH:MM[:SS]` in the site's timezone (one `ada-clock wp eval`), or ISO 8601 with `Z` or `±HH:MM` (no WP-CLI; the state keeps that offset as its timezone). Exit 2 for anything else, or a site-local time that doesn't exist there (`parse_when`). Writes the state file, adds it to `.git/info/exclude` when inside the repo, prints the manual steps for this OS with the time in the computer's timezone | First line `ada-clock: fake <local> <tz> (<setup>), written to <path>`. `<local>` is `YYYY-MM-DD HH:MM`, with `:SS` only when `<when>` gave seconds, `:00` included: `2026-11-06T11:55:00+00:00` gives `2026-11-06 11:55:00 +00:00`, `2026-11-06T11:55+00:00` gives `2026-11-06 11:55 +00:00` |
+| `status` | Compares the site's time from the endpoint with the state's timestamp, or this computer's time with no state | **First line**: `ada-clock: real` \| `ada-clock: fake <local> <tz> (<setup>)` (Unit D's Tess reads it). Then `mu-plugin: installed <path>` \| `not installed <path>` \| `not installed, another file is at <path>`, then `site time: <UTC> (<n> s from …)`. **Exit** 0 within 120 seconds, 1 further, 2 when the endpoint doesn't answer or its `fake` disagrees with the state file (`LOCAL_URL` and `LOCAL_WP_PATH` not the same site). Under `manual` the 0/1 check is for just after the clock is changed: the clock runs on, so it is 1 again two minutes later |
+| `reset` | Deletes the state file if there; always prints the steps to switch automatic time back on | First line `ada-clock: real, deleted <path>` or `ada-clock: real, no state file at <path>` |
+| `install` | Copies `templates/clock/ada-clock.php` to `wp-content/mu-plugins/ada-clock.php`; replaces only a file with its marker line (`Ada clock: copied by ada-clock install, which replaces it.`), else exit 2, file untouched. Adds the mu-plugin and the state file to `git rev-parse --git-path info/exclude` when inside the repo | `installed <path>` or `replaced <path>`; `excluded <rel>` / `kept     <rel>` per exclude line |
+| `wp <args…>` | Runs WP-CLI on the local site; every WP-CLI call `ada-clock` makes goes through it | WP-CLI's own output and exit status |
+
+The state file, `<LOCAL_WP_PATH>/wp-content/ada-clock.json`, is the one record of the fake time,
+read by later setups and the browser extension: `{"timestamp": <UTC Unix time>, "local":
+"<YYYY-MM-DD HH:MM[:SS]>", "timezone": "<wp_timezone_string() or the ISO offset>", "setup":
+"manual", "set_at": <the computer's Unix time at set>}`. `local` has `:SS` only when `set` was given
+seconds, and `status` prints it as it is stored.
+
+The mu-plugin (`templates/clock/ada-clock.php`), inert unless `home_url()`'s host passes the same
+local test (`ada_clock_is_local_site()`): `SET timestamp = <time()>` once on load while the state
+file exists; `auth_cookie_expiration` ten years; cookie `ada_clock` (path `/`, session, not
+HttpOnly) set to `time()` on `send_headers` and `admin_init` while the state file exists, expired
+otherwise; `GET ada-clock/v1/time` (permission: the local test, no login), answering
+`{"now": <time()>, "fake": <bool>, "timezone": "<wp_timezone_string()>"}`. `status` calls it as
+`<LOCAL_URL>/?rest_route=/ada-clock/v1/time`, which answers whatever the permalink setting.
+
 ### Release (`.github/`)
 
 `release-bump.py <version> <notes-file>` (`.github/scripts/release-bump.py:1-13`): sets
@@ -141,5 +171,9 @@ errors on stderr.
 - Have a script read plugin files at runtime other than through `$(dirname "$0")/../templates`.
 - Change `ada-worktree check`'s first-line words or `new`'s last line without changing
   `/ada:begin`, `/ada:pickup` and `ada:planning`.
+- Change `ada-clock status`'s first-line words, the state file's keys, the `ada_clock` cookie or the
+  endpoint's fields without changing their readers (Tess, later `ada-clock` setups, the extension).
+- Change the local-host rule in `ada-clock`'s `is_local_url` without `ada_clock_is_local_site()` in
+  the mu-plugin, or the other way round.
 - Remove a step's worktree other than with `ada-worktree remove`, which archives its handoff
   files first; or delete its branch with it.
