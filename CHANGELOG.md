@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.10.0, 28 Oct 2026
+
 - **Amending an approved brief no longer always waits for the approver.** Ada checks each
   amendment against the re-approval triggers: the defaults in `/ada:begin` (a fragile area the
   brief didn't name, something the customer sees or pays, a new dependency or migration, a
