@@ -13,6 +13,14 @@ Releasing in DEVELOPING.md).
   PHP's clock, keeps logins for ten years, and gives the site's time at
   `/wp-json/ada-clock/v1/time`. `ada-clock status` checks the site has the time, `ada-clock reset`
   undoes it. It only works on sites on `localhost`, `127.0.0.1`, `.local` or `.test`.
+- **`ada-onboard settings` allows only read-only git, and no longer allows `sed`.** `git branch*`
+  also allowed `git branch -D`, `-f` and `-m` without a prompt, and `git reflog*` allowed
+  `reflog delete` and `expire`, which wipe the history used to recover lost commits. `sed -n *`
+  allowed `sed -n -i`, and `gh api user*` allowed writes to the user endpoints. Each is replaced
+  by read-only forms (`git branch --show-current`, `--list`, `--contains`, `-a`, `-r`, `-vv`;
+  `git reflog`, `git reflog -5`, `reflog show`; `gh api user -q .login`); files are read with
+  the Read tool. Running `ada-onboard settings` again takes the old rules out of a project's
+  `.claude/settings.json`, so every onboarded repo should run it once.
 
 ## 0.10.0, 28 Oct 2026
 
