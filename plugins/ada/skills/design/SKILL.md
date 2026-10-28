@@ -277,8 +277,9 @@ you. Then:
   DESIGN.md), and set the handoff's `Project DESIGN.md:` and `Lint:` lines. In a plan unit, make
   the same change to the `plan/DESIGN-<task id>.md` the brief's Constraints name, so later units
   that share the design get the new part.
-- Hand back to Ada. She amends the brief, which then needs agreeing (and approving, if the project
-  needs it) again.
+- Hand back to Ada. She amends the brief, which then needs the developer's yes again. If the
+  brief was approved, she checks the amendment against the re-approval triggers in `/ada:begin`;
+  it is approved again only if it hits one.
 
 ## Fallbacks
 

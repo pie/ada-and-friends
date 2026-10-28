@@ -10,18 +10,19 @@ precondition error with `<script>: <message>` on stderr (`die`), and needs Pytho
 
 ## Scripts (`bin/`)
 
-### `ada-brief` (`bin/ada-brief:1-41`), needs `gh` logged in (`overlap` runs without it)
+### `ada-brief` (`bin/ada-brief:1-93`), needs `gh` logged in (`overlap` and `compare` run without it)
 
 | Subcommand | Does | Output others rely on |
 |---|---|---|
-| `who` | Approval policy for this developer from `PROJECT.md` | One line: `not-needed` \| `approver <login>` \| `trusted <login>` \| `required <login>` (`:350-365`). Read by `/ada:begin` (`skills/begin/SKILL.md:197-209`), `ada-plan status` (`bin/ada-plan:233`), `ada-onboard check` (`bin/ada-onboard:225`). |
-| `submit <task-id> <base> [<branch>]` | Commits the brief (and plan) to `.claude/briefs/`, pushes, opens or updates the draft PR, removes `brief-approved` | `opened   <url>` or `updated  <url> (approval reset)` (`:428`, `:432`) |
-| `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`; then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:443-499`). First line read by `submit` (`:383-387`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin` (`skills/begin/SKILL.md:213-220`). |
-| `body <task-id> [<branch>]` | Prints the draft PR description for a committed brief | Markdown starting `<!-- ada-brief: .claude/briefs/<task>.md -->` (`:234`) |
-| `ready <title> <file>` | Final title and description, out of draft | `ready    <url>`; a stderr note if `gh pr ready` fails (`:521-522`) |
+| `who` | Approval policy for this developer from `PROJECT.md` | One line: `not-needed` \| `approver <login>` \| `trusted <login>` \| `required <login>` (`:580-595`). Read by `/ada:begin` (`skills/begin/SKILL.md:197-209`), `ada-plan status` (`bin/ada-plan:233`), `ada-onboard check` (`bin/ada-onboard:225`). |
+| `submit <task-id> <base> [<branch>]` | Commits the brief (and plan) to `.claude/briefs/`, pushes, opens or updates the draft PR. On an existing PR with an approver's label it compares the approved version with the new brief: `same` keeps the label (the body is replaced only if it differs); `allowed` keeps the label, replaces the body and posts one PR comment listing the added Amendments rows, unless the body already shows this brief (a repeated submit changes nothing); `reapprove`, or no approval, removes `brief-approved` | `opened   <url>`, `updated  <url> (approval kept)` or `updated  <url> (approval reset)` (`:661-680`). Read by `/ada:begin` (Amending an approved brief). |
+| `status [<branch>]` | Approval state of the branch's PR | **First line**: `approved @<login> <ISO time>` \| `changes-requested` \| `waiting` \| `not-submitted` \| `not-needed`. After `approved`, a second line `amended since approval; no re-approval needed` when the label is older than the brief's last change and `compare` says `same` or `allowed`. A `waiting` or `changes-requested` note for an earlier approval ends `: <reason>` from `compare`. Then notes, `--- @<login>, <where>, <time>` blocks with the approvers' words, and the PR URL last (`:683-746`). First line read by `submit` (`:612-618`), `ada-plan status` (`bin/ada-plan:257`) and `/ada:begin`; the second line by `/ada:begin` and `/ada:pickup`. |
+| `compare <approved-brief> <current-brief>` | Offline (paths relative to the repo root): whether an amended brief keeps its approval. Approved sections: Decisions, and Constraints less `- Out of scope:`. Added rows: Amendments data rows in the current brief not in the approved one, as text | **First line**: `same` (ignoring trailing whitespace, CR included, and blank lines at the end) \| `reapprove <reason>` \| `allowed`. The reason is the first added row's `needed: <trigger>` cell, `amendment with no Agreed by`, or `amendment with no re-approval decision` (an empty or other cell, or a four-column row); else, with no added row and an approved section changed, `approved section changed with no amendment recorded`. After `allowed`, the added rows as `\| … \|` lines. Exit 0 for all three, 2 on usage or an unreadable file (`:748-771`; rules in `compare()`, `:265-285`). Used by `status` and `submit`. |
+| `body <task-id> [<branch>]` | Prints the draft PR description for a committed brief | Markdown starting `<!-- ada-brief: .claude/briefs/<task>.md -->` (`:425`) |
+| `ready <title> <file>` | Final title and description, out of draft | `ready    <url>`; a stderr note if `gh pr ready` fails (`:791-792`) |
 | `overlap [<file>...]`, `overlap --gate` | Fetches `Branch from` and `PR into` (`PROJECT.md`, defaults `production` and `next-release`); lists the work waiting to ship and the open PRs into either branch; marks entries that change a given file. `--gate` takes no files: it uses the branch's own, the working tree's changes since `git merge-base origin/<PR into> HEAD` plus untracked files, and exits 2 if `git merge-base` fails (a shallow clone) | **First line**: `touching <n>` (`touching 0` with `--gate` and no changed files), or `touching -` with no files and no `--gate`. Then `waiting to ship:` and `open:`, each entry two-space indented: `#N <subject> [<files>]` or `<short hash> <subject> [<files>]`; `#N [draft ]<title> [<files>]`. A marked entry ends ` touches: <file>, ...`; an empty group is `  none`. The open group is `  unknown (<reason>)`, exit 0, without `gh`, and with `more than 100 open PRs into <base>` or `#N has 100 or more files`. Read by `/ada:begin` (brief step, and `--gate` at the PR gate). |
 
-Env: `ADA_BRIEF_REQUIRE=1` makes `who` print `required` for everyone (`:12-13`).
+Env: `ADA_BRIEF_REQUIRE=1` makes `who` print `required` for everyone (`:13-14`).
 
 ### `ada-onboard` (`bin/ada-onboard:1-28`)
 
@@ -110,7 +111,7 @@ errors on stderr.
 
 - Change the first-line words of `ada-brief status` or `who`, or the `refresh` status words,
   without changing every reader (`/ada:begin`, `/ada:pickup`, `ada-plan`, `ada-onboard check`).
-- Edit a PR with `gh pr edit`: it fails before gh 2.50 (`bin/ada-brief:36-37`). Use `gh api`.
+- Edit a PR with `gh pr edit`: it fails before gh 2.50 (`bin/ada-brief:88-89`). Use `gh api`.
 - Use `mapfile`/`readarray`, `declare -A`, `${var,,}` or other bash 4+ features in `bin/`
   (macOS ships bash 3.2; `CHANGELOG.md:191-192`).
 - Call `python3` directly in `bin/`: use the `PY` discovery block, and strip `\r` from its output.

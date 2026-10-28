@@ -5,7 +5,16 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Amending an approved brief no longer always waits for the approver.** Ada checks each
+  amendment against the re-approval triggers: the defaults in `/ada:begin` (a fragile area the
+  brief didn't name, something the customer sees or pays, a new dependency or migration, a
+  security or payment path, a higher Expected review, a reversed Decision) and any your project
+  adds on a new optional `Re-approval triggers:` line in `PROJECT.md`. She records `not needed`
+  or `needed: <trigger>` in the brief's Amendments table, which has a new Re-approval column.
+  `ada-brief submit` keeps the approval when no trigger is hit and posts a PR comment listing the
+  amendments; `ada-brief status` then says `amended since approval; no re-approval needed`. A new
+  `ada-brief compare` makes the decision offline. Resubmitting an unchanged brief no longer
+  resets its approval.
 
 ## 0.9.0, 27 Oct 2026
 
