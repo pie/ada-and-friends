@@ -26,7 +26,8 @@
 #       With <branch> (a planned unit's branch that isn't checked out), the brief is
 #       .claude/handoff/plan/<task-id>.md and is committed to <branch> without a checkout.
 #       A brief whose "Plan:" line names a plan file takes .claude/handoff/plan/PLAN.md with it,
-#       committed there and shown under the brief. A brief whose <base-branch> has its own brief
+#       committed there and shown under the brief. The plan/ folder is the main checkout's
+#       (ada-worktree main), wherever this runs. A brief whose <base-branch> has its own brief
 #       PR (a part of a larger unit) can't be submitted until that brief is approved.
 #   ada-brief status [<branch>]
 #       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
@@ -95,6 +96,8 @@
 set -euo pipefail
 
 die() { echo "ada-brief: $*" >&2; exit 2; }
+# This script's folder, worked out before the cd below so a relative $0 still resolves.
+here="$(cd "$(dirname "$0")" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
 cd "$root"
 # Python 3.8+: python3 on Mac and Linux. On Windows (Git Bash) it's often python or py -3, and
@@ -604,13 +607,15 @@ submit)
 	[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch: $branch"
 	[ "$branch" != "$base" ] || die "on the base branch $base: create the feature branch first"
 	case "$branch" in production|next-release|review|main|master) die "won't push a brief to $branch" ;; esac
-	if [ "$branch" = "$current" ]; then src='.claude/handoff/BRIEF.md'; else src=".claude/handoff/plan/$task.md"; fi
+	# A plan, and the unit briefs drafted from it, live in the main checkout.
+	plan_dir="$("$here/ada-worktree" main)/.claude/handoff/plan"
+	if [ "$branch" = "$current" ]; then src='.claude/handoff/BRIEF.md'; else src="$plan_dir/$task.md"; fi
 	[ -f "$src" ] || die "no $src to submit"
 	need_gh
 
 	# A part of a larger unit: the unit's brief, on its feature branch, is approved first.
 	if pr_number "$base" >/dev/null; then
-		st="$("$0" status "$base" | head -1)"
+		st="$("$here/ada-brief" status "$base" | head -1)"
 		case "$st" in
 		approved*|not-needed|not-submitted) ;;
 		*) die "the brief on $base is $st; it's approved before its parts' briefs are submitted" ;;
@@ -623,7 +628,7 @@ submit)
 	# The plan this brief is part of, if any, goes with it.
 	plan="$(sed -n 's/^Plan:[[:space:]]*\(\.claude\/briefs\/[A-Za-z0-9_-]*-plan\.md\).*/\1/p' "$src" | head -1)"
 	plan_src=''
-	[ -n "$plan" ] && [ -f .claude/handoff/plan/PLAN.md ] && plan_src='.claude/handoff/plan/PLAN.md'
+	[ -n "$plan" ] && [ -f "$plan_dir/PLAN.md" ] && plan_src="$plan_dir/PLAN.md"
 
 	if [ "$branch" = "$current" ]; then
 		mkdir -p .claude/briefs

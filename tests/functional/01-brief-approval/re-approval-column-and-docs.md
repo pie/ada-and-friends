@@ -4,7 +4,7 @@
   onboard `PROJECT.md`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219937425454517
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-10-27, offline run passed 0 failed on bash 5.2, bash 3.2, Python 3.8; see the PR
+- Last run: 28 Oct 2026 (after the test fix), 0 failed (59 PASS) under bash 5 and bash 3.2; breaks FAIL; see the PR
 
 ## Precondition
 
@@ -69,7 +69,9 @@ grep '^#' "$NT" > "$W/h.new"; grep '^#' "$OT" > "$W/h.old"
 t "template: headings unchanged from the released template" cmp -s "$W/h.old" "$W/h.new"
 fields() { awk '/^## /{exit} /^[A-Z][A-Za-z ]*:/{sub(/:.*/,""); print}' "$1"; }
 fields "$NT" > "$W/f.new"; fields "$OT" > "$W/f.old"
-t "template: header field names unchanged" cmp -s "$W/f.old" "$W/f.new"
+# Step 1 of 25 Oct 2026 ("One worktree per step", DoD 9) added a Worktree: header field; allow it, and no other.
+grep -vx 'Worktree' "$W/f.new" > "$W/f.new.nowt"
+t "template: header field names unchanged" cmp -s "$W/f.old" "$W/f.new.nowt"
 sect '## Constraints' "$NT" > "$W/con.new"
 t "template: Constraints still has '- Out of scope:'" grep -q '^- Out of scope:' "$W/con.new"
 t "template: Constraints still has '- Expected review:'" grep -q '^- Expected review:' "$W/con.new"
@@ -151,7 +153,9 @@ t "stub: no STUB-GAP from body (else fix the stub)" not grep -q STUB-GAP "$W"/ne
 U=$PLUGIN/bin/ada-brief
 awk 'NR==1{next} /^#/{print;next} {exit}' "$U" > "$W/usage"
 t "usage header: names compare" grep -q 'compare' "$W/usage"
-awk 'NR==1{next} /^#/{print;next} {exit}' "$OLD_PLUGIN/bin/ada-brief" > "$W/usage.old"
+# BASE is origin/next-release, which has had compare in its usage header since #39 merged, so the "released
+# one didn't" baseline reads ece901f (Release 0.9.0, before #39) instead.
+git -C "$REPO" show ece901f:plugins/ada/bin/ada-brief | awk 'NR==1{next} /^#/{print;next} {exit}' > "$W/usage.old"
 t "usage header: the released one didn't (baseline)" not grep -q 'compare' "$W/usage.old"
 awk '/^### `ada-brief`/{f=1;next} /^#{2,3} /{f=0} f' "$REPO/.claude/team/API.md" > "$W/api"
 t "API.md ada-brief: a compare row" grep -q '^| `compare' "$W/api"

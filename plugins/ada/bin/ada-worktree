@@ -1,0 +1,247 @@
+#!/usr/bin/env bash
+# One worktree per step, so several steps run at once without sharing handoff files. Ada runs it
+# from /ada:begin, /ada:pickup and the planning skill; a developer can too. Run from inside the
+# project repo: its main checkout or any of its worktrees.
+#
+#   ada-worktree new <branch> [<base>]
+#       Makes the step's worktree at .claude/worktrees/<slug> in the main checkout. <slug> is
+#       <branch> without its <type>/ prefix, with any further / turned into -. With <base>,
+#       creates <branch> from <base>; the branch must not exist yet. Without <base>, checks out
+#       <branch>, which must exist and not be checked out anywhere (a plan's unit, whose branch
+#       ada-plan branches made). Sets no upstream. Copies in the files among the lines
+#       ada-onboard gitignore --list prints (the developer's local config, such as
+#       .claude/team/local.env) that exist in this checkout, and runs ada-handoff-init in the new
+#       worktree. Refuses, changing nothing, if the path exists, or if the main checkout's git
+#       doesn't ignore it (run ada-onboard gitignore there first). Prints the worktree's absolute
+#       path on its last line.
+#   ada-worktree check
+#       Whether .claude/handoff/CHECKPOINT.md here belongs to the branch checked out here. Prints
+#       one line:
+#         ok                        its Branch: is the current branch
+#         none                      no checkpoint, or no branch recorded in it
+#         other <branch> <path>     it belongs to <branch>, which is checked out at <path>, or
+#                                   "-" if it's checked out nowhere. The path is the rest of the
+#                                   line: it can hold spaces.
+#       Exits 2, printing nothing on stdout, if the first word of Branch: isn't a branch name or
+#       names no local branch (a checkpoint written before Branch: held the name alone).
+#   ada-worktree list
+#       One line per worktree of the repo, the main checkout first, tab-separated:
+#         <path> <branch> <step> <PR>
+#       <branch> is "-" when none is checked out. <step> is the checkpoint's Step:, or "-".
+#       <PR> is the branch's latest PR, "#N OPEN", "#N MERGED" or "#N CLOSED", or "none";
+#       "-" without gh logged in. If gh fails, a note goes to stderr and that worktree's PR and
+#       the rest are "-".
+#   ada-worktree remove <path>
+#       For a finished step: copies the worktree's .claude/handoff/*.md to the main checkout's
+#       .claude/handoff/archive/<YYYY-MM-DD>-<slug>/, where <slug> is the worktree's folder name,
+#       then runs git worktree remove, which deletes the worktree with the originals. If that
+#       fails, deletes the copies and the archive folder, so nothing has changed and it can be run
+#       again. Never deletes the branch. Refuses, changing nothing, if the worktree has
+#       uncommitted changes or untracked files (ignored files don't count), if its
+#       .claude/handoff/ holds anything but *.md files, if that archive folder exists, or if the
+#       path is the main checkout, the worktree this runs in, a locked worktree, or not a worktree
+#       of this repo.
+#   ada-worktree main
+#       Prints the main checkout's path. ada-plan, ada-brief and ada-handoff-init --archive-plan
+#       read the plan from its .claude/handoff/plan/.
+
+set -euo pipefail
+
+die() { echo "ada-worktree: $*" >&2; exit 2; }
+here="$(cd "$(dirname "$0")" && pwd)"
+start="$(pwd)"
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
+cd "$root"
+tab="$(printf '\t')"
+ref_re='^[A-Za-z0-9._/-]+$'
+
+# The main checkout is the first entry git lists.
+main_root() { git worktree list --porcelain | sed -n '1s/^worktree //p'; }
+
+# One line per worktree, tab-separated: <path> <branch or -> <locked or ->.
+worktrees() {
+	local line path='' branch='-' locked='-'
+	{ git worktree list --porcelain; echo; } | while IFS= read -r line; do
+		case "$line" in
+		'worktree '*) path="${line#worktree }"; branch='-'; locked='-' ;;
+		'branch refs/heads/'*) branch="${line#branch refs/heads/}" ;;
+		locked | 'locked '*) locked='locked' ;;
+		'')
+			[ -n "$path" ] && printf '%s\t%s\t%s\n' "$path" "$branch" "$locked"
+			path=''
+			;;
+		esac
+	done
+}
+
+# The path where <branch> is checked out, or "-".
+worktree_of() {
+	local path branch locked
+	while IFS="$tab" read -r path branch locked; do
+		if [ "$branch" = "$1" ]; then
+			printf '%s\n' "$path"
+			return 0
+		fi
+	done <<<"$(worktrees)"
+	echo '-'
+}
+
+# The value of a checkpoint field ("- Branch: x" or "Branch: x"), whole line, or nothing.
+checkpoint_field() {
+	[ -f "$1/.claude/handoff/CHECKPOINT.md" ] || return 0
+	awk -v field="$2" '
+		{ sub(/\r$/, "") }
+		$0 ~ "^(- )?" field ":" { sub("^(- )?" field ": *", ""); print; exit }
+	' "$1/.claude/handoff/CHECKPOINT.md"
+}
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+main)
+	[ $# -eq 0 ] || die 'usage: ada-worktree main'
+	main_root
+	;;
+
+new)
+	[ $# -eq 1 ] || [ $# -eq 2 ] || die 'usage: ada-worktree new <branch> [<base>]'
+	branch="$1"; base="${2:-}"
+	[[ "$branch" =~ $ref_re ]] || die "bad branch: $branch"
+	slug="${branch#*/}"
+	slug="$(printf '%s' "$slug" | tr '/' '-')"
+	case "$slug" in '' | . | ..) die "bad branch: $branch" ;; esac
+	path="$(main_root)/.claude/worktrees/$slug"
+	if [ -e "$path" ] || [ -L "$path" ]; then die "$path already exists"; fi
+	# The main checkout's ignore rules, not this checkout's: the worktree sits in its folder.
+	git -C "$(main_root)" check-ignore -q ".claude/worktrees/$slug" ||
+		die ".claude/worktrees/ isn't ignored by git in the main checkout, so the worktree would show up in its git status: run ada-onboard gitignore there first"
+	if [ -n "$base" ]; then
+		[[ "$base" =~ $ref_re ]] || die "bad base: $base"
+		git show-ref --verify -q "refs/heads/$branch" && die "branch $branch already exists"
+		git rev-parse --verify -q "$base^{commit}" >/dev/null || die "no such base: $base"
+	else
+		git show-ref --verify -q "refs/heads/$branch" || die "no branch $branch: give a <base> to create it"
+		at="$(worktree_of "$branch")"
+		[ "$at" = '-' ] || die "$branch is checked out at $at"
+	fi
+	# Read before anything is created, so a failure here changes nothing.
+	ignore_lines="$("$here/ada-onboard" gitignore --list | tr -d '\r')" || die "couldn't read ada-onboard gitignore --list"
+
+	# --no-track: a step's branch gets its upstream when it is first pushed.
+	if [ -n "$base" ]; then
+		git worktree add --no-track -b "$branch" "$path" "$base" >&2 || die "git worktree add failed"
+	else
+		git worktree add "$path" "$branch" >&2 || die "git worktree add failed"
+	fi
+	while IFS= read -r file; do
+		case "$file" in */) continue ;; esac
+		[ -f "$root/$file" ] || continue
+		mkdir -p "$(dirname "$path/$file")"
+		cp -p "$root/$file" "$path/$file"
+		echo "copied   $file"
+	done <<<"$ignore_lines"
+	(cd "$path" && "$here/ada-handoff-init")
+	git -C "$path" rev-parse --show-toplevel
+	;;
+
+check)
+	[ $# -eq 0 ] || die 'usage: ada-worktree check'
+	recorded="$(checkpoint_field "$root" Branch | awk '{ print $1 }')"
+	if [ -z "$recorded" ]; then
+		echo 'none'
+		exit 0
+	fi
+	[[ "$recorded" =~ $ref_re ]] || die ".claude/handoff/CHECKPOINT.md has a Branch: that isn't a branch name: $recorded"
+	git show-ref --verify -q "refs/heads/$recorded" ||
+		die ".claude/handoff/CHECKPOINT.md has a Branch: that names no local branch: $recorded"
+	current="$(git symbolic-ref -q --short HEAD || true)"
+	if [ "$recorded" = "$current" ]; then
+		echo 'ok'
+	else
+		echo "other $recorded $(worktree_of "$recorded")"
+	fi
+	;;
+
+list)
+	[ $# -eq 0 ] || die 'usage: ada-worktree list'
+	use_gh=0
+	if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+		use_gh=1
+	fi
+	while IFS="$tab" read -r path branch locked; do
+		step="$(checkpoint_field "$path" Step | tr '\t' ' ')"
+		[ -n "$step" ] || step='-'
+		pr='-'
+		if [ "$use_gh" = 1 ] && [ "$branch" != '-' ]; then
+			pr="$(gh pr list --head "$branch" --state all --limit 1 --json number,state \
+				--jq 'if length > 0 then "#\(.[0].number) \(.[0].state)" else "none" end' 2>/dev/null)" || {
+				# One note, not one per worktree: a repo with no GitHub remote fails them all.
+				echo "ada-worktree: gh pr list failed for $branch; PRs from here on are shown as -" >&2
+				pr='-'
+				use_gh=0
+			}
+		fi
+		printf '%s\t%s\t%s\t%s\n' "$path" "$branch" "$step" "$pr"
+	done <<<"$(worktrees)"
+	;;
+
+remove)
+	[ $# -eq 1 ] || die 'usage: ada-worktree remove <path>'
+	target="$1"
+	case "$target" in
+	/* | [A-Za-z]:[/\\]*) ;;
+	*) target="$start/$target" ;;
+	esac
+	[ -d "$target" ] || die "no such folder: $1"
+	main="$(main_root)"
+	wt=''
+	while IFS="$tab" read -r path branch locked; do
+		if [ "$path" -ef "$target" ]; then
+			wt="$path"
+			wt_locked="$locked"
+		fi
+	done <<<"$(worktrees)"
+	[ -n "$wt" ] || die "$1 is not a worktree of this repo"
+	[ "$wt" -ef "$main" ] && die "$1 is the main checkout"
+	[ "$wt" -ef "$root" ] && die "$1 is the worktree this runs in: run it from another checkout"
+	[ "$wt_locked" = '-' ] || die "$wt is locked (git worktree unlock first)"
+	changes="$(git -C "$wt" status --porcelain --untracked-files=all)"
+	[ -z "$changes" ] || die "$wt has uncommitted changes or untracked files; nothing removed:
+$changes"
+	handoff="$wt/.claude/handoff"
+	if [ -d "$handoff" ]; then
+		for entry in "$handoff"/* "$handoff"/.[!.]*; do
+			[ -e "$entry" ] || continue
+			case "$entry" in *.md) [ -f "$entry" ] && continue ;; esac
+			die "$handoff holds more than handoff files ($(basename "$entry")); move it first"
+		done
+	fi
+	name="$(date +%Y-%m-%d)-$(basename "$wt")"
+	to="$main/.claude/handoff/archive/$name"
+	[ -e "$to" ] && die "$to already exists"
+
+	# Copied, not moved: git worktree remove can still refuse (a submodule, a file that appeared
+	# since the checks), and then the worktree must still hold its handoff files.
+	undo_copies() {
+		for f in "$handoff"/*.md; do
+			[ -e "$f" ] || continue
+			rm -f "$to/$(basename "$f")"
+		done
+		rmdir "$to"
+	}
+	mkdir -p "$to"
+	copied=0
+	for f in "$handoff"/*.md; do
+		[ -e "$f" ] || continue
+		cp -p "$f" "$to/" || { undo_copies; die "couldn't copy $f to $to; nothing archived, nothing removed"; }
+		copied=$((copied + 1))
+	done
+	git worktree remove "$wt" || { undo_copies; die "git worktree remove $wt failed; nothing archived, nothing removed"; }
+	echo "archived $copied file(s) to .claude/handoff/archive/$name/ in the main checkout"
+	echo "removed  $wt"
+	;;
+
+*)
+	die 'usage: ada-worktree new <branch> [<base>] | check | list | remove <path> | main (see the header of this script)'
+	;;
+esac

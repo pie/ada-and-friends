@@ -41,7 +41,7 @@ plugins/ada/
   skills/standards-accessibility/ P32-P39, visual accessibility (WCAG 2.2 AA), preloaded into Bob and Claudia, not a command
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
-  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-onboard, prod-wp, presstest
+  bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-worktree, ada-onboard, prod-wp, presstest
   templates/handoff/              the files the roles hand over through
   templates/plan/                 the plan, for work too big for one PR
   templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md
@@ -104,11 +104,11 @@ prints. It also says `unknown` when more than 100 PRs are open into a branch, or
 
 ## Plans and PR size
 
-`bin/ada-plan` reads the plan (`.claude/handoff/plan/PLAN.md`, committed as
-`.claude/briefs/<Epic id>-plan.md`), drafts the briefs, creates the branches and reports each
-unit's state. A unit branches from production and PRs into next-release. A **feature** is a unit
-too big for one PR that only works whole: its parts PR into the feature branch, and the feature
-PRs into next-release after a smoke test.
+`bin/ada-plan` reads the plan (the main checkout's `.claude/handoff/plan/PLAN.md`, wherever it
+runs, committed as `.claude/briefs/<Epic id>-plan.md`), drafts the briefs, creates the branches
+and reports each unit's state. A unit branches from production and PRs into next-release. A
+**feature** is a unit too big for one PR that only works whole: its parts PR into the feature
+branch, and the feature PRs into next-release after a smoke test.
 
 At the PR gate, `bin/ada-size` estimates the review time. It weighs lines by what they cost to
 read: changed code most, moved and generated code almost nothing. The reviewer records the actual

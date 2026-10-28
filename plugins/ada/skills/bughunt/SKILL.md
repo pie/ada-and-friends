@@ -92,10 +92,13 @@ can reproduce is a bug you understand. If it won't reproduce, say what differed.
 
 You may try a fix locally to confirm the cause: a scratch change on a `bughunt/<slug>` branch,
 never pushed, never merged. Its job is proof. Record it in the findings as a sketch; the real fix
-goes through `/ada:begin`. Before switching to that branch, check the working tree is yours
-(`git status`, `git reflog -5`). If anyone else's work is there, don't switch: ask the developer
-to run the hunt from its own worktree. Replicating on the local site changes it for everyone
-using it (`PROJECT.md`, Local copies), so check nobody is testing on it first.
+goes through `/ada:begin`. The branch gets its own worktree, as a step does (`/ada:begin`,
+Session start, 8): run `ada-worktree new bughunt/<slug> <base>`, with `<base>` the "Branch
+from" branch in `PROJECT.md`. It prints the worktree's path on its last line. Move the
+session there with the `EnterWorktree` tool, `path` set to that path, and carry on there. If
+`EnterWorktree` isn't available, give the developer `cd "<path>" && claude`, then `/ada:bughunt`
+there, and **stop**. Replicating on the local site changes it for everyone using it
+(`PROJECT.md`, Local copies), so check nobody is testing on it first.
 
 ### 5. Scope
 
@@ -104,7 +107,10 @@ on production, and give the count and IDs. "Just this customer" needs evidence t
 
 ### 6. Write the findings
 
-`.claude/handoff/FINDINGS.md`, from the template `ada-handoff-init` put there. Then give the
+`.claude/handoff/FINDINGS.md`, from the template `ada-handoff-init` put there. If you moved to a
+`bughunt/<slug>` worktree (4), write it in that worktree and leave it there: when the developer
+starts the fix, `/ada:begin` finds this worktree with `ada-worktree list`, asks which bughunt the
+fix is for, and copies its `FINDINGS.md` into the fix's own worktree. Then give the
 developer a short summary: cause, confidence, how many affected, what to do for the customer, and
 whether a code fix is needed.
 

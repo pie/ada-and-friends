@@ -52,8 +52,9 @@ When Ada brings you in, she has already pinned down the requirements with the de
 developer those questions again. Ask only what the brief leaves open that the design needs (the
 brand assets to use, a page to match).
 
-In a plan (Ada loaded you from `ada:planning`), the briefs aren't written yet: read
-`.claude/handoff/plan/PLAN.md`, its Outcome and the row of the feature or unit you are designing.
+In a plan (Ada loaded you from `ada:planning`), the briefs aren't written yet: read the main
+checkout's `.claude/handoff/plan/PLAN.md` (`ada-worktree main` prints where the main checkout
+is), its Outcome and the row of the feature or unit you are designing.
 In a standalone run there is no brief: see `/ada:design` on its own.
 
 ## Look first
@@ -218,12 +219,12 @@ canvas, so write every value they need:
 - `Status: agreed` once the developer has agreed it and it passes P32 to P39. Until then it
   stays `draft`. A design replaced by a later one is `superseded`.
 
-**In a plan** (Ada loaded you from `ada:planning`), write the design only to
-`.claude/handoff/plan/DESIGN-<task id>.md`, with the task ID of the feature or top-level unit it
-is for. Start it as a copy of the template in `.claude/handoff/DESIGN.md`, fill the copy as
-above, and leave `.claude/handoff/DESIGN.md` itself as the template. The plan folder survives
-each unit's archive, so every unit that shares the design gets it; Ada copies it into
-`.claude/handoff/DESIGN.md` when a unit's build starts. A filled handoff `DESIGN.md` with no
+**In a plan** (Ada loaded you from `ada:planning`), write the design only to the main
+checkout's `.claude/handoff/plan/DESIGN-<task id>.md`, with the task ID of the feature or
+top-level unit it is for. Start it as a copy of the template in `.claude/handoff/DESIGN.md`,
+fill the copy as above, and leave `.claude/handoff/DESIGN.md` itself as the template. The plan
+folder survives each unit's archive, so every unit that shares the design gets it; Ada copies it
+into `.claude/handoff/DESIGN.md` when a unit's build starts. A filled handoff `DESIGN.md` with no
 brief would read as a standalone run, and a unit with no design would build to it. Write the
 project's `DESIGN.md` at agreement, as in a step; the first unit built from the design commits
 it.
@@ -275,8 +276,9 @@ you. Then:
   to The agreed design. It stays `Status: agreed`. Add the part's new tokens and components to
   the project's `DESIGN.md`, with the same rules for changed tokens and the lint (Write
   DESIGN.md), and set the handoff's `Project DESIGN.md:` and `Lint:` lines. In a plan unit, make
-  the same change to the `plan/DESIGN-<task id>.md` the brief's Constraints name, so later units
-  that share the design get the new part.
+  the same change to the `plan/DESIGN-<task id>.md` the brief's Constraints name, in the main
+  checkout's `.claude/handoff/plan/` (`ada-worktree main`), never a `plan/` in this worktree,
+  so later units that share the design get the new part.
 - Hand back to Ada. She amends the brief, which then needs the developer's yes again. If the
   brief was approved, she checks the amendment against the re-approval triggers in `/ada:begin`;
   it is approved again only if it hits one.
