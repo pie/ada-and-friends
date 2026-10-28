@@ -7,7 +7,7 @@ often it runs.
 - Area: 02 Onboarding and refresh (`ada-onboard gitignore`, `--list`); 12 Platforms (bash 3.2, CRLF)
 - Asana: https://app.asana.com/1/100438094841948/project/100438094841951/task/1219769422658693
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 28 Oct 2026 (after the rebase onto PR #39), 0 failed, 2 KNOWN (47 PASS) under bash 5; Docker bash 3.2 0 failed apart from section 0, which can't run in a container (46 PASS); the step 3 break fails as it should (see the PR)
+- Last run: 28 Oct 2026, 0 failed, 2 KNOWN (47 PASS) under bash 5 and Docker bash 3.2 (main `.git` mounted too, so section 0 runs); the step 3 break prints 12 FAIL (see the PR)
 
 ## Precondition
 
