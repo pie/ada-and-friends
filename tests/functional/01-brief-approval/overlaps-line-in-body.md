@@ -3,12 +3,16 @@
 - Area: 01 Brief approval (`ada-brief body`, `render_body`); 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219790041247935
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 26 Oct 2026, 0 failed under bash 5 and Docker bash 3.2; see the PR
+- Last run: 28 Oct 2026 (after the test fix), 0 failed (20 PASS) under bash 5 and bash 3.2; breaks FAIL; see the PR
 
 ## Precondition
 
-- This checkout (`REPO`) with the change in its working tree, and `origin/next-release` fetched:
-  the script compares with the released plugin exported from there.
+- This checkout (`REPO`) with the change in its working tree. The script compares with the plugin
+  as it was before the `Overlaps:` line was added, exported from `BASE`, which defaults to
+  `18e3c82^` (the commit before #35 added the line). It is pinned, not `origin/next-release`,
+  because `next-release` has had the line since #35 merged, so against it the baseline checks
+  fail for that reason alone. The commit must be in this clone's history (it is, on any branch
+  of `next-release` or `main`).
 - `git`, `tar`, `python3` (3.8+), `mktemp`. No network and no GitHub login: `body` and `who`
   call `need_gh`, so a stub `gh` that is logged in and knows one user is put first on the PATH.
   The briefs are committed on a local branch, which `render_body` reads first.
@@ -26,15 +30,21 @@
    ```
 3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, delete the `Overlaps:`
    line from the copy's `templates/handoff/BRIEF.md`, and run
-   `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL`.
+   `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL`. Break it a second
+   time: in another copy delete the `Worktree:` line instead. It must print `FAIL` for "the added
+   lines are the Overlaps: line and this step's Worktree: line and comment, no more".
 
 ```bash
 #!/bin/bash
 # Overlaps: in the brief template and in ada-brief body. PASS/FAIL per check; exit 1 if any FAIL.
-# Env: REPO, BASE (default origin/next-release), PLUGIN (default $REPO/plugins/ada), OLD_PLUGIN.
+# Env: REPO, BASE (default 18e3c82^), PLUGIN (default $REPO/plugins/ada), OLD_PLUGIN.
+# BASE is pinned to the commit before #35 added Overlaps:, not origin/next-release, which has had
+# the line since #35 merged (a moving baseline would fail the "released template has none" checks).
+# Because BASE is pinned, a later legitimate edit to the BRIEF template will fail the exact-added-lines
+# check until its allowed list is updated; update the list, don't loosen the check.
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
-BASE=${BASE:-origin/next-release}
+BASE=${BASE:-18e3c82^}
 PLUGIN=${PLUGIN:-$REPO/plugins/ada}
 BASH_BIN=$(command -v bash)
 W=$(mktemp -d)
@@ -71,8 +81,41 @@ t "template: the line after Ships: is the Overlaps: line" test "$(after_ships "$
 t "template: one Overlaps: line" test "$(grep -c '^Overlaps:' "$NEWT")" = 1
 t "baseline: the released template has no Overlaps: line" not grep -q '^Overlaps:' "$OLDT"
 diff "$OLDT" "$NEWT" > "$W/tdiff"
-t "template: no released line removed or changed" not grep -q '^<' "$W/tdiff"
+# Step 1 of 25 Oct 2026 ("One worktree per step", DoD 9) agreed exactly one more edit to this template:
+# a Worktree: line after Branch:, and the comment's "a plan is drafted ..." line rewritten to three
+# lines. Nothing else released may be removed or changed, and nothing else may be added.
+# Since BASE is pinned to before #35, the diff also holds PR #39's (fae9738) edits to the template: the
+# Amendments comment rewritten (4 lines for 1) and the table made five-column (Re-approval). They are
+# allowed here so that only the Overlaps: line (this script's subject) and this step's edits are judged.
+cat > "$W/allowed.removed" <<'EOF'
+< a plan is drafted as .claude/handoff/plan/<task id>.md and copied here when its build starts.
+< entry without "Agreed by" is not part of the brief. -->
+< | Date | What changed (old → new) | Why (evidence) | Agreed by |
+< |---|---|---|---|
+< | | | | |
+EOF
+printf '< \n' >> "$W/allowed.removed"   # the blank line between the Amendments comment and its table
+cat > "$W/allowed.added" <<'EOF'
+> Overlaps: <none | #N: <what we're doing about it>; ...>
+> Worktree: <.claude/worktrees/<slug>: the step's worktree, from ada-worktree new>
+> a plan is drafted as .claude/handoff/plan/<task id>.md in the main checkout and copied here, into
+> the unit's worktree, when its build starts. The plan/ copy is then marked with this worktree and
+> no longer edited: amendments go here.
+> entry without "Agreed by" is not part of the brief. Decisions, and Constraints less its
+> "- Out of scope:" bullet, are the approved sections: an approver approved them. Re-approval is
+> "not needed" or "needed: <trigger>", from the triggers in /ada:begin and PROJECT.md. A change
+> to an approved section with no row here needs approving again. -->
+> | Date | What changed (old → new) | Why (evidence) | Re-approval | Agreed by |
+> |---|---|---|---|---|
+> | | | | | |
+EOF
+printf '> \n' >> "$W/allowed.added"   # the blank line before the table
+grep '^<' "$W/tdiff" | LC_ALL=C sort > "$W/got.removed"
+grep '^>' "$W/tdiff" | LC_ALL=C sort > "$W/got.added"
+LC_ALL=C sort "$W/allowed.removed" -o "$W/allowed.removed"; LC_ALL=C sort "$W/allowed.added" -o "$W/allowed.added"
+t "template: no released line removed or changed, except the one comment line step 1 rewrote" cmp -s "$W/allowed.removed" "$W/got.removed"
 t "template: the Overlaps: line is among the added lines" grep -qxF "> $LINE" "$W/tdiff"
+t "template: the added lines are the Overlaps: line and this step's Worktree: line and comment, no more" cmp -s "$W/allowed.added" "$W/got.added"
 echo "info: lines added to the template: $(grep -c '^>' "$W/tdiff")"
 
 # 2. ada-brief body (D9) and the regression next to it.
@@ -117,7 +160,7 @@ if [ "$fails" = 0 ]; then rm -rf "$W"; exit 0; else echo "scratch kept at $W"; e
 ## Expected
 
 Every line `PASS`, last line `0 failed`, exit 0. Record the two `info:` lines in the Run record:
-how many lines the template gained (1 if only the `Overlaps:` line), and whether `Overlaps: none`
+how many lines the template gained (13: the `Overlaps:` line, the `Worktree:` line and the three comment lines of this step, plus PR #39's eight: four comment lines, a blank line, the five-column header, separator and empty row; 13 in all), and whether `Overlaps: none`
 shows in the description (the brief doesn't say; worth a look). Step 3's broken copy prints
 `FAIL` for the template line.
 

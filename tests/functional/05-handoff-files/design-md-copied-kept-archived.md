@@ -8,15 +8,16 @@ project's own root `DESIGN.md` alone through `--archive`.
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905;
   section 7: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219893199817979
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 27 Oct 2026, 41 PASS, 0 failed under bash 5, bash --posix and Docker bash 3.2; both breaks fail as they should (see the PR)
+- Last run: 28 Oct 2026 (after the rebase onto PR #39), 0 failed (41 PASS) under bash 5, BASE pinned to 05a5365^; see the PR
 
 ## Precondition
 
-- This checkout (`REPO`), with `origin/next-release` fetched: the script compares the changed
-  `ada-handoff-init` with the released one there.
+- This checkout (`REPO`). The script compares the changed `ada-handoff-init` with the one from
+  `BASE`.
 - Sections 5 and 6 compare with a plugin from before `DESIGN.md` existed. Since #30 (05a5365)
-  merged, `origin/next-release` already has it, so run with `BASE='05a5365^'` (the commit before
-  it); against `origin/next-release` they fail for that reason alone. Section 7 doesn't use `BASE`.
+  merged, `origin/next-release` already has it, so `BASE` defaults to `05a5365^` (the commit before
+  it, which must be in this clone's history); against `origin/next-release` they fail for that
+  reason alone (KG-5). Section 7 doesn't use `BASE`.
 - `git`, `tar`, `cmp`, `mktemp`. Nothing else. The script makes its own scratch repos under a
   temporary folder and never touches this checkout.
 - Run the checkout's script by path, never the `ada-handoff-init` on the PATH (that is the
@@ -26,8 +27,8 @@ project's own root `DESIGN.md` alone through `--archive`.
 
 1. Save the block below as `check.sh` in a scratch folder (not in this repo).
 2. Run it three ways and keep each output:
-   - `REPO=<this checkout> BASE='05a5365^' bash check.sh`
-   - `REPO=<this checkout> BASE='05a5365^' SH="bash --posix" bash check.sh` (runs `ada-handoff-init` in POSIX mode)
+   - `REPO=<this checkout> bash check.sh`
+   - `REPO=<this checkout> SH="bash --posix" bash check.sh` (runs `ada-handoff-init` in POSIX mode)
    - under bash 3.2, as in "bash 3.2" below.
 3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, delete
    `templates/handoff/DESIGN.md` from the copy, and run
@@ -40,12 +41,14 @@ project's own root `DESIGN.md` alone through `--archive`.
 ```bash
 #!/bin/bash
 # DESIGN.md: copied, kept, archived. Prints PASS/FAIL per check; exits 1 if any FAIL.
-# Env: REPO (this checkout), BASE (default origin/next-release), PLUGIN (plugin under test,
+# Env: REPO (this checkout), BASE (default 05a5365^), PLUGIN (plugin under test,
 # default $REPO/plugins/ada), OLD_PLUGIN (released plugin; default: exported from BASE),
 # SH (how to run the script under test; default bash).
+# BASE is pinned to the commit before #30 (05a5365) added DESIGN.md, not origin/next-release, which
+# has had it since #30 merged: against it sections 5 and 6 fail for that reason alone (KG-5).
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
-BASE=${BASE:-origin/next-release}
+BASE=${BASE:-05a5365^}
 PLUGIN=${PLUGIN:-$REPO/plugins/ada}
 SH=${SH:-bash}
 W=$(mktemp -d)
