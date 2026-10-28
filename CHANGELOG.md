@@ -28,6 +28,9 @@ Releasing in DEVELOPING.md).
   `FINDINGS.md` into the fix's worktree. Run `ada-onboard gitignore` (adds `.claude/worktrees/`; until then
   `ada-worktree new` refuses) and `ada-onboard settings` (allows `ada-worktree check`, `list`
   and `main`) once in each onboarded project.
+- **`ada-brief submit` and `ada-onboard check` work when started by a relative path from a
+  subfolder.** Before, `submit` of a brief whose base branch has a PR stopped with "No such file
+  or directory", and `check` reported `error brief approval`.
 
 ## 0.9.0, 27 Oct 2026
 
