@@ -69,7 +69,8 @@ Project-specific checks on top of the P rules, each pointing at its S rule:
   staging` tests, or "none" (e.g. Cloudflare's bot challenge blocks PressTest there)>. Never
   production: the suites place orders.
 - **Clock-sensitive behaviour:** <yes/no; if yes, the positions to test, e.g. Friday after noon,
-  Sunday>
+  Sunday>. If yes, the local site's clock is moved with `ada-clock` (`TEST-AREAS.md`, Dates and
+  the clock).
 
 ## Production access (for `/ada:bughunt`)
 

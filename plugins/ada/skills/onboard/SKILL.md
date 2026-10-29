@@ -44,6 +44,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Known-issues project | ask |
 | Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin`; list them on `Re-approval triggers:`, else leave `none` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
+| Clock-sensitive behaviour | look for date and weekday logic, cut-off times and scheduled actions; then ask: yes (with the times to test, e.g. Friday after noon) or no |
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |
 | Expensive or sensitive tables, classes whose constructors write | ask, and grep for views, `CREATE VIEW` and constructors that save |
 | How local copies are made safe | ask |
@@ -100,14 +101,69 @@ existing docs:
 - **`STANDARDS.md`:** the project's own rules from S100 onwards, its logging sources, and its
   owning classes. Leave the P rules to the plugin; don't copy them in.
 - **`TEST-AREAS.md`:** the areas, numbered; where to observe results; the clock positions, if
-  anything depends on time.
+  anything depends on time. If nothing does, Dates and the clock says "none" and nothing else:
+  delete its `ada-clock` steps and rules.
 - **`CLAUDE.md`:** short. The layout, the team commands, and the project's one or two hard rules.
 - **`prod.env`:** add the never-query list (`PROD_FORBIDDEN`) once you know it.
 
 Depth matters most where the fragile areas are. A shallow line about a stable area is fine; a
 shallow line about the area that breaks is not.
 
-## 5. Hand over
+## 5. The local clock
+
+Only when `PROJECT.md`'s Clock-sensitive behaviour line says yes. When it says no, skip this
+step: don't run `ada-onboard clock` or any `ada-clock` command, and don't ask about the clock.
+
+`ada-clock` (on your PATH) moves the local site's clock for date checks, so nobody changes the
+computer's clock to test a date. Each developer's setup is in `.claude/team/local.env`, which
+`ada-onboard gitignore` keeps out of git (step 3): nothing in this step is committed. Read only
+the lines of `local.env` named here; the file also holds the developer's secrets.
+
+1. **Write the setup.** Ask the developer for the site's WordPress root (on Local, the site's
+   `app/public`, as an absolute path) and the command that runs WP-CLI on it (`PROJECT.md`,
+   Running WP-CLI on the local site; else `wp --path=<the root>`), unless you have them. Then
+   run `ada-onboard clock` with both, quoted:
+
+   ```sh
+   ada-onboard clock LOCAL_WP_PATH="<the root>" LOCAL_WP="<the command>"
+   ```
+
+   It picks the setup, `local-linux` on Linux with Local installed and `manual` anywhere else,
+   and writes `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` to `local.env`, keeping any
+   value already there. Tell the developer the setup (its `setup:` line) and which keys it kept.
+2. **`LOCAL_URL`.** Every `ada-clock` command but `extension` needs the local site's address in
+   `local.env`. Check for that line only:
+   `grep -E '^[[:space:]]*LOCAL_URL[[:space:]]*=' .claude/team/local.env`. If it's missing, ask
+   the developer to add `LOCAL_URL=<the site's address>` (its host `localhost`, `127.0.0.1`, or
+   ending in `.local` or `.test`), and wait before step 3.
+3. **Ask before `ada-clock install`.** It changes the site, and under `local-linux` Local's own
+   files outside this repo, so ask the developer first, saying what it changes, and run it only
+   on their yes:
+   - Either setup: it copies a mu-plugin into the site's `wp-content/mu-plugins/` and, when the
+     site is inside this repo, adds two lines to `.git/info/exclude`.
+   - `local-linux`, outside the repo: Local's `php-fpm` for the site's PHP build is wrapped, and
+     that wrapper is shared by every Local site on the same build (the others stay on real
+     time); three lines are added to the site's pool template
+     (`conf/php/php-fpm.d/www.conf.hbs`); and a clock file is written in
+     `~/.config/ada-clock/`. `ada-clock uninstall` undoes each of them.
+   - `local-linux` needs libfaketime first: the developer runs `sudo apt install faketime`
+     themselves. Never run `sudo` yourself.
+   - `local-linux`: afterwards the developer restarts the site in Local (Stop site, then Start
+     site), so the wrapper and the pool lines load.
+   - Then run `ada-clock status`. Exit 0 with the first line `ada-clock: real` means it works;
+     otherwise show the developer what it printed.
+4. **Offer the Chrome extension only once `ada-clock install` is done.** The extension takes the
+   fake time from the `ada_clock` cookie that the installed mu-plugin sets, so without the
+   install it does nothing.
+   - If the developer declined `ada-clock install`, don't offer it. Tell them the Chrome
+     extension comes with the install: once they've run `ada-clock install`, they can run
+     `ada-clock extension`.
+   - If the install is done, offer it for date checks in the browser. While the clock is set, it
+     gives the site's own JavaScript the fake time. On the developer's yes, run
+     `ada-clock extension`; it copies the extension to `~/.config/ada-clock/chrome-extension/` and
+     prints how to load it in Chrome (`chrome://extensions`, Developer mode, Load unpacked).
+
+## 6. Hand over
 
 1. Run `ada-onboard check` and fix what it lists, except the prompts only the developer can
    answer.
@@ -120,7 +176,11 @@ shallow line about the area that breaks is not.
      `/ada:begin`**;
    - if the project has a PressTest suite, that each developer adds their `PRESSTEST_*` lines to
      `.claude/team/local.env` (`PROJECT.md`, Local copies), then checks them with
-     `presstest config`.
+     `presstest config`;
+   - if the project is clock-sensitive, the clock setup `ada-onboard clock` chose, and what is
+     still to do for it (`LOCAL_URL`, `sudo apt install faketime`, `ada-clock install`, the
+     restart in Local). Each other developer runs `ada-onboard clock` and `ada-clock install`
+     on their own machine.
 4. Open the PR as `PROJECT.md` says, with `gh` if it's available. The PR description lists the
    unverified claims so the reviewer can check them.
 5. Tell them how teammates get the plugin. When they open the repo, they accept the folder trust

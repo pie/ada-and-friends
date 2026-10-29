@@ -29,6 +29,17 @@
 #       SSH to it. Prints the result.
 #   ada-onboard check
 #       Lists what's still missing or still holds a placeholder.
+#   ada-onboard clock LOCAL_WP_PATH=<path> LOCAL_WP=<command>
+#       Writes this computer's ada-clock setup to .claude/team/local.env, which /ada:onboard runs
+#       in a clock-sensitive project: ADA_CLOCK_ADAPTER (local-linux on Linux when
+#       ~/.config/Local is a folder, manual otherwise), LOCAL_WP_PATH (the site's WordPress root)
+#       and LOCAL_WP (the command that runs WP-CLI on it). The file is read as ada-clock reads it
+#       (the last line for a key counts; an empty or <...> value is none). A key that already
+#       has a value is kept; the others are appended, so the file's lines are never changed, and
+#       it is created if missing. Prints "added    KEY=value" or "kept     KEY" per key, then
+#       "setup: <the ADA_CLOCK_ADAPTER local.env now gives>". Both arguments are needed, once
+#       each; any other argument, or an empty value, one holding a newline or a #, or one of the
+#       form <...>, exits 2 with nothing written.
 
 set -euo pipefail
 
@@ -258,7 +269,77 @@ check)
 		out="$("$here/ada-brief" who 2>&1 >/dev/null)" || echo "error    brief approval: $out"
 	fi
 	;;
+clock)
+	wp_path=''; wp_command=''
+	for arg in "$@"; do
+		key="${arg%%=*}"; value="${arg#*=}"
+		[ "$key" != "$arg" ] || die "expected KEY=value: $arg"
+		case "$key" in
+		LOCAL_WP_PATH) [ -z "$wp_path" ] || die "LOCAL_WP_PATH given twice" ;;
+		LOCAL_WP) [ -z "$wp_command" ] || die "LOCAL_WP given twice" ;;
+		*) die "expected LOCAL_WP_PATH=<path> or LOCAL_WP=<command>: $arg" ;;
+		esac
+		# local.env holds one value a line, a # starts a comment, and ada-clock reads <...> as
+		# empty, so none of them could be read back as given.
+		case "$value" in
+		'') die "$key is empty" ;;
+		*$'\n'*|*$'\r'*) die "$key holds a newline" ;;
+		*'#'*) die "$key holds a #, which local.env reads as a comment" ;;
+		'<'*'>') die "$key is a <prompt>, which ada-clock reads as empty" ;;
+		esac
+		if [ "$key" = LOCAL_WP_PATH ]; then wp_path="$value"; else wp_command="$value"; fi
+	done
+	[ -n "$wp_path" ] && [ -n "$wp_command" ] || die 'usage: ada-onboard clock LOCAL_WP_PATH=<path> LOCAL_WP=<command>'
+	conf="$root/.claude/team/local.env"
+	# The value local.env gives a key, parsed as bin/ada-clock and bin/presstest parse it: the last
+	# line for the key wins. A copy of their parser, because scripts can't share a file outside
+	# templates/: a change to one of the three is made to all three.
+	env_value() {
+		local want="$1" line key val found=''
+		if [ -f "$conf" ]; then
+			while IFS= read -r line || [ -n "$line" ]; do
+				line="${line%$'\r'}"
+				[[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+				[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+				key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+				[ "$key" = "$want" ] || continue
+				if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?[[:space:]]*$ || "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?[[:space:]]*$ ]]; then
+					val="${BASH_REMATCH[1]}"
+				else
+					val="${val%%[[:space:]]#*}"
+					val="${val%"${val##*[![:space:]]}"}"
+				fi
+				[[ "$val" == '<'*'>' ]] && val=''
+				found="$val"
+			done < "$conf"
+		fi
+		printf '%s' "$found"
+	}
+	# The folder ada-clock's local-linux setup reads Local's sites and php-fpm from.
+	if [ "$(uname -s)" = Linux ] && [ -d "$HOME/.config/Local" ]; then
+		setup='local-linux'
+	else
+		setup='manual'
+	fi
+	mkdir -p "$(dirname "$conf")"
+	for key in ADA_CLOCK_ADAPTER LOCAL_WP_PATH LOCAL_WP; do
+		case "$key" in
+		ADA_CLOCK_ADAPTER) value="$setup" ;;
+		LOCAL_WP_PATH) value="$wp_path" ;;
+		LOCAL_WP) value="$wp_command" ;;
+		esac
+		if [ -n "$(env_value "$key")" ]; then
+			echo "kept     $key"
+			continue
+		fi
+		# A last line without its newline gets one, so the new line isn't joined to it.
+		if [ -s "$conf" ] && [ -n "$(tail -c 1 "$conf")" ]; then printf '\n' >> "$conf"; fi
+		printf '%s=%s\n' "$key" "$value" >> "$conf"
+		echo "added    $key=$value"
+	done
+	echo "setup: $(env_value ADA_CLOCK_ADAPTER)"
+	;;
 *)
-	die 'usage: ada-onboard files KEY=value... | refresh [--force | --decline] | gitignore | settings | check (see the header of this script)'
+	die 'usage: ada-onboard files KEY=value... | refresh [--force | --decline] | gitignore | settings | check | clock LOCAL_WP_PATH=<path> LOCAL_WP=<command> (see the header of this script)'
 	;;
 esac
