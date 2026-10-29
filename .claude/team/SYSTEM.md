@@ -5,7 +5,7 @@ marked *(unverified)* is a reading of the code nobody has confirmed yet. The tea
 so a wrong line here becomes wrong code: fix it, don't work round it.
 
 Line numbers are as of release 0.6.0 (`d7a274b`, `origin/main`). Paths under `bin/`, `skills/`,
-`agents/` and `templates/` are in `plugins/ada/`.
+`agents/`, `templates/` and `extras/` are in `plugins/ada/`.
 
 ## The model
 
@@ -36,6 +36,9 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
 - **Templates** (`templates/`): `handoff/` (the role handoff files), `plan/PLAN.md`, `repo/`
   (everything `/ada:onboard` copies into a project, including `PROJECT.md`), and `DESIGN.md` (the
   skeleton Iris fills to create a project's root `DESIGN.md`; no script copies it).
+- **Extras** (`extras/`): `ada-clock-extension/`, the Chrome extension. `ada-clock extension` copies it
+  to `~/.config/ada-clock/chrome-extension/` and Chrome loads it from there; no script reads it at
+  runtime except that one.
 
 State the scripts read and write, in an onboarded project:
 
@@ -397,8 +400,10 @@ Traps:
   Local site ID, local-linux only; unset means the site whose `app/public` is `LOCAL_WP_PATH`) and
   `LOCAL_WP` (the command that runs WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`)
   from the same file, likewise overridable, with the same parser copied in
-  (`bin/ada-clock:120-143`). It refuses any `LOCAL_URL`
-  whose host isn't `localhost`, `127.0.0.1`, `.local` or `.test`. This repo has no site.
+  (`bin/ada-clock:128-151`). It refuses any `LOCAL_URL`
+  whose host isn't `localhost`, `127.0.0.1`, `.local` or `.test`, except for `ada-clock extension`,
+  which reads no settings and runs before that check. It writes the Chrome extension to
+  `~/.config/ada-clock/chrome-extension/`. This repo has no site.
 - **Platforms** (`DEVELOPING.md:138-148`): bash 3.2+ (all scripts tested under 3.2.57), Python
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:
@@ -418,6 +423,10 @@ Under `ADA_CLOCK_ADAPTER=local-linux` (Local on Linux), `install` changes four t
 repo, beside the mu-plugin and state file inside the site. Each is written only by `ada-clock`
 (`STANDARDS.md`, Owning classes), and `uninstall` undoes each one. `uninstall` exits 2 while the
 state file exists, so the clock file says `+0s` when it goes.
+
+`~/.config/ada-clock/chrome-extension/` is not one of them: `ada-clock extension` writes it, under
+any adapter, and nothing removes it. The wrapper and `other_clock_sites` take only files in
+`~/.config/ada-clock/` for clock files, so the folder is never read as a site's clock.
 
 | What | Where | `install` | `uninstall` | By hand |
 |---|---|---|---|---|

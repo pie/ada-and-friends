@@ -91,7 +91,7 @@ Runs the project's PressTest suite on the developer's local site or the project'
 settings, usage and Docker errors exit 2. Tess reads the last line (`agents/tess.md`, Run mode).
 Not used in this repo (no suite).
 
-### `ada-clock` (`bin/ada-clock:1-98`)
+### `ada-clock` (`bin/ada-clock:1-106`)
 
 Puts the developer's local WordPress site at a fake time. Settings from `.claude/team/local.env`,
 overridable by environment: `LOCAL_URL`, `LOCAL_WP_PATH`, `ADA_CLOCK_ADAPTER` (`manual` or
@@ -111,9 +111,10 @@ outside the repo.
 | `install` | Copies `templates/clock/ada-clock.php` to `wp-content/mu-plugins/ada-clock.php`; replaces only a file with its marker line (`Ada clock: copied by ada-clock install, which replaces it.`), else exit 2, file untouched. Adds the mu-plugin and the state file to `git rev-parse --git-path info/exclude` when inside the repo. `local-linux`: every check first (site, `php-fpm`, libfaketime, the pool template and any block in it), so a refusal changes nothing; then the wrapper, the pool block and the clock file (`SYSTEM.md`) | `installed <path>` or `replaced <path>`; `excluded <rel>` / `kept     <rel>` per exclude line. `local-linux` then `wrapper: installed\|replaced <php-fpm>`, `pool: added\|replaced <hbs>`, `clock file: <path> (<offset>)` |
 | `uninstall` | Exit 2 while the state file exists. Removes the mu-plugin when it has the marker line; leaves any other file. `local-linux`: removes the pool block and the clock file, then, when `php-fpm` is the wrapper, puts `php-fpm.real` back unless another clock file's site uses the same `php-fpm` or can't be resolved; exit 2, nothing changed, when that `php-fpm.real` is missing or not Local's binary. When `php-fpm` is Local's binary, deletes a stale `php-fpm.real` unless such a site uses it | `mu-plugin: removed\|none at <path>` or `mu-plugin: left <path>, not ada-clock's`. `local-linux` then `pool: removed\|none at <hbs>`, `clock file: removed\|none at <path>`, and one of `wrapper: kept <php-fpm>, still used by <ids>` (the wrapper only), `wrapper: removed, php-fpm.real put back as <php-fpm>`, `wrapper: none at <php-fpm>[; deleted the old copy <php-fpm>.real]` (Local's binary, or no `php-fpm`), `wrapper: left <php-fpm>, not ada-clock's` |
 | `wp <args…>` | Runs WP-CLI on the local site; every WP-CLI call `ada-clock` makes goes through it. `local-linux`, while the clock file exists: under `env` with `LD_PRELOAD`, `FAKETIME_TIMESTAMP_FILE`, `FAKETIME_NO_CACHE=1`, `FAKETIME_DONT_FAKE_MONOTONIC=1` (exit 2 when libfaketime is missing) | WP-CLI's own output and exit status |
+| `extension` | Runs before the settings checks: needs no `local.env` and no local `LOCAL_URL`. Copies `extras/ada-clock-extension/` to `~/.config/ada-clock/chrome-extension/` (a copy beside it, then the old folder removed and the copy renamed), so Chrome loads from a path that doesn't change with the plugin's version. Replaces only a folder whose `manifest.json` has the line `"name": "ada-clock",`; anything else there exits 2, untouched. Exit 2 for any argument | `extension: installed <path>` or `extension: replaced <path>`, then the Chrome load steps |
 
 The state file, `<LOCAL_WP_PATH>/wp-content/ada-clock.json`, is the one record of the fake time,
-read by later setups and the browser extension: `{"timestamp": <UTC Unix time>, "local":
+read by later setups: `{"timestamp": <UTC Unix time>, "local":
 "<YYYY-MM-DD HH:MM[:SS]>", "timezone": "<wp_timezone_string() or the ISO offset>", "setup":
 "manual" or "local-linux", "set_at": <the computer's Unix time at set>}`. `local` has `:SS` only when
 `set` was given seconds, and `status` prints it as it is stored. Under `local-linux`,
@@ -133,6 +134,22 @@ HttpOnly) set to `time()` on `send_headers` and `admin_init` while the state fil
 otherwise; `GET ada-clock/v1/time` (permission: the local test, no login), answering
 `{"now": <time()>, "fake": <bool>, "timezone": "<wp_timezone_string()>"}`. `status` calls it as
 `<LOCAL_URL>/?rest_route=/ada-clock/v1/time`, which answers whatever the permalink setting.
+
+The Chrome extension (`extras/ada-clock-extension/`, Manifest V3, Chrome 111+) has one content
+script, `content.js`. It runs at `document_start` in the page's own world (`"world": "MAIN"`), in
+every frame, on `*://localhost/*`, `*://127.0.0.1/*`, `*://*.local/*` and `*://*.test/*`, any
+port. It asks for no permissions. It reads the `ada_clock` cookie once from `document.cookie`.
+With no cookie, a value that isn't digits (empty included), or a read that throws (a sandboxed
+frame), nothing changes: `window.__adaClock` isn't set and nothing is logged. Otherwise
+`offsetMs` is the cookie × 1000 − `Date.now()`, and `window.Date` becomes a
+constructor function sharing the native `Date.prototype`: `new Date()`, `Date()` and
+`Date.now()` add `offsetMs`; with arguments it builds the native date unchanged; `Date.UTC` and
+`Date.parse` are inherited. It sets `window.__adaClock = { offsetMs }` (Tess's check that it ran).
+`performance.now()`, timers, `Intl`, workers and `about:blank` or `srcdoc` frames are not shifted.
+A page that fires neither `send_headers` nor `admin_init` (`wp-login.php`, a static file) reads the
+cookie the last WordPress page set, so it runs behind by the time since then. Chrome's `*.local`
+also matches a bare host `local`, which `is_local_url` refuses; such a host can't be reached.
+The manifest's `"version": "1"` is fixed: it doesn't follow the plugin's version (P31).
 
 ### Release (`.github/`)
 
@@ -181,13 +198,15 @@ errors on stderr.
   table columns in `templates/` without changing the parsers in `ada-brief` and `ada-plan`.
 - Overwrite a file in a project from `ada-onboard`, except the refresh list with an untouched copy.
 - Push to `next-release` or `main` directly, or change `plugin.json`'s version by hand (P31).
-- Have a script read plugin files at runtime other than through `$(dirname "$0")/../templates`.
+- Have a script read plugin files at runtime other than through `$(dirname "$0")/../templates` or
+  `$(dirname "$0")/../extras`.
 - Change `ada-worktree check`'s first-line words or `new`'s last line without changing
   `/ada:begin`, `/ada:pickup` and `ada:planning`.
 - Change `ada-clock status`'s first-line words, the state file's keys, the `ada_clock` cookie or the
   endpoint's fields without changing their readers (Tess, later `ada-clock` setups, the extension).
-- Change the local-host rule in `ada-clock`'s `is_local_url` without `ada_clock_is_local_site()` in
-  the mu-plugin, or the other way round.
+- Change the local-host rule in one of its three places without the other two: `ada-clock`'s
+  `is_local_url`, `ada_clock_is_local_site()` in the mu-plugin, and the `matches` in
+  `extras/ada-clock-extension/manifest.json`.
 - Change the wrapper's line 2 (`templates/clock/php-fpm-wrapper.sh`, `WRAPPER_HEADER`), the pool
   block's marker lines (`POOL_START`, `POOL_END`), or the site-ID rule (`SITE_ID_PATTERN` and the
   wrapper's `case`) in one place without the other: `install`, `uninstall` and `status` recognise

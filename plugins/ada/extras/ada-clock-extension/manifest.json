@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "ada-clock",
+  "version": "1",
+  "description": "Shows a local WordPress site's own JavaScript the fake time ada-clock set, through Date, on local hosts only.",
+  "minimum_chrome_version": "111",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://localhost/*",
+        "*://127.0.0.1/*",
+        "*://*.local/*",
+        "*://*.test/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    }
+  ]
+}
