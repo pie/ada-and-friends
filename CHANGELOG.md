@@ -26,6 +26,13 @@ Releasing in DEVELOPING.md).
   and adds three lines to the site's pool template; the new `ada-clock uninstall` undoes both.
   `status` also says when Local has replaced the wrapper or the site needs a restart. Payment
   webhooks fail their signature checks while the clock is moved, so test payments on real time.
+- **A Chrome extension shows the local site's own JavaScript the fake time.** Run
+  `ada-clock extension` and load the folder it names in Chrome (`chrome://extensions`, Developer
+  mode, Load unpacked). While the clock is set, `new Date()` and `Date.now()` on the site give the
+  site's time; dates built from explicit values are unchanged. It runs only on `localhost`,
+  `127.0.0.1`, `.local` and `.test`, and asks for no permissions. `performance.now()`, timers
+  and `Intl` are not shifted. Run `ada-clock extension` again after a plugin update, then press
+  the extension's reload button.
 - **`ada-onboard settings` allows only read-only git, and no longer allows `sed`.** `git branch*`
   also allowed `git branch -D`, `-f` and `-m` without a prompt, and `git reflog*` allowed
   `reflog delete` and `expire`, which wipe the history used to recover lost commits. `sed -n *`

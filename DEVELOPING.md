@@ -42,6 +42,7 @@ plugins/ada/
   skills/efficiency/              how the team keeps its context down, preloaded, not a command
   agents/                         bob, claudia, tess (spawned as ada:bob etc.)
   bin/                            on the Bash PATH while enabled: ada-brief, ada-plan, ada-size, ada-handoff-init, ada-worktree, ada-onboard, prod-wp, presstest, ada-clock
+  extras/                         things the plugin ships that aren't commands: ada-clock-extension/, a Chrome extension
   templates/handoff/              the files the roles hand over through
   templates/plan/                 the plan, for work too big for one PR
   templates/repo/                 copied into a project by /ada:onboard, including PROJECT.md

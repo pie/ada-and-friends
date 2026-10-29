@@ -8,7 +8,7 @@ most); the detail lives in `.claude/team/` and is read on demand.
 
 | Path | What |
 |---|---|
-| `plugins/ada/` | The plugin: `agents/`, `skills/`, `bin/` (bash + Python scripts), `templates/`, `.claude-plugin/plugin.json` |
+| `plugins/ada/` | The plugin: `agents/`, `skills/`, `bin/` (bash + Python scripts), `templates/`, `extras/` (the Chrome extension), `.claude-plugin/plugin.json` |
 | `.claude-plugin/marketplace.json` | The `pie` marketplace |
 | `.github/` | The Release workflow and `release-bump.py` |
 | `README.md`, `DEVELOPING.md`, `CHANGELOG.md` | For users; for PIE developers; what changed (entries under Unreleased) |
