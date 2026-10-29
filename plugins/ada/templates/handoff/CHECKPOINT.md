@@ -22,5 +22,6 @@ Blocking questions first.
 
 ## Leftovers on the local site
 
-Test data, a changed clock, a frozen queue: by ID, so they can be cleared before the next run.
+Test data, a clock left set (`ada-clock status`), a frozen queue: by ID, so they can be cleared
+before the next run.
 "None" is an answer.

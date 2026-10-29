@@ -33,6 +33,22 @@ Releasing in DEVELOPING.md).
   `127.0.0.1`, `.local` and `.test`, and asks for no permissions. `performance.now()`, timers
   and `Intl` are not shifted. Run `ada-clock extension` again after a plugin update, then press
   the extension's reload button.
+- **Onboarding sets `ada-clock` up, and Tess moves the local site's clock herself.** In a project
+  whose `PROJECT.md` says it is clock-sensitive, `/ada:onboard` runs the new
+  `ada-onboard clock`, which writes `ADA_CLOCK_ADAPTER` (`local-linux` on Linux with Local,
+  `manual` otherwise), `LOCAL_WP_PATH` and `LOCAL_WP` to `.claude/team/local.env`, keeping any
+  value already there. It then asks before running `ada-clock install`, saying what that changes,
+  and once it's installed offers the Chrome extension, which needs the install to work. When you
+  ask Tess to run the local checks herself, she sets the clock with `ada-clock set`, runs
+  `ada-clock status` before each date check, resets it at cleanup and records the fake times in
+  her report, instead of asking you to change the computer's clock. Only runs with date checks
+  call `ada-clock`; a local suite run without them checks the site's time through WP-CLI as
+  before. The date-check steps Tess gives you follow your `TEST-AREAS.md`, Dates and the clock.
+  `/ada:begin` and `/ada:pickup` name a clock left set (`ada-clock status`) among the leftovers.
+  Projects already onboarded keep their own `TEST-AREAS.md` and `PROJECT.md`. To adopt it there: run
+  `ada-onboard clock LOCAL_WP_PATH=<path> LOCAL_WP=<command>`, replace the clock steps in your
+  `TEST-AREAS.md` with the "Dates and the clock" section of the plugin's template
+  (`templates/repo/.claude/team/TEST-AREAS.md`), and run `ada-clock install`.
 - **`ada-onboard settings` allows only read-only git, and no longer allows `sed`.** `git branch*`
   also allowed `git branch -D`, `-f` and `-m` without a prompt, and `git reflog*` allowed
   `reflog delete` and `expire`, which wipe the history used to recover lost commits. `sed -n *`

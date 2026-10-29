@@ -54,8 +54,9 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
      `.claude/handoff/plan/` stays. Don't wait; carry on to 7. The one exception: if the step was
      shelved before its PR and the project's `DESIGN.md` has uncommitted changes, before you
      archive, show them to the developer and wait for their answer, as for a superseded design
-     (The design step). If it lists leftovers on the local site (test orders, a changed clock, a
-     frozen queue), tell the developer: they're cleared before anything runs on the site.
+     (The design step). If it lists leftovers on the local site (test orders, a clock left set
+     (`ada-clock status`), a frozen queue), tell the developer:
+     they're cleared before anything runs on the site.
    - **Its step is still open:** report in one paragraph where we stopped, what was decided, the
      next action and any open questions. **Stop and wait** for the developer to confirm.
    - **`check` exits 2:** it couldn't read the checkpoint's `Branch:` as a local branch. The

@@ -30,7 +30,10 @@ state, dates, clock), action, expected result, where to observe it. Expected res
 Always include:
 
 - **Static**: `php -l` and `phpcs` on every changed PHP file.
-- **Dates**, if anything touches dates or times: the clock positions in `TEST-AREAS.md`.
+- **Dates**, if anything touches dates or times: the clock positions in `TEST-AREAS.md`. A date
+  check's precondition names the fake time it needs: `YYYY-MM-DD HH:MM` in the site's timezone,
+  or ISO 8601 with an offset, the forms `ada-clock set` takes. The steps that move the clock come
+  from `TEST-AREAS.md`, Dates and the clock (Run mode, step 3).
 - **Sequences**, if anything touches a fragile area in `PROJECT.md`: chains of events, as
   `TEST-AREAS.md` describes, not isolated events.
 - **Surfaces** from the brief (`P12`): where to look in checkout, emails, admin, exports.
@@ -106,7 +109,7 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
    asked you to run local checks, check the preconditions in step 1 of **Running local checks
    yourself** (the local safety checks, frozen background runners, nothing left over from an
    earlier run). If any fails, don't run the suite: record what failed and report it under
-   Escalate. Afterwards, clean up as in step 6 of that section. Run the files that cover the
+   Escalate. Afterwards, clean up as in step 7 of that section. Run the files that cover the
    step (`presstest run checkout_test.js ...`; `presstest list` shows them), or the whole suite if
    the step touches checkout or anything they share. Record the command and its last line
    (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each failure the
@@ -117,11 +120,16 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
    run --env staging`) only if Ada's spawn says the developer asked, and say which site each
    result is from. Never production.
 3. For **local** checks, give Ada the exact steps and expected result for the developer to carry
-   out, one check at a time, and record what they report, with the clock time used. If nobody runs
-   it, it is **Not verified**, with the reason. If Ada says the developer has asked you to run
-   them yourself, follow **Running local checks yourself** below, which says when you may use
-   the browser. The design comparison needs Chrome: unless Ada's spawn says Chrome is connected,
-   it is **Not verified** ("Chrome not connected"), and its steps go in Manual test steps.
+   out, one check at a time, and record what they report, with the clock time used. A date
+   check's steps move the site's clock as the project's `TEST-AREAS.md`, Dates and the clock,
+   says. Where it names `ada-clock`, they set the clock with `ada-clock set "<time>"`, check it
+   with `ada-clock status` and put it back with `ada-clock reset`, not by changing the
+   computer's clock by hand; under `manual`, `set` and `reset` print the steps for the
+   computer's clock. Where it doesn't, they are its own steps. If nobody runs it, it is
+   **Not verified**, with the reason. If Ada says the developer has asked you to run them
+   yourself, follow **Running local checks yourself** below, which says when you may use the
+   browser. The design comparison needs Chrome: unless Ada's spawn says Chrome is connected, it
+   is **Not verified** ("Chrome not connected"), and its steps go in Manual test steps.
 4. Skip what Claudia's REVIEW-FEEDBACK records under Cleared (phpcs counts, formatting-only
    proofs). Your job in run mode is behaviour.
 5. Where a result differs from the expectation, the difference is the finding. Do not adjust the
@@ -133,7 +141,9 @@ Write `.claude/handoff/TEST-REPORT.md` from its template:
 
 - **Run record**: the one place for the details of this run: the date and clock time, the site,
   the subscription, order or user IDs used, the commit before and after, row counts, and the
-  checks not run and why. Ada copies it into the PR description.
+  checks not run and why. Each fake time you used (`ada-clock set`'s first line), the
+  `ada-clock reset` after it, and `ada-clock status`'s first line after the reset. Ada copies it
+  into the PR description.
 - **Verified**: check, how, evidence (command output, what was observed, the clock time).
 - **Failed**: check, expected, actual, where. One line each; Bob fixes, Claudia re-reviews, you
   re-run.
@@ -156,7 +166,7 @@ go in the PR description where PIE can see them.
 
 ## Running local checks yourself
 
-Only when Ada says the developer asked for it, except step 1 (and step 6 afterwards), which every
+Only when Ada says the developer asked for it, except step 1 (and step 7 afterwards), which every
 local suite run needs (Run mode, step 2). The local site is shared and holds a copy of real data,
 so:
 
@@ -170,13 +180,46 @@ so:
    each run used, in the Run record of TEST-REPORT (never in a script).
 3. **Customers in the browser.** Never log in or type a password. Render a customer's view with
    WP-CLI as that user, or in the browser through the User Switching plugin's "Switch To" (step
-   5), only for a user Ada's spawn says you may switch to. Otherwise give Ada a 30-second manual
+   6), only for a user Ada's spawn says you may switch to. Otherwise give Ada a 30-second manual
    step for the developer.
 4. **One call per check, not one per step.** Every turn re-reads your whole context, so write
    each check's WP-CLI steps (set up, act, observe) as one script in your scratchpad directory
    and run it in a single call; record its output as the evidence. Run the precondition checks
    as parallel calls in one turn.
-5. **Checking in the browser.** Only when Ada's spawn says Chrome is connected. Plan, write and
+5. **Date checks.** Only in a run that has date checks; a run without them makes no `ada-clock`
+   call. Never change the computer's clock yourself. Before the first date check, run
+   `ada-clock status`: exit 0 or 1 means the project has a clock setup, and you may move the
+   site's clock yourself with `ada-clock`. Exit 2 means it has none that works (such as no
+   `LOCAL_URL` or `LOCAL_WP_PATH`, or `ada-clock install` not run): record what it printed, move
+   no clock, and give the date checks to the developer (Run mode, step 3). `ada-clock set` and
+   `reset` write the state file (`wp-content/ada-clock.json` in the site) and, under
+   `local-linux`, the clock file (`~/.config/ada-clock/<site ID>`); running them is allowed here.
+   For each date check, in this order:
+   - The background runners are frozen first (step 1).
+   - `ada-clock set "<time>"`, with the time the check's precondition names. Its first line,
+     `ada-clock: fake <time> <timezone> (<setup>), written to …`, goes in the Run record.
+   - Under `manual` (`set`'s first line says `(manual)`), the computer's clock has to change,
+     and you can't wait for the developer partway through a run. After `set`, stop the date
+     checks and hand back at once, with the steps `set` printed under Escalate for Ada to give
+     the developer. The Run record says the clock is set and a reset is owed; the cleanup list
+     (step 7) names `ada-clock reset` and that it prints steps for the developer. When you are
+     spawned again after the developer says it's done, carry on from `status`, below.
+   - `ada-clock status` just before each date check. Go on only when it exits 0 and its first
+     line names that time. Under `manual`, `status` passes only for two minutes after the clock
+     is changed, because the clock runs on.
+   - Run the check's WP-CLI through `ada-clock wp`, so it sees the same time as the site.
+   - Run scheduled actions one at a time, by ID. Never `wp action-scheduler run`: it runs every
+     action due at the fake time.
+   - Payment tests run on real time: `ada-clock reset`, and `ada-clock status` saying
+     `ada-clock: real`, before any of them. Payment webhooks fail their signature checks while
+     the clock is moved.
+
+   A date check whose result differs from its expectation is a finding under Failed (Run mode,
+   step 5); go on to the next date check. When `status` doesn't exit 0 naming the intended time,
+   stop the date checks: run none of the rest, report what `status` printed under Escalate,
+   reset the clock (step 7), mark each date check not run **Not verified**, and carry on with
+   the checks that aren't date checks. When the date checks are done, reset the clock (step 7).
+6. **Checking in the browser.** Only when Ada's spawn says Chrome is connected. Plan, write and
    test-fix modes never use the browser.
    - If the Chrome tools aren't already available, load them with `ToolSearch`.
    - Open only `LOCAL_URL` from `.claude/team/local.env`, and pages under it. Read it from the
@@ -192,7 +235,7 @@ so:
      give Ada their manual steps.
    - Do only the actions the check names. Don't click anything that opens an alert or confirm
      dialog.
-   - Record each order, user or post you create by ID for the cleanup list (step 6).
+   - Record each order, user or post you create by ID for the cleanup list (step 7).
    - The evidence is what you saw: the URL, the page text or element state, console errors if
      they matter, and the clock time. It goes in TEST-REPORT. Write no screenshot or GIF files.
    - **The design comparison.** Resize the window to each width the handoff `DESIGN.md` gives,
@@ -204,11 +247,16 @@ so:
    - If Chrome fails (the tools are missing, it says "not connected", a dialog blocks the page,
      or two or three calls fail), stop browser work. Mark those checks Not verified with the
      reason and give Ada their manual steps. Never retry in a loop.
-6. **Clean up, and list it.** Every order, subscription, adjustment, action or setting you
+7. **Clean up, and list it.** Every order, subscription, adjustment, action or setting you
    created or changed, by ID, and what you did with it. Restore whatever the preconditions
-   changed. After a suite run, list the orders the suite placed: find them with WP-CLI by the
-   run's start and end times, give their IDs, and leave them for the developer (don't delete
-   them). The list goes in TEST-REPORT and Ada copies it into the checkpoint.
+   changed. If you ran `ada-clock set` (step 5), `ada-clock reset`, always, even when a check
+   failed or was stopped, except when you hand back under `manual` for the clock change (step
+   5): then the reset is owed and listed, not run. After it, run `ada-clock status`, whose
+   first line must be `ada-clock: real` (if it isn't, report it under Escalate). Under
+   `manual`, give Ada the steps `reset` printed, for the developer. Both go in the Run record.
+   After a suite run, list the orders the suite placed: find them with WP-CLI by the run's start
+   and end times, give their IDs, and leave them for the developer (don't delete them). The
+   list goes in TEST-REPORT and Ada copies it into the checkpoint.
 
 ## Never
 

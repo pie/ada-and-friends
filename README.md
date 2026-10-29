@@ -61,7 +61,8 @@ nobody does it again.
    checks.
 5. If the project uses a local copy of the site, put your own paths and the site's URL
    (`LOCAL_URL`) in `.claude/team/local.env`. `PROJECT.md` says what goes there. This file stays
-   on your machine.
+   on your machine. If the project's dates matter, set up its clock too (A local site's clock,
+   below).
 6. If the project has a PressTest suite (`PROJECT.md`, Tests), also put in `local.env` where your
    clone of pie/presstest.io is (`PRESSTEST_DIR`) and the local site's report token
    (`PRESSTEST_SECRET`). `presstest config` shows what it found. Then `presstest run` runs the
@@ -122,6 +123,46 @@ command to run instead. `ada-onboard gitignore` keeps `.claude/worktrees/` out o
 A PR must be small enough to review in one sitting. If the work is too large, Ada makes a plan.
 The plan breaks the work into units. Each unit has its own brief, branch, PR and Asana subtask.
 You agree the plan before Ada writes the briefs.
+
+### A local site's clock
+
+Some sites behave differently by day or time: a cut-off at noon on Friday, a weekly renewal. To
+test that, `ada-clock` puts your local site at a fake time, and puts it back. Tess uses it for
+her date checks, and you can run it yourself. It works only on a site at `localhost`,
+`127.0.0.1`, or an address ending in `.local` or `.test`.
+
+`/ada:onboard` sets it up in a project whose `PROJECT.md` says it is clock-sensitive. On your
+own machine, or in a project onboarded before `ada-clock`, run this in the repo:
+
+```sh
+ada-onboard clock LOCAL_WP_PATH="<the site's WordPress root>" LOCAL_WP="wp --path=<the same root>"
+```
+
+It writes your setup to `.claude/team/local.env`, which stays on your machine. The site's
+`LOCAL_URL` goes there too.
+
+- **Linux with Local** (the `local-linux` setup): only that site's clock moves, and your
+  computer's stays real. Install libfaketime once with `sudo apt install faketime`, run
+  `ada-clock install`, then restart the site in Local (Stop site, Start site).
+  `ada-clock uninstall` undoes the install.
+- **Mac and Windows** (the `manual` setup): run `ada-clock install` once. `ada-clock set` then
+  prints the steps to change your computer's clock, and `ada-clock reset` the steps to switch
+  automatic time back on.
+
+Then:
+
+```sh
+ada-clock set "2026-11-06 12:30"   # in the site's timezone
+ada-clock status                   # exits 0 when the site has that time
+ada-clock reset                    # back to real time
+```
+
+For the site's own JavaScript, run `ada-clock extension` and load the folder it names in Chrome
+(`chrome://extensions`, Developer mode, Load unpacked). While the clock is set, `new Date()` on
+the site gives the fake time.
+
+Test payments on real time: payment webhooks fail their signature checks while the clock is
+moved.
 
 ## Brief approval
 
