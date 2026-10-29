@@ -49,14 +49,22 @@
 #   ada-clock wp <args...>   runs WP-CLI against the local site with <args> appended. Every
 #                            WP-CLI call ada-clock makes goes through it. Under local-linux, when
 #                            the clock file exists, WP-CLI runs under libfaketime at its offset.
+#   ada-clock extension      copies the plugin's Chrome extension (extras/ada-clock-extension) to
+#                            ~/.config/ada-clock/chrome-extension, a path that doesn't change with
+#                            the plugin's version, and prints the steps to load it in Chrome.
+#                            Prints `extension: installed <path>` or `extension: replaced <path>`.
+#                            Replaces only its own earlier copy (a manifest.json with the line
+#                            "name": "ada-clock",); any other folder there exits 2 and is left
+#                            alone. Reads no settings, so it runs before local.env is filled in.
 #
 # Settings are the developer's own, in .claude/team/local.env (git-ignored), as KEY=value lines,
 # read as presstest reads them: parsed, never executed; a comment is a line starting with #, or
 # ` #` after an unquoted value; a value still in <angle brackets> counts as unset; an environment
 # variable of the same name overrides the file.
 #
-#   LOCAL_URL=https://my-site.local      the site. Every subcommand refuses unless its host is
-#                                        localhost, 127.0.0.1, or ends in .local or .test.
+#   LOCAL_URL=https://my-site.local      the site. Every subcommand except extension refuses
+#                                        unless its host is localhost, 127.0.0.1, or ends in
+#                                        .local or .test.
 #   LOCAL_WP_PATH=~/Local Sites/x/app/public
 #                                        the site's WordPress root, where wp-config.php is
 #   ADA_CLOCK_ADAPTER=manual             how the time is applied: manual (the computer's clock,
@@ -157,6 +165,11 @@ TOLERANCE=120
 # local-linux: Local's own folder, and where the clock files live.
 LOCAL_DIR="$HOME/.config/Local"
 CLOCK_DIR="$HOME/.config/ada-clock"
+# Where ada-clock extension puts the Chrome extension, for Chrome to load unpacked. The wrapper and
+# other_clock_sites take only files in CLOCK_DIR for clock files, so this folder is never one.
+EXTENSION_DIR="$CLOCK_DIR/chrome-extension"
+# The line in the extension's manifest.json by which extension recognises its own earlier copy.
+EXTENSION_MARKER='"name": "ada-clock",'
 # A Local site ID, as sites.json and the run folders name it. The wrapper applies the same rule.
 SITE_ID_PATTERN='^[A-Za-z0-9_-]+$'
 # Line 2 of the wrapper (templates/clock/php-fpm-wrapper.sh), and how the V&Me proof's wrapper's
@@ -172,7 +185,8 @@ RELOAD_LINE='Reload any page that was open before the jump: its nonces are from 
 WEBHOOK_LINE='Payments: Stripe (and other) webhooks to this site fail their signature checks while the clock is moved more than about 5 minutes, so run payment tests on real time.'
 
 # Whether a URL's host is a local one: localhost, 127.0.0.1, or a name ending in .local or .test.
-# The mu-plugin's ada_clock_is_local_site() applies the same rule to home_url(); change both.
+# The mu-plugin's ada_clock_is_local_site() applies the same rule to home_url(), and the Chrome
+# extension's manifest.json matches the same hosts; change all three.
 is_local_url() {
 	local host
 	[[ "$1" =~ ^[Hh][Tt][Tt][Pp][Ss]?://([^/:?#]+)(:[0-9]+)?([/?#].*)?$ ]] || return 1
@@ -626,9 +640,37 @@ manual_reset_steps() {
 [ $# -ge 1 ] || die "no command. See the header of $0."
 cmd="$1"; shift
 case "$cmd" in
-	set|status|reset|install|uninstall|wp) ;;
+	set|status|reset|install|uninstall|wp|extension) ;;
 	*) die "unknown command: $cmd. See the header of $0." ;;
 esac
+
+# extension touches no site and reads no setting, so it runs before the settings are checked.
+if [ "$cmd" = 'extension' ]; then
+	[ $# -eq 0 ] || die 'extension takes no arguments'
+	source_dir="$here/../extras/ada-clock-extension"
+	[ -f "$source_dir/manifest.json" ] || die "the plugin's Chrome extension is missing: $source_dir"
+	if [ -e "$EXTENSION_DIR" ]; then
+		[ -f "$EXTENSION_DIR/manifest.json" ] && grep -qF -- "$EXTENSION_MARKER" "$EXTENSION_DIR/manifest.json" \
+			|| die "$EXTENSION_DIR is not ada-clock's extension: left as it is. Move it, then run this again."
+		word='replaced'
+	else
+		word='installed'
+	fi
+	temp="$CLOCK_DIR/.chrome-extension.tmp"
+	mkdir -p "$CLOCK_DIR" || die "couldn't make $CLOCK_DIR"
+	rm -rf "$temp"
+	cp -R "$source_dir" "$temp" || die "couldn't copy the extension to $temp"
+	# The old copy goes first, so a file a later version dropped doesn't stay behind.
+	rm -rf "$EXTENSION_DIR" || die "couldn't remove the old copy at $EXTENSION_DIR"
+	mv "$temp" "$EXTENSION_DIR" || die "couldn't put the extension at $EXTENSION_DIR"
+	echo "extension: $word $EXTENSION_DIR"
+	echo 'Load it in Chrome once:'
+	echo '  1. Open chrome://extensions.'
+	echo '  2. Turn on Developer mode (top right).'
+	echo "  3. Choose Load unpacked and pick $EXTENSION_DIR."
+	echo "After a plugin update, run ada-clock extension again, then press the extension's reload button on chrome://extensions."
+	exit 0
+fi
 
 # Checked before any subcommand runs, so nothing touches a site that isn't local.
 [ -n "$LOCAL_SITE" ] || die 'no LOCAL_URL: add your local site to .claude/team/local.env'

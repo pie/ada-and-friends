@@ -29,7 +29,8 @@ const ADA_CLOCK_COOKIE = 'ada_clock';
 /**
  * Whether this site's home URL is a local one.
  *
- * The same rule as is_local_url() in the plugin's bin/ada-clock; change both together.
+ * The same rule as is_local_url() in the plugin's bin/ada-clock and the matches in
+ * extras/ada-clock-extension/manifest.json; change all three together.
  *
  * @return bool True for localhost, 127.0.0.1, or a host ending in .local or .test.
  */
