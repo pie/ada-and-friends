@@ -45,6 +45,8 @@
    `ada-clock`, make `need_real_binary` do nothing (its (ii) cases); skip the `SITE_ID_PATTERN` check
    after the site is found through `LOCAL_WP_PATH` (its (i) cases); change `wrapper: kept` to another
    word (its (v) case); change the `wrapper: none at` of the binary case (its (iii) case).
+   Section 6c breaks when the copy's `uninstall` counts every entry in `~/.config/ada-clock` as a
+   site (it must print `FAIL` lines in 6c).
 
 ```bash
 #!/usr/bin/env bash
@@ -54,7 +56,7 @@
 # proof's pool lines taken over by install and removed by uninstall; set, reset and uninstall before
 # install or while a time is set; uninstall's last-site-out rule and its wrapper: words (kept, none at,
 # the old copy deleted); a path-found run ID that breaks the ID rule; a php-fpm.real that isn't Local's
-# binary; the PHP build read from the run
+# binary; the Chrome extension's folder beside the clock files (6c); the PHP build read from the run
 # folder's php.ini; missing libfaketime and ldconfig. Never touches the real Local install or the clock.
 # Prints PASS/FAIL/SKIP per check (a FAIL may show what was seen); exits 1 if any FAIL.
 # Env: REPO (this checkout), PLUGIN (default $REPO/plugins/ada), ALLOW_SYSTEM_STANDINS=1 (a
@@ -866,6 +868,30 @@ on shop2 uninstall
 t "the last site out, php-fpm the wrapper: the binary is php-fpm again, no php-fpm.real" sh -c 'cmp -s "$1" "$2/php-fpm" && test ! -e "$2/php-fpm.real"' _ "$O27" "$SB27"
 t "the last site out, php-fpm the wrapper: no wrapper: kept line" not grep -q '^wrapper: kept' "$W/out"
 t "after 6b: Local is as at the start" nothing_changed
+# 6c. The Chrome extension's folder (Unit C: ada-clock extension copies it to ~/.config/ada-clock/chrome-extension/,
+# beside the clock files) is not a site's clock file: with it there, install and set write only shop's
+# clock file, the last site out still puts php-fpm back, nothing names it as a site, and uninstall
+# leaves it alone.
+on shop extension
+if [ "$(rc)" = 0 ] && [ -f "$CF/chrome-extension/manifest.json" ]; then
+  cp -R "$CF/chrome-extension" "$W/ext-before"
+  on shop install
+  t "6c: with the extension folder there, install exits 0" is "$(rc)" 0
+  t "6c: install wrote shop's clock file and touched the extension folder not at all" sh -c 'test -f "$1/$2" && diff -r "$3" "$1/chrome-extension"' _ "$CF" $ID_SHOP "$W/ext-before"
+  on shop set "2026-11-06T11:55:00+00:00"; on shop reset
+  t "6c: set and reset leave the extension folder alone" diff -r "$W/ext-before" "$CF/chrome-extension"
+  on shop uninstall
+  t "6c: the last site out, the extension folder there: uninstall exits 0" is "$(rc)" 0
+  t "6c: the last site out, the extension folder there: the binary is php-fpm again, no php-fpm.real" sh -c 'cmp -s "$1" "$2/php-fpm" && test ! -e "$2/php-fpm.real"' _ "$O27" "$SB27"
+  t "6c: no wrapper: kept line (chrome-extension is not a site)" not grep -q '^wrapper: kept' "$W/out"
+  t "6c: no output names chrome-extension" not says -F 'chrome-extension'
+  t "6c: uninstall leaves the extension folder as it was" diff -r "$W/ext-before" "$CF/chrome-extension"
+  rm -rf "$CF/chrome-extension" "$W/ext-before"
+  t "after 6c: Local is as at the start" nothing_changed
+else
+  ok 1 "6c setup: ada-clock extension exits 0 and copies manifest.json to $CF/chrome-extension (exit $(rc))"
+  rm -rf "$CF/chrome-extension"
+fi
 else
   skip "sections 1b to 6 (no libfaketime here: Run 1 or Run 2 covers them)"
 fi
@@ -935,6 +961,9 @@ stale `php-fpm.real` deleted unless a site still uses it), SYSTEM.md's "The wrap
 a link or a missing file exits 2, untouched), and the brief's last-site-out rule (`wrapper: kept
 <path>, still used by <ids>`). The `wrapper: none at <php-fpm>` words and the run ID rule are from
 Claudia's review feedback and `ada-clock`'s settings in API.md.
+Section 6c's source is Unit C's brief (Loading it: the extension is copied to
+`~/.config/ada-clock/chrome-extension/`, the folder that holds the clock files) read with this
+brief's last-site-out rule: a folder that isn't a site's clock file must not keep the wrapper.
 
 ## Observe at
 
