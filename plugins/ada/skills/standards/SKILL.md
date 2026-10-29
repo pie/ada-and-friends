@@ -135,6 +135,26 @@ does say must still be true.
 nothing outside a module may depend on the module, so it can be switched off or moved without
 breaking other pages.
 
+**P40. Version a local asset by its file's modified time.** A stylesheet or script stored or
+built in the project is enqueued (or registered) with `filemtime()` of the file it loads as its
+version. Take the path and the URL from the same relative path and base
+(`get_theme_file_path()` with `get_theme_file_uri()`, or `plugin_dir_path( __FILE__ )` with
+`plugin_dir_url( __FILE__ )`), so the time is the served file's. A built file takes the time of the
+built output, not its source. A library copied into the project (`owl.carousel.min.js`) is local
+too. Never leave the version out: WordPress then appends its own version, which doesn't change
+when the file does.
+
+- An asset on another server (Google Fonts, a CDN) has no file to read. Give it the version its
+  URL already carries, or `null` when the URL mustn't carry one (a Google Fonts `css2` URL repeats
+  `family=`, and the `?ver=` WordPress adds keeps only one of them).
+- Define a remote asset's version **next to its URL**: a `_VERSION` constant beside the `_URL`
+  constant, or both in the same call, with a comment saying why. Then whoever changes the URL
+  (say, to a self-hosted copy) sees the version and changes it too.
+
+Why: browsers and page caches keep an asset until its URL changes. With `filemtime()` a deployed
+change reaches visitors on their next page load, and nobody has to remember to bump a number; a
+fixed or missing version leaves them on the old CSS or JS until their cache expires.
+
 **P30. Bring each function you touch up to standard, whole.** When a change touches a function or
 method, the whole of it is made phpcs-clean (indentation, spacing, naming, the project's
 formatting rules), not just the lines that changed. Never mix standards within one function;
