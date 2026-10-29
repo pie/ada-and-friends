@@ -91,6 +91,49 @@ Runs the project's PressTest suite on the developer's local site or the project'
 settings, usage and Docker errors exit 2. Tess reads the last line (`agents/tess.md`, Run mode).
 Not used in this repo (no suite).
 
+### `ada-clock` (`bin/ada-clock:1-98`)
+
+Puts the developer's local WordPress site at a fake time. Settings from `.claude/team/local.env`,
+overridable by environment: `LOCAL_URL`, `LOCAL_WP_PATH`, `ADA_CLOCK_ADAPTER` (`manual` or
+`local-linux`; unset means `manual`), `ADA_CLOCK_LOCAL_SITE` (local-linux: the Local site ID; unset
+means the `sites.json` site whose `<path>/app/public` is `LOCAL_WP_PATH`), `LOCAL_WP` (the WP-CLI
+command; unset means `wp --path=<LOCAL_WP_PATH>`). Every subcommand exits 2 unless `LOCAL_URL`'s
+host is `localhost`, `127.0.0.1`, or ends in `.local` or `.test` (`is_local_url`), and for any
+other adapter; `local-linux` also exits 2 off Linux. Nothing runs `sudo`. What `local-linux`
+changes outside the repo, and how to undo it: `SYSTEM.md`, What `ada-clock install` changes
+outside the repo.
+
+| Subcommand | Does | Output others rely on |
+|---|---|---|
+| `set "<when>"` | `<when>`: `YYYY-MM-DD HH:MM[:SS]` in the site's timezone (one `ada-clock wp eval`), or ISO 8601 with `Z` or `±HH:MM` (no WP-CLI; the state keeps that offset as its timezone). Exit 2 for anything else, or a site-local time that doesn't exist there (`parse_when`). Writes the state file, adds it to `.git/info/exclude` when inside the repo. `manual`: prints the manual steps for this OS with the time in the computer's timezone. `local-linux`: exit 2 first when libfaketime is missing (naming `sudo apt install faketime`) or there is no clock file (install not run); writes `timestamp − set_at` to the clock file; prints the reload line and the webhook warning | First line `ada-clock: fake <local> <tz> (<setup>), written to <path>`. `<local>` is `YYYY-MM-DD HH:MM`, with `:SS` only when `<when>` gave seconds, `:00` included: `2026-11-06T11:55:00+00:00` gives `2026-11-06 11:55:00 +00:00`, `2026-11-06T11:55+00:00` gives `2026-11-06 11:55 +00:00`. `local-linux` then `clock file: <path> (<offset>)` and a line starting `Payments:` |
+| `status` | Compares the site's time from the endpoint with the expected time: this computer's with no state; the state's timestamp under `manual`; this computer's plus `timestamp − set_at` when the state's setup is `local-linux` (the fake clock runs on). `local-linux` also checks the site's `php-fpm` is the wrapper and the compiled pool file in `~/.config/Local/run/<id>/conf/php/php-fpm.d/www.conf` has the three env lines | **First line**: `ada-clock: real` \| `ada-clock: fake <local> <tz> (<setup>)` (Unit D's Tess reads it). `local-linux` then `wrapper: installed <php-fpm>` \| `wrapper: missing <php-fpm>, run ada-clock install`, and `pool: loaded <www.conf>` \| `pool: needs restart <www.conf>`. Then `mu-plugin: installed <path>` \| `not installed <path>` \| `not installed, another file is at <path>`, then `site time: <UTC> (<n> s from …)`. **Exit** 0 within 120 seconds and (local-linux) wrapper and pool in place; 1 further, or `wrapper: missing`, or `pool: needs restart`; 2 when the endpoint doesn't answer or its `fake` disagrees with the state file (`LOCAL_URL` and `LOCAL_WP_PATH` not the same site), or local-linux can't find the site's `php-fpm`. Under `manual` the 0/1 check is for just after the clock is changed: the clock runs on, so it is 1 again two minutes later |
+| `reset` | Deletes the state file if there. `manual`: prints the steps to switch automatic time back on. `local-linux`: writes `+0s` to the clock file when there is one | First line `ada-clock: real, deleted <path>` or `ada-clock: real, no state file at <path>`. `local-linux` then `clock file: <path> (+0s)` or `clock file: none at <path> (ada-clock install not run)` |
+| `install` | Copies `templates/clock/ada-clock.php` to `wp-content/mu-plugins/ada-clock.php`; replaces only a file with its marker line (`Ada clock: copied by ada-clock install, which replaces it.`), else exit 2, file untouched. Adds the mu-plugin and the state file to `git rev-parse --git-path info/exclude` when inside the repo. `local-linux`: every check first (site, `php-fpm`, libfaketime, the pool template and any block in it), so a refusal changes nothing; then the wrapper, the pool block and the clock file (`SYSTEM.md`) | `installed <path>` or `replaced <path>`; `excluded <rel>` / `kept     <rel>` per exclude line. `local-linux` then `wrapper: installed\|replaced <php-fpm>`, `pool: added\|replaced <hbs>`, `clock file: <path> (<offset>)` |
+| `uninstall` | Exit 2 while the state file exists. Removes the mu-plugin when it has the marker line; leaves any other file. `local-linux`: removes the pool block and the clock file, then, when `php-fpm` is the wrapper, puts `php-fpm.real` back unless another clock file's site uses the same `php-fpm` or can't be resolved; exit 2, nothing changed, when that `php-fpm.real` is missing or not Local's binary. When `php-fpm` is Local's binary, deletes a stale `php-fpm.real` unless such a site uses it | `mu-plugin: removed\|none at <path>` or `mu-plugin: left <path>, not ada-clock's`. `local-linux` then `pool: removed\|none at <hbs>`, `clock file: removed\|none at <path>`, and one of `wrapper: kept <php-fpm>, still used by <ids>` (the wrapper only), `wrapper: removed, php-fpm.real put back as <php-fpm>`, `wrapper: none at <php-fpm>[; deleted the old copy <php-fpm>.real]` (Local's binary, or no `php-fpm`), `wrapper: left <php-fpm>, not ada-clock's` |
+| `wp <args…>` | Runs WP-CLI on the local site; every WP-CLI call `ada-clock` makes goes through it. `local-linux`, while the clock file exists: under `env` with `LD_PRELOAD`, `FAKETIME_TIMESTAMP_FILE`, `FAKETIME_NO_CACHE=1`, `FAKETIME_DONT_FAKE_MONOTONIC=1` (exit 2 when libfaketime is missing) | WP-CLI's own output and exit status |
+
+The state file, `<LOCAL_WP_PATH>/wp-content/ada-clock.json`, is the one record of the fake time,
+read by later setups and the browser extension: `{"timestamp": <UTC Unix time>, "local":
+"<YYYY-MM-DD HH:MM[:SS]>", "timezone": "<wp_timezone_string() or the ISO offset>", "setup":
+"manual" or "local-linux", "set_at": <the computer's Unix time at set>}`. `local` has `:SS` only when
+`set` was given seconds, and `status` prints it as it is stored. Under `local-linux`,
+`timestamp − set_at` is the offset in the clock file.
+
+The clock file, `~/.config/ada-clock/<Local site ID>` (local-linux): one line, `+<n>s` or `-<n>s`,
+which libfaketime reads on every call (`FAKETIME_NO_CACHE=1`). `+0s` is real time. Replaced by a
+rename, never emptied, while the wrapper is installed. The wrapper
+(`templates/clock/php-fpm-wrapper.sh`) is POSIX `sh`; `install` fills in its `@LIBFAKETIME@` and
+`@CLOCK_DIR@`, and recognises it by its line 2,
+`# ada-clock: php-fpm wrapper, written by ada-clock install, which replaces it.`
+
+The mu-plugin (`templates/clock/ada-clock.php`), inert unless `home_url()`'s host passes the same
+local test (`ada_clock_is_local_site()`): `SET timestamp = <time()>` once on load while the state
+file exists; `auth_cookie_expiration` ten years; cookie `ada_clock` (path `/`, session, not
+HttpOnly) set to `time()` on `send_headers` and `admin_init` while the state file exists, expired
+otherwise; `GET ada-clock/v1/time` (permission: the local test, no login), answering
+`{"now": <time()>, "fake": <bool>, "timezone": "<wp_timezone_string()>"}`. `status` calls it as
+`<LOCAL_URL>/?rest_route=/ada-clock/v1/time`, which answers whatever the permalink setting.
+
 ### Release (`.github/`)
 
 `release-bump.py <version> <notes-file>` (`.github/scripts/release-bump.py:1-13`): sets
@@ -141,5 +184,13 @@ errors on stderr.
 - Have a script read plugin files at runtime other than through `$(dirname "$0")/../templates`.
 - Change `ada-worktree check`'s first-line words or `new`'s last line without changing
   `/ada:begin`, `/ada:pickup` and `ada:planning`.
+- Change `ada-clock status`'s first-line words, the state file's keys, the `ada_clock` cookie or the
+  endpoint's fields without changing their readers (Tess, later `ada-clock` setups, the extension).
+- Change the local-host rule in `ada-clock`'s `is_local_url` without `ada_clock_is_local_site()` in
+  the mu-plugin, or the other way round.
+- Change the wrapper's line 2 (`templates/clock/php-fpm-wrapper.sh`, `WRAPPER_HEADER`), the pool
+  block's marker lines (`POOL_START`, `POOL_END`), or the site-ID rule (`SITE_ID_PATTERN` and the
+  wrapper's `case`) in one place without the other: `install`, `uninstall` and `status` recognise
+  what an earlier `install` wrote by them.
 - Remove a step's worktree other than with `ada-worktree remove`, which archives its handoff
   files first; or delete its branch with it.

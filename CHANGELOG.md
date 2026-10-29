@@ -10,6 +10,30 @@ Releasing in DEVELOPING.md).
   with no version. An asset on another server gets the version its URL carries, or `null` (Google
   Fonts), defined next to its URL so that a change of URL brings a change of version. Claudia
   cites it in reviews from the next release.
+- **`ada-clock` puts your local WordPress site at a fake time.** Add `LOCAL_WP_PATH` (and, if
+  WP-CLI needs a wrapper, `LOCAL_WP`) to `.claude/team/local.env`, run `ada-clock install` once,
+  then `ada-clock set "2026-11-06 11:55"` (the site's timezone) or an ISO time with an offset. It
+  records the time in `wp-content/ada-clock.json` and prints the steps to change your computer's
+  clock; it never runs `sudo`. The mu-plugin it installs makes the database's `NOW()` follow
+  PHP's clock, keeps logins for ten years, and gives the site's time at
+  `/wp-json/ada-clock/v1/time`. `ada-clock status` checks the site has the time, `ada-clock reset`
+  undoes it. It only works on sites on `localhost`, `127.0.0.1`, `.local` or `.test`.
+- **`ada-clock` moves one Local site's clock on Linux without touching the computer's.** Set
+  `ADA_CLOCK_ADAPTER=local-linux` in `.claude/team/local.env`, install libfaketime
+  (`sudo apt install faketime`), run `ada-clock install` and restart the site in Local once. Then
+  `ada-clock set` and `reset` move that site's PHP, WP-CLI and database time at once, with no
+  restart and no `sudo`; other Local sites stay on real time. `install` wraps Local's `php-fpm`
+  and adds three lines to the site's pool template; the new `ada-clock uninstall` undoes both.
+  `status` also says when Local has replaced the wrapper or the site needs a restart. Payment
+  webhooks fail their signature checks while the clock is moved, so test payments on real time.
+- **`ada-onboard settings` allows only read-only git, and no longer allows `sed`.** `git branch*`
+  also allowed `git branch -D`, `-f` and `-m` without a prompt, and `git reflog*` allowed
+  `reflog delete` and `expire`, which wipe the history used to recover lost commits. `sed -n *`
+  allowed `sed -n -i`, and `gh api user*` allowed writes to the user endpoints. Each is replaced
+  by read-only forms (`git branch --show-current`, `--list`, `--contains`, `-a`, `-r`, `-vv`;
+  `git reflog`, `git reflog -5`, `reflog show`; `gh api user -q .login`); files are read with
+  the Read tool. Running `ada-onboard settings` again takes the old rules out of a project's
+  `.claude/settings.json`, so every onboarded repo should run it once.
 
 ## 0.10.0, 28 Oct 2026
 

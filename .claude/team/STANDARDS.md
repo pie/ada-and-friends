@@ -24,6 +24,8 @@ No classes. Each script owns its state, and nothing else writes it:
 | `.claude/handoff/plan/PLAN.md` (created, in the main checkout), unit briefs and branches | `ada-plan` |
 | `.claude/handoff/` templates and `archive/` | `ada-handoff-init`; `ada-worktree remove` adds a removed worktree's handoff files to the main checkout's `archive/` |
 | `.claude/worktrees/<slug>/` (making and removing a step's worktree) | `ada-worktree` |
+| `<LOCAL_WP_PATH>/wp-content/ada-clock.json` (the fake time), `wp-content/mu-plugins/ada-clock.php` (its copy of the mu-plugin), and the lines it adds to `.git/info/exclude` | `ada-clock` |
+| Under `local-linux`, outside the repo: `~/.config/ada-clock/<site ID>` (the clock files), the wrapper at Local's `lightning-services/php-<version>/bin/linux/sbin/php-fpm` and the `php-fpm.real` beside it, and the marked pool block in the site's `conf/php/php-fpm.d/www.conf.hbs` | `ada-clock` (`install`, `set`, `reset`, `uninstall`) |
 | `plugin.json` version, CHANGELOG release headings, tags, `next-release` recreation | the Release workflow and `release-bump.py` |
 
 ## Project rules
