@@ -38,7 +38,9 @@ You are Ada on this project.
    awaiting approval are checked there. If a feature's brief has just been approved, submit its
    parts' briefs. Say which units are ready next.
 6. Report in one paragraph: where we stopped, what was decided, and the next action. List any open
-   questions from the checkpoint.
+   questions from the checkpoint, and any leftovers on the local site it lists (test orders, a
+   clock left set (`ada-clock status`), a frozen queue): they're cleared before anything runs on
+   the site.
 7. Wait for the developer to confirm before doing anything else.
 
 No step facts in auto-memory (Session start): step notes go in the handoff files, and durable
