@@ -255,6 +255,7 @@ function unchanged(label, cookie, strict, cookieThrows) {
 shifted('ada_clock among other cookies, a future time', 'wordpress_test_cookie=WP%20Cookie%20check; ada_clock=' + T + '; wp-settings-time-1=1700000000', T);
 shifted('ada_clock the only cookie', 'ada_clock=' + T, T);
 shifted('ada_clock the last cookie, a past time (a negative offset)', 'wp-settings-1=x; ada_clock=' + TP, TP);
+shifted('ada_clock 11 digits, the longest allowed (99999999999, the year 5138)', 'ada_clock=99999999999', 99999999999);
 unchanged('no cookies', '');
 unchanged('other cookies only', 'wordpress_test_cookie=WP%20Cookie%20check; wp-settings-1=x');
 unchanged('only cookies whose names contain ada_clock (not_ada_clock, xada_clock, ada_clock_x)', 'not_ada_clock=' + T + '; xada_clock=' + T + '; ada_clock_x=' + T);
@@ -265,6 +266,10 @@ unchanged('ada_clock not a number (12abc: digits then letters)', 'ada_clock=12ab
 unchanged('ada_clock not a number (NaN)', 'ada_clock=NaN', true);
 unchanged('ada_clock not a number (null)', 'ada_clock=null', true);
 unchanged('ada_clock not a number, among other cookies', 'wp-settings-1=x; ada_clock=abc; wordpress_test_cookie=WP%20Cookie%20check', true);
+// Too long for a Date (PR #47 review): more than 11 digits leaves Date native rather than making every
+// new Date() an Invalid Date. 12 digits still fits a Date; 14 does not.
+unchanged('ada_clock 12 digits (999999999999)', 'ada_clock=999999999999', true);
+unchanged('ada_clock 14 digits, past the last Date (99999999999999)', 'ada_clock=99999999999999', true);
 unchanged('ada_clock empty', 'ada_clock=', true);
 unchanged('ada_clock empty, among other cookies', 'wp-settings-1=x; ada_clock=; wordpress_test_cookie=WP%20Cookie%20check', true);
 unchanged('document.cookie throws, as in a sandboxed frame without allow-same-origin', '', true, true);

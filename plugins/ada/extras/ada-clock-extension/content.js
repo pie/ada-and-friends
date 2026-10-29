@@ -28,8 +28,10 @@
 	}
 	const value = entry.slice( prefix.length );
 	// The mu-plugin writes time() as digits only. Any other value, empty included, leaves Date
-	// native and logs nothing, the same as a cookie read that throws.
-	if ( ! /^[0-9]+$/.test( value ) ) {
+	// native and logs nothing, the same as a cookie read that throws. At most 11 digits (up to
+	// the year 5138): a much longer number, typed in by hand, is past the last time a Date can
+	// hold, and every new Date() would be an Invalid Date.
+	if ( ! /^[0-9]{1,11}$/.test( value ) ) {
 		return;
 	}
 
