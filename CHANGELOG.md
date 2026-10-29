@@ -5,6 +5,11 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **New standard P40: a local asset's version is its file's modified time.** Stylesheets and
+  scripts stored or built in the project are enqueued with `filemtime()` of the served file, never
+  with no version. An asset on another server gets the version its URL carries, or `null` (Google
+  Fonts), defined next to its URL so that a change of URL brings a change of version. Claudia
+  cites it in reviews from the next release.
 - **`ada-clock` puts your local WordPress site at a fake time.** Add `LOCAL_WP_PATH` (and, if
   WP-CLI needs a wrapper, `LOCAL_WP`) to `.claude/team/local.env`, run `ada-clock install` once,
   then `ada-clock set "2026-11-06 11:55"` (the site's timezone) or an ISO time with an offset. It
