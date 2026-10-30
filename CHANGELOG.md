@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.11.0, 30 Oct 2026
+
 - **New standard P40: a local asset's version is its file's modified time.** Stylesheets and
   scripts stored or built in the project are enqueued with `filemtime()` of the served file, never
   with no version. An asset on another server gets the version its URL carries, or `null` (Google
