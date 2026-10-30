@@ -64,6 +64,9 @@ t "no hard-coded type URL in the design skill" not grep -qE 'type_url.*https?://
 
 # DoD 3: the test, word for word, in exactly four files. begin/SKILL.md holds the text.
 B=$P/skills/begin/SKILL.md
+# The rest of the begin skill is in files it reads on demand (design-step.md, approval.md, ...):
+# BA is all of them, for the checks on what begin says, not on where the test sits.
+BA=$W/begin-all.md; { cat "$B"; for f in "$P"/skills/begin/*.md; do [ "$f" = "$B" ] || { echo; cat "$f"; }; done; } > "$BA"
 lead1='**Offer a design step when the work adds or changes something a person sees or does:**'
 lead2="**Don't offer it when:**"
 lead3="**If you're unsure, ask yourself:**"
@@ -87,24 +90,24 @@ want="$P/agents/bob.md $P/agents/claudia.md $P/agents/tess.md $P/skills/begin/SK
 t "the test appears in those four files and nowhere else" test "$copies" = "$want"
 
 # DoD 4 and 5 (part B reads them): the words that must be there.
-t "begin/SKILL.md loads ada:design" grep -qF 'ada:design' "$B"
-t "begin/SKILL.md finishes the brief from DESIGN.md" grep -qF 'DESIGN.md' "$B"
+t "begin/SKILL.md loads ada:design" grep -qF 'ada:design' "$BA"
+t "begin/SKILL.md finishes the brief from DESIGN.md" grep -qF 'DESIGN.md' "$BA"
 t "planning/SKILL.md mentions the design step" grep -qiE 'design' "$P/skills/planning/SKILL.md"
 
 # Amendments Q1 to Q6 (BRIEF.md, Amendments).
 for f in agents/bob.md agents/claudia.md agents/tess.md skills/begin/SKILL.md; do
   t "$f keys on DESIGN.md saying Status: agreed (Q1)" grep -qF 'Status: agreed' "$P/$f"
 done
-t "begin/SKILL.md: a draft design when no brief has been started is a standalone run (Q1 as amended)" grep -qE '`draft`|Status: draft' "$B"
+t "begin/SKILL.md: a draft design when no brief has been started is a standalone run (Q1 as amended)" grep -qE '`draft`|Status: draft' "$BA"
 t "design skill: archives a finished step first (Q2)" grep -qF -- '--archive' "$S"
 t "design skill: checks CHECKPOINT for an open step (Q2)" grep -qF 'CHECKPOINT' "$S"
 t "planning/SKILL.md: plan/DESIGN-<task id>.md (Q3)" grep -qF 'DESIGN-<task id>.md' "$P/skills/planning/SKILL.md"
-t "begin/SKILL.md: asks the developer to share the artifact (Q4)" grep -qiE 'share' "$B"
-t "begin/SKILL.md: a design summary in Constraints (Q4)" grep -qiE 'summary' "$B"
-t "begin/SKILL.md: fills the PR's Design: line (Q5)" grep -qF 'Design:' "$B"
+t "begin/SKILL.md: asks the developer to share the artifact (Q4)" grep -qiE 'share' "$BA"
+t "begin/SKILL.md: a design summary in Constraints (Q4)" grep -qiE 'summary' "$BA"
+t "begin/SKILL.md: fills the PR's Design: line (Q5)" grep -qF 'Design:' "$BA"
 # Q6: a standalone design the developer says isn't for this task is set to Status: superseded. Check
 # begin, not the DESIGN.md template: the template's status line already holds the word.
-t "begin/SKILL.md: a design that isn't for this task is set to superseded (Q6)" grep -qF 'superseded' "$B"
+t "begin/SKILL.md: a design that isn't for this task is set to superseded (Q6)" grep -qF 'superseded' "$BA"
 
 # DoD 6: role files.
 t "bob.md: UI not specified: <what> in REVIEW-REQUEST" grep -qF 'UI not specified:' "$P/agents/bob.md"
@@ -224,7 +227,7 @@ t "Hand back: the visual parts can't be briefed until a fix is chosen or PIE wai
 # Ada started is that step's design, not agreed yet: Ada doesn't re-confirm its requirements, and
 # the visual parts wait for a fix or a PIE waiver. Keyed to the amendment's words: Outcome,
 # started, re-confirm, "Design not agreed", waive.
-joined < "$B" > "$W/begin1"
+joined < "$BA" > "$W/begin1"
 t "begin/SKILL.md: standalone is decided by no brief started, the BRIEF.md Outcome (Q1 amended)" \
   grep -qiE 'standalone.{0,300}Outcome|Outcome.{0,300}standalone' "$W/begin1"
 t "begin/SKILL.md: a draft design in a step Ada started is that step's design (Q1 amended)" \
@@ -326,7 +329,7 @@ item must be found, under a heading a reader would look in. The words in quotes 
 13. The frontmatter description says when to use `/ada:design` and that `/ada:begin` usually
     brings it in.
 
-**`plugins/ada/skills/begin/SKILL.md`** (Definition of Done 4):
+**`plugins/ada/skills/begin/SKILL.md`** and **`design-step.md`** in the same folder (Definition of Done 4; the test stays in `SKILL.md`, the rest of the step is in `design-step.md`):
 
 14. In Direction mode, after "done" is pinned down (who, done in observable terms, out of scope
     written into the draft brief), Ada applies the test and, when it says so, offers the design

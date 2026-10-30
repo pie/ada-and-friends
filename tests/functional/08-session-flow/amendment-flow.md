@@ -25,7 +25,7 @@
 1. Save the block below as `check.sh` in a scratch folder (not in this repo).
 2. Run `REPO=<this checkout> bash check.sh`.
 3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, delete the line naming
-   data repairs and migrations from the copy's `skills/begin/SKILL.md` trigger list, and run
+   data repairs and migrations from the copy's `skills/begin/approval.md` trigger list, and run
    `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL`.
 
 ```bash
@@ -50,13 +50,16 @@ flat() { tr '\n' ' ' < "$1" | tr -s ' ' > "$2"; }   # one line, single spaces: s
 has()  { grep -qiF -- "$2" "$1"; }
 
 BG=$W/begin; PK=$W/pickup; DS=$W/design; OBG=$W/begin.old
-flat "$PLUGIN/skills/begin/SKILL.md" "$BG"; flat "$PLUGIN/skills/pickup/SKILL.md" "$PK"
-flat "$PLUGIN/skills/design/SKILL.md" "$DS"; flat "$OLD_PLUGIN/skills/begin/SKILL.md" "$OBG"
+# begin is SKILL.md plus the files it reads on demand (approval.md holds the amendment flow), on both sides.
+allbegin() { cat "$1/skills/begin/SKILL.md"; for f in "$1"/skills/begin/*.md; do [ "$f" = "$1/skills/begin/SKILL.md" ] || { echo; cat "$f"; }; done; }
+allbegin "$PLUGIN" > "$W/begin.all"; allbegin "$OLD_PLUGIN" > "$W/begin.old.all"
+flat "$W/begin.all" "$BG"; flat "$PLUGIN/skills/pickup/SKILL.md" "$PK"
+flat "$PLUGIN/skills/design/SKILL.md" "$DS"; flat "$W/begin.old.all" "$OBG"
 
 # begin: the flow (D13). Checked in the text begin gains over the released one, so words that
 # were already there elsewhere ("fragile area", "customer") don't pass by accident.
 ADD=$W/begin.added
-diff "$OLD_PLUGIN/skills/begin/SKILL.md" "$PLUGIN/skills/begin/SKILL.md" | grep '^>' | sed 's/^> //' > "$W/added.raw"
+diff "$W/begin.old.all" "$W/begin.all" | grep '^>' | sed 's/^> //' > "$W/added.raw"
 flat "$W/added.raw" "$ADD"
 echo "info: lines begin gained or changed: $(wc -l < "$W/added.raw" | tr -d ' ')"
 t "begin (added text): the Re-approval column's 'not needed'" has "$ADD" 'not needed'

@@ -5,7 +5,26 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Ada costs less to run.** Measured over 215 Ada sessions, over half the cost was Ada's own
+  context being re-read on every turn, and about a sixth was work meant for Sonnet running on
+  Opus.
+  - `/ada:begin` is split: the core playbook stays in its `SKILL.md`, and the parts a step needs
+    only sometimes are read when it needs them: `checkpoint.md` (a checkpoint that isn't this
+    step's, or is finished), `design-step.md`, `approval.md` (brief approval and amending an
+    approved brief) and `pr-gate.md` (the PR gate and commit credit). The playbook Ada carries on
+    every turn is about 40% smaller. `/ada:pickup` reads `pr-gate.md` in the PR gate session.
+  - Every Agent call names its model, from a table in `/ada:begin`: Opus for Tess's plan and
+    write, Bob and Claudia's full review; Sonnet for Tess's run (including a partial or continued
+    run), her test fixes, Claudia's re-review, and any Explore or general-purpose agent reading
+    for Ada, Grace or Iris. Without `model:` those had been running on Opus.
+- **Bob builds small steps on Sonnet.** When the brief's `Expected review:` is small and it names
+  no fragile area, Ada spawns Bob on Sonnet, keeps him there for the fix rounds, and moves him up
+  to Opus if Claudia's review shows the step was harder than the brief said. Medium and large
+  steps, and anything in a fragile area, stay on Opus. Claudia's full review stays on Opus.
+- **A project can run lean.** `PROJECT.md` takes a `- **Budget:**` line, `standard` or `lean`. On
+  `lean`, Bob, Claudia and Tess's Opus work runs at medium effort instead of high. Onboarding asks
+  which; a project without the line is `standard`. Both ideas are adapted from pstack's per-role
+  models and reasoning budget (cursor/plugins).
 
 ## 0.11.0, 30 Oct 2026
 

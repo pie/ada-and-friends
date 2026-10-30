@@ -11,6 +11,8 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 - **People:** <PIE developers>, <client developers>
 - **Known issues live in:** <Asana project name and URL>. Search it before investigating a bug.
 - **Design guide:** `none` <or a path in the repo, a URL, or a design system artifact link>
+- **Budget:** standard <`standard`, or `lean`: Bob, Claudia and Tess's Opus work at medium effort
+  instead of high, for a project where a slip costs little. `/ada:begin` has the model table>
 
 ## Code and branches
 
