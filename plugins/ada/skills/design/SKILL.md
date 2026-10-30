@@ -29,7 +29,7 @@ everything they need goes into two files:
 - If you were started on your own (`/ada:design`), set up `.claude/handoff/` first:
   - If it doesn't exist, run `ada-handoff-init`.
   - Read `.claude/handoff/CHECKPOINT.md`. If it records a step that is **finished** (its PR is
-    merged or closed, or it was shelved), archive it as `/ada:begin` does (Session start, 6,
+    merged or closed, or it was shelved), archive it as `/ada:begin` does (its `checkpoint.md`,
     which says what to do first with a shelved step's changes to the project's `DESIGN.md`):
     `ada-handoff-init --archive <date>-<slug of that step>`. Your handoff `DESIGN.md` then
     starts a fresh set, and the next `/ada:begin` doesn't archive it.

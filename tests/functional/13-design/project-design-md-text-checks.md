@@ -375,8 +375,9 @@ t "SYSTEM.md: describes the root DESIGN.md" has "$ROOT" "$W/sys1"
 t "SYSTEM.md: and .claude/handoff/DESIGN.md" grep -qF '.claude/handoff/DESIGN.md' "$W/sys1"
 t "SYSTEM.md: the root file's tokens" has "$ROOT.{0,400}token|token.{0,400}$ROOT" "$W/sys1"
 if [ -n "$BASE" ]; then
+  # 'credit' also matches the pointers to begin's pr-gate.md "Commits and credit" (Co-Authored-By lines): not a credit to Google.
   t "no credit added in files an agent reads (plugins/ada, .claude/team, CLAUDE.md)" \
-    not sh -c "git diff '$BASE' -- $P .claude/team CLAUDE.md | grep '^+' | grep -Eiq 'credit|thanks to|courtesy|copyright|licen[cs]e|google-labs-code'"
+    not sh -c "git diff '$BASE' -- $P .claude/team CLAUDE.md | grep '^+' | grep -Eiv 'commits and credit|each role.s credit' | grep -Eiq 'credit|thanks to|courtesy|copyright|licen[cs]e|google-labs-code'"
 fi
 grep -rniE 'google' $P | grep -v '@google/design\.md@' | sed 's/^/info: Google named in the plugin (part B item 12): /'
 

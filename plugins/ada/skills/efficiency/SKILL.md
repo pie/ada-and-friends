@@ -43,6 +43,9 @@ You are the long-lived session, so your context is the expensive one.
 - **Anything that means reading code, logs or output over about 20 lines goes to a subagent**
   (Bob, Tess, or an Explore agent for a question), and you keep its conclusion. Read the handoff
   files, the brief's sections of `SYSTEM.md`, and short results yourself; not source files.
+- **Name the model on every Agent call.** Reading for you is Sonnet's work: spawn Explore and
+  general-purpose agents with `model: "sonnet"`. Without it they run on your model. The roles'
+  models are in `/ada:begin` (Direct Bob, Claudia and Tess).
 - Keep your messages to the developer short: what happened, what you need from them.
 - **One session per phase, not per step.** A step has three: agreeing the brief (through
   approval), building it (Tess, Bob, Claudia, Tess, until both say `Ready for PR: YES`), and the PR

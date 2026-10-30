@@ -29,8 +29,8 @@ docs must carry. Part B is the behaviour: dry runs by a person in a practice pro
 1. Save the block below as `check.sh` in a scratch folder (not in this repo).
 2. Run `REPO=<this checkout> bash check.sh`.
 3. Break it on purpose, once: in a scratch copy of the repo (`cp -R`), delete every
-   `EnterWorktree` from the copy's pickup skill
-   (`sed -i 's/EnterWorktree//g' <copy>/plugins/ada/skills/pickup/SKILL.md`; `sed -i ''` on macOS),
+   `EnterWorktree` from the copy's `checkpoint.md`, which pickup reads on `other`
+   (`sed -i 's/EnterWorktree//g' <copy>/plugins/ada/skills/begin/checkpoint.md`; `sed -i ''` on macOS),
    and run `REPO=<the copy> bash check.sh`. It must print `FAIL` for the pickup `EnterWorktree`
    line(s) and exit 1.
 4. Break it a second way: in a scratch copy, delete every `FINDINGS.md` from the copy's begin
@@ -44,12 +44,16 @@ set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
 BASE=${BASE:-origin/next-release}
 cd "$REPO" || exit 2
-B=plugins/ada/skills/begin/SKILL.md
-P=plugins/ada/skills/pickup/SKILL.md
+BD=plugins/ada/skills/begin
+PS=plugins/ada/skills/pickup/SKILL.md
 PL=plugins/ada/skills/planning/SKILL.md
 BH=plugins/ada/skills/bughunt/SKILL.md
 DS=plugins/ada/skills/design/SKILL.md
 W=$(mktemp -d)
+# begin's SKILL.md plus the files it reads on demand (checkpoint.md, approval.md, design-step.md,
+# pr-gate.md), and pickup's SKILL.md plus checkpoint.md, which it sends `other`, exit 2 and finished steps to.
+B=$W/begin.md; { cat "$BD/SKILL.md"; for f in "$BD"/*.md; do [ "$f" = "$BD/SKILL.md" ] || { echo; cat "$f"; }; done; } > "$B"
+P=$W/pickup.md; { cat "$PS"; echo; cat "$BD/checkpoint.md"; } > "$P"
 fails=0
 ok()  { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((fails+1)); fi; }
 t()   { name=$1; shift; if "$@" >/dev/null 2>&1; then ok 0 "$name"; else ok 1 "$name"; fi; }
@@ -75,9 +79,9 @@ t "begin: the exception: already in a worktree whose brief has no Outcome" near 
 t "begin: the exception names the step's branch" near "$B" 'Outcome' 'branch' 300
 t "begin: today's step 8 command is gone (git worktree add ../<repo>-<slug>)" not has "$B" 'git worktree add ../'
 t "begin: runs \`ada-worktree check\`" has "$B" 'ada-worktree check'
-c=$(ln_of "$B" 'ada-worktree check'); r=$(ln_of "$B" 'Its step is still open')
-echo "info: begin: first 'ada-worktree check' at line ${c:-none}; 'Its step is still open' at ${r:-none}"
-t "begin: 'Its step is still open' (the resume) still there" test -n "$r"
+c=$(ln_of "$B" 'ada-worktree check'); r=$(ln_of "$B" 'its step is still')
+echo "info: begin: first 'ada-worktree check' at line ${c:-none}; 'its step is still' at ${r:-none}"
+t "begin: 'its step is still' (the resume) still there" test -n "$r"
 t "begin: the check comes before resuming a checkpoint" test -n "$c" -a -n "$r" -a "${c:-0}" -le "${r:-0}"
 t "begin: on 'other' it doesn't resume" near "$B" 'ada-worktree check' '`?other`?' 500
 t "begin: on 'other' it moves with EnterWorktree, or names the branch and checkout and stops" near "$B" '`?other`?' 'EnterWorktree' 500
@@ -128,6 +132,7 @@ t "bughunt: the hand-off says /ada:begin finds FINDINGS.md in this worktree (con
 
 # Pickup (Definition of Done 8).
 t "pickup: runs \`ada-worktree check\`" has "$P" 'ada-worktree check'
+t "pickup: sends \`other\`, exit 2 and finished steps to begin's checkpoint.md" has "$PS" 'checkpoint.md'
 pc=$(ln_of "$P" 'ada-worktree check'); pr=$(ln_of "$P" 'Report in one paragraph')
 echo "info: pickup: 'ada-worktree check' at line ${pc:-none}; 'Report in one paragraph' at ${pr:-none}"
 t "pickup: the check comes before the report (the resume)" test -n "$pc" -a -n "$pr" -a "${pc:-0}" -lt "${pr:-0}"
@@ -273,7 +278,7 @@ after.
    the precondition. Expected: nothing about any run's step (its branch, task, decisions or
    state) was added. Anything durable Ada learned went into `SYSTEM.md`, `API.md`,
    `STANDARDS.md` or `TEST-AREAS.md` in the step's branch instead.
-12. Read `plugins/ada/skills/begin/SKILL.md` (Session start and steps 6 to 9),
+12. Read `plugins/ada/skills/begin/SKILL.md` (Session start and steps 6 to 9) and `checkpoint.md`,
     `plugins/ada/skills/pickup/SKILL.md`, the new parts of `plugins/ada/skills/planning/SKILL.md`
     and README's "Several steps at once" once, in this checkout: plain British English (S107),
     and nothing contradicts the brief approval step or the PR gate.

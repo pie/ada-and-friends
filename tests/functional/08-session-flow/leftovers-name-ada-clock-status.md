@@ -25,7 +25,8 @@
 # The leftovers wording in begin, pickup and the CHECKPOINT template. PASS/FAIL; exit 1 if any FAIL.
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
-B=$REPO/plugins/ada/skills/begin/SKILL.md
+B=$(mktemp)   # the whole begin skill: SKILL.md and the files it reads on demand
+for f in "$REPO"/plugins/ada/skills/begin/*.md; do cat "$f"; echo; done > "$B"; trap 'rm -f "$B"' EXIT
 P=$REPO/plugins/ada/skills/pickup/SKILL.md
 C=$REPO/plugins/ada/templates/handoff/CHECKPOINT.md
 for f in "$B" "$P" "$C"; do [ -f "$f" ] || { echo "SETUP FAIL: no $f"; exit 2; }; done
