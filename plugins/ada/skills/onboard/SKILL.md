@@ -42,7 +42,8 @@ couldn't find or aren't sure of, and wait for answers:
 | Timezone | ask (WordPress's own setting is in the database) |
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
-| Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin`; list them on `Re-approval triggers:`, else leave `none` |
+| Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin` (its `approval.md`); list them on `Re-approval triggers:`, else leave `none` |
+| Budget | ask: "Is this a project where a slip costs little (a brochure site, no payments or subscriptions)?" Yes → `lean`; otherwise `standard`. Say they can change it at any time, and that a step in a fragile area should run on `standard` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
 | Clock-sensitive behaviour | look for date and weekday logic, cut-off times and scheduled actions; then ask: yes (with the times to test, e.g. Friday after noon) or no |
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |

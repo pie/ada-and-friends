@@ -39,6 +39,7 @@ REPO=${REPO:-$(git rev-parse --show-toplevel)}
 BASE=${BASE:-origin/next-release}
 cd "$REPO" || exit 2
 SK=plugins/ada/skills/begin/SKILL.md
+PG=plugins/ada/skills/begin/pr-gate.md   # the PR gate moved out of SKILL.md
 W=$(mktemp -d)
 fails=0
 ok()  { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((fails+1)); fi; }
@@ -46,9 +47,9 @@ t()   { name=$1; shift; if "$@" >/dev/null 2>&1; then ok 0 "$name"; else ok 1 "$
 not() { ! "$@"; }
 ln_of() { grep -nF -- "$1" "$SK" | head -1 | cut -d: -f1; }       # first line with the text
 section() { awk -v h="$1" 'index($0,h)==1{p=1;next} p&&/^#+ /{exit} p' "$2"; }
-in_win() { test "$1" -gt 0 && sed -n "$1,$2p" "$SK" | grep -Eqi -- "$3"; }
+in_win() { test "$1" -gt 0 && sed -n "$1,$2p" "${F:-$SK}" | grep -Eqi -- "$3"; }
 # Like in_win, but joins the lines first, for a phrase the skill may wrap across two lines.
-in_flat() { test "$1" -gt 0 && sed -n "$1,$2p" "$SK" | tr '\n' ' ' | tr -s ' ' | grep -Eqi -- "$3"; }
+in_flat() { test "$1" -gt 0 && sed -n "$1,$2p" "${F:-$SK}" | tr '\n' ' ' | tr -s ' ' | grep -Eqi -- "$3"; }
 
 # D10, the brief step: before "Confirm the brief with the developer".
 conf=$(ln_of 'Confirm the brief with the developer')
@@ -62,37 +63,39 @@ for re in 'expected files|files (it|the brief) expect' 'title' 'Overlaps:' 'stop
           'build on top' 'Ships: after #' 'recreat' 'fold' 'narrow' 'independent' 'reason'; do
   t "begin, brief step (lines $s-$e) mentions: $re" in_win "$s" "$e" "$re"
 done
-# D10, the PR gate: a second run, inside "Own the PR gate", before the summary.
-gate=$(ln_of '### 3. Own the PR gate')
-summ=$(ln_of 'Summarise for the developer')
-o2=$(awk -v g="${gate:-0}" 'NR>g && index($0,"ada-brief overlap"){print NR; exit}' "$SK")
-t "begin: a second 'ada-brief overlap' inside the PR gate" test -n "$o2"
+# D10, the PR gate: a second run, inside the PR gate (`begin/pr-gate.md`), before the summary.
+gate=$(grep -nF -- '## The gate' "$PG" | head -1 | cut -d: -f1)
+summ=$(grep -nF -- 'Summarise for the developer' "$PG" | head -1 | cut -d: -f1)
+o2=$(awk -v g="${gate:-0}" 'NR>g && index($0,"ada-brief overlap"){print NR; exit}' "$PG")
+gin_win()  { F=$PG in_win "$@"; }
+gin_flat() { F=$PG in_flat "$@"; }
+t "begin (pr-gate.md): a second 'ada-brief overlap' inside the PR gate" test -n "$o2"
 t "begin: the PR gate check comes before the summary" test -n "$o2" -a -n "$summ" -a "${o2:-0}" -lt "${summ:-0}"
 # The window runs from the PR gate heading to the summary.
 if [ -n "$o2" ] && [ -n "$summ" ] && [ -n "$gate" ]; then gs=$gate; ge=$summ; else gs=0; ge=0; fi
 for re in 'BUILD-LOG' 'For the reviewer' 'developer'; do
-  t "begin, PR gate (lines $gs-$ge) mentions: $re" in_win "$gs" "$ge" "$re"
+  t "begin, PR gate (lines $gs-$ge) mentions: $re" gin_win "$gs" "$ge" "$re"
 done
 # The Amendment of 26 Oct 2026 (agreed by Neil; PIE review, Anna, PR #35) replaces the 25 Oct
 # pipeline: the gate runs one command, `ada-brief overlap --gate`, which lists the branch's files
 # itself. No pipe and no xargs, so its exit 2 reaches Ada (xargs turned it into 123).
 # code_bits: the window's inline code spans and the lines inside its ``` fences, one per line.
-code_bits() { test "$1" -gt 0 && sed -n "$1,$2p" "$SK" | awk '/^[[:space:]]*```/{f=!f; next} f{print; next} {s=$0; while (match(s, /`[^`]+`/)) {print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH)}}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'; }
-t "begin, PR gate: runs \`ada-brief overlap --gate\` (a code span or fenced line that is exactly that)" eval 'code_bits "$gs" "$ge" | grep -qx "ada-brief overlap --gate"'
-t "begin, PR gate: every command naming 'ada-brief overlap --gate' is exactly that, one command (no pipe, ;, && or \$(...))" eval 'code_bits "$gs" "$ge" > "$W/bits" && ! grep -F -- "ada-brief overlap --gate" "$W/bits" | grep -vqx "ada-brief overlap --gate"'
-t "begin, PR gate: no command naming ada-brief overlap has a pipe or xargs" eval 'code_bits "$gs" "$ge" > "$W/bits" && ! grep -F -- "ada-brief overlap" "$W/bits" | grep -Eq "\||xargs"'
-t "begin, PR gate: no xargs anywhere in the gate" not in_win "$gs" "$ge" 'xargs'
-t "begin, PR gate: the 25 Oct file-listing pipeline is gone (no 'ls-files -z', no 'diff -z --name-only')" not in_win "$gs" "$ge" 'ls-files -z|diff -z --name-only'
-t "begin, PR gate: no longer lists files with origin/<PR into>...HEAD (committed files only)" not in_win "$gs" "$ge" 'name-only origin/[^ ]*\.\.\.HEAD'
+code_bits() { test "$1" -gt 0 && sed -n "$1,$2p" "${F:-$SK}" | awk '/^[[:space:]]*```/{f=!f; next} f{print; next} {s=$0; while (match(s, /`[^`]+`/)) {print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH)}}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'; }
+t "begin, PR gate: runs \`ada-brief overlap --gate\` (a code span or fenced line that is exactly that)" eval 'F=$PG code_bits "$gs" "$ge" | grep -qx "ada-brief overlap --gate"'
+t "begin, PR gate: every command naming 'ada-brief overlap --gate' is exactly that, one command (no pipe, ;, && or \$(...))" eval 'F=$PG code_bits "$gs" "$ge" > "$W/bits" && ! grep -F -- "ada-brief overlap --gate" "$W/bits" | grep -vqx "ada-brief overlap --gate"'
+t "begin, PR gate: no command naming ada-brief overlap has a pipe or xargs" eval 'F=$PG code_bits "$gs" "$ge" > "$W/bits" && ! grep -F -- "ada-brief overlap" "$W/bits" | grep -Eq "\||xargs"'
+t "begin, PR gate: no xargs anywhere in the gate" not gin_win "$gs" "$ge" 'xargs'
+t "begin, PR gate: the 25 Oct file-listing pipeline is gone (no 'ls-files -z', no 'diff -z --name-only')" not gin_win "$gs" "$ge" 'ls-files -z|diff -z --name-only'
+t "begin, PR gate: no longer lists files with origin/<PR into>...HEAD (committed files only)" not gin_win "$gs" "$ge" 'name-only origin/[^ ]*\.\.\.HEAD'
 # The Amendments of 25 and 26 Oct 2026 (agreed by Neil; PIE review, Claudia fix round 2): what Ada
 # does when overlap exits with anything other than 0, in both places. The sentence says non-zero,
 # not 2, because a Python failure inside overlap exits 1 with a traceback. Never read as no overlap.
 for re in 'exit(s|ed)? (with )?(anything other than 0|(a )?non-?zero)' 'ada-brief:' 'error|traceback|failed' "(never|not|n.t) .*(no overlap|Overlaps: none)|(no overlap|Overlaps: none).*(until|never|not)"; do
-  t "begin, PR gate (lines $gs-$ge) on a non-zero exit mentions: $re" in_flat "$gs" "$ge" "$re"
+  t "begin, PR gate (lines $gs-$ge) on a non-zero exit mentions: $re" gin_flat "$gs" "$ge" "$re"
   t "begin, brief step (lines $s-$e) on a non-zero exit mentions: $re" in_flat "$s" "$e" "$re"
 done
 # The old rule, "exits 2", must be gone from both places (it left exit 1 uncovered).
-t "begin, PR gate: no longer says overlap 'exits 2'" not in_flat "$gs" "$ge" 'exit(s|ed)? (with )?(code )?2'
+t "begin, PR gate: no longer says overlap 'exits 2'" not gin_flat "$gs" "$ge" 'exit(s|ed)? (with )?(code )?2'
 t "begin, brief step: no longer says overlap 'exits 2'" not in_flat "$s" "$e" 'exit(s|ed)? (with )?(code )?2'
 
 # D12: docs.
@@ -159,7 +162,7 @@ Each run starts a fresh session in the practice project with `/ada:begin`.
    `gh` on the PATH that prints `not json` for `pr list` (exit 1 with a traceback): Ada shows
    you the error and does not write `Overlaps: none`. After you answer, `BUILD-LOG.md` records it and
    `.claude/handoff/PR.md`'s "For the reviewer" mentions it.
-5. Read `plugins/ada/skills/begin/SKILL.md` end to end once, in this checkout: the two new
+5. Read `plugins/ada/skills/begin/SKILL.md` and `pr-gate.md` end to end once, in this checkout: the two new
    passages read as plain British English (S107), fit the steps around them, and don't
    contradict the approval step (a brief that needs approval is still submitted after it's
    confirmed).

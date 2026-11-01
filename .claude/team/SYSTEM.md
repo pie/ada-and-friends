@@ -22,7 +22,7 @@ What it "stores" is files in *other* repos (the onboarded projects) and labels a
   (`DEVELOPING.md`, Layout). `design` (Iris) runs in the main session, usually loaded by Ada from
   `begin` or `planning`.
 - **Agents** (`agents/*.md`): `bob`, `claudia`, `tess`, spawned as `ada:bob` etc.
-  (`DEVELOPING.md:52`, `skills/begin/SKILL.md:184-185`). Each has a `tools:` allowlist
+  (`DEVELOPING.md:52`, `skills/begin/SKILL.md`, Direct Bob, Claudia and Tess). Each has a `tools:` allowlist
   (`agents/bob.md:6`, `agents/claudia.md:6`, `agents/tess.md:6`). Tess's also has `ToolSearch` and
   the Claude in Chrome tools (`mcp__claude-in-chrome__*`), for local checks the developer asks her
   to run (`agents/tess.md`, Running local checks yourself).
@@ -44,7 +44,7 @@ State the scripts read and write, in an onboarded project:
 
 | State | Written by | Read by |
 |---|---|---|
-| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:121-148`) reads Approvers and Trusted only; Ada reads the triggers (`skills/begin/SKILL.md`, Amending an approved brief) |
+| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:121-148`) reads Approvers and Trusted only; Ada reads the triggers (`skills/begin/approval.md`, Amending an approved brief) |
 | `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:68-74`, `93-96`); `ada-brief overlap` (`branches()`) |
 | `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*), one set per checkout: the main checkout and each step's worktree | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
 | `CHECKPOINT.md` `- Branch:` (the branch alone) and `- Worktree:` | Ada, at session end | `ada-worktree check` (`Branch:`), `ada-worktree list` (`Step:`); `/ada:begin` and `/ada:pickup` run `check` before reading the checkpoint |
@@ -71,7 +71,9 @@ There are no hooks, cron or webhooks in the plugin: a plugin has no install or u
 (`DEVELOPING.md:58`). Everything runs because a skill tells Ada to run a script, or a person runs
 it, or (in this repo only) a push to `main` runs the Release workflow.
 
-**A step, from `/ada:begin`** (`skills/begin/SKILL.md`):
+**A step, from `/ada:begin`** (`skills/begin/SKILL.md`, with `checkpoint.md`, `design-step.md`,
+`approval.md` and `pr-gate.md` beside it, read only when the step needs them, to keep Ada's
+context small):
 
 1. Session start: read `PROJECT.md`; load `ada:efficiency`; `ada-handoff-init` if `.claude/handoff/`
    is missing; `ada-worktree check` before reading a checkpoint (on `other`, `EnterWorktree` to that
@@ -88,27 +90,30 @@ it, or (in this repo only) a push to `main` runs the Release workflow.
    `EnterWorktree` (`path`), or `cd "<path>" && claude` and stop, unless the session is already in a
    worktree with no step on the step's branch; check the branch; `ada-onboard refresh`. No step
    facts in auto-memory.
-2. Brief (`:152-155`, `:170-295`): one PR or a plan (`ada:planning`); `.claude/handoff/BRIEF.md` with an
+2. Brief (Your three jobs; `design-step.md`): one PR or a plan (`ada:planning`); `.claude/handoff/BRIEF.md` with an
    `Expected review:` level. Before the rest of the brief, once "done" is pinned down, Ada
    applies the design test (begin, The design step); when it passes she offers the design step
    and loads `ada:design`, and finishes the brief from `.claude/handoff/DESIGN.md`. The same
    test runs again if undesigned UI turns up during the build. Before the brief is confirmed,
    `ada-brief overlap` with its expected files; Ada fills `Overlaps:` and stops for the developer
    on any overlap.
-3. Approval (`:297-360`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
+3. Approval (`approval.md`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
    opens a draft PR and the session stops until `ada-brief status` says `approved`. After
    approval, Ada checks each amendment against the re-approval triggers, records `not needed` or
    `needed: <trigger>` in its row, and runs `ada-brief submit`: `(approval kept)` carries on,
-   `(approval reset)` stops for approval again (begin, Amending an approved brief).
-4. Build (`:362-407`): Tess plan-and-write, Bob (plan then build), Claudia review, fix rounds
-   (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet.
-5. Session end at each phase break (`:546-559`): `CHECKPOINT.md`, then `/ada:pickup` in a fresh
+   `(approval reset)` stops for approval again (`approval.md`, Amending an approved brief).
+4. Build (Direct Bob, Claudia and Tess): Tess plan-and-write, Bob (plan then build), Claudia review, fix rounds
+   (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet. Every Agent call names its model from begin's table; one without `model:`
+   falls back to the agent file's Opus. Bob runs on Sonnet for a small step with no fragile area
+   (moved up to Opus if the review shows it was harder), and `Budget: lean` in `PROJECT.md` adds
+   `effort: "medium"` to the Opus spawns.
+5. Session end at each phase break (Session end): `CHECKPOINT.md`, then `/ada:pickup` in a fresh
    session.
-6. PR gate (`:440-511`): `ada-size <base>`; `ada-brief overlap --gate` (the branch's changed and
+6. PR gate (`pr-gate.md`): `ada-size <base>`; `ada-brief overlap --gate` (the branch's changed and
    untracked files), any new overlap to the developer; summary; on yes, commit with role trailers
-   (`:513-530`), push, `PR.md` from the PR template including the `## Squash commit` section, then
+   (Commits and credit), push, `PR.md` from the PR template including the `## Squash commit` section, then
    `gh pr create` or `ada-brief ready "<title>" .claude/handoff/PR.md` if a draft PR exists.
-   Nobody on the team merges (`:511`).
+   Nobody on the team merges.
 
 **`/ada:pickup`** (`skills/pickup/SKILL.md`) runs begin's Session start, `ada-worktree check` before
 reading the checkpoint (on `other`, `EnterWorktree` or stop; on exit 2, the `Branch:` line is
@@ -220,7 +225,7 @@ Traps:
   `:89-90`). Keep it that way.
 - **`gh pr create` errors are swallowed** (`:682`, `2>/dev/null`): only "couldn't open the draft
   PR" reaches the user.
-- **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/SKILL.md:313-322`),
+- **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/approval.md`, Getting the brief approved),
   by `submit` (`:617-623`) and by `ada-plan status` (`bin/ada-plan:260`). Don't change its words.
 - **The Asana block** is found by a fixed English sentence (`:508`); if Asana changes it, the
   block is dropped on the next description replace.
