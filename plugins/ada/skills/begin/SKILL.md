@@ -31,53 +31,14 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
    there and copies them into the fix's worktree before you read them, in that worktree. If
    `.claude/handoff/DESIGN.md` says `Status: draft` or `Status: agreed` while `BRIEF.md` has no
    Outcome yet, a standalone `/ada:design` ran: confirm its requirements before you write the
-   brief (The design step). The template's own line, `Status: draft | agreed | superseded`,
+   brief (`design-step.md`). The template's own line, `Status: draft | agreed | superseded`,
    means there is no design.
 6. If `.claude/handoff/CHECKPOINT.md` exists, run `ada-worktree check` before you read it. It
-   prints one line, or exits 2. On `ok` or `none`, read the checkpoint and go on with the first
-   two bullets below. On `other <branch> <path>`, the checkpoint is another step's, on
-   `<branch>`: don't resume it here. Look up that branch's PR
-   (`gh pr list --head <branch> --state all --limit 1 --json number,state`). If it is merged or
-   closed, the step is finished: offer to archive it (the last bullet). Otherwise, if `<path>`
-   isn't `-`, that step's worktree is at `<path>` (the rest of the line): move the session there
-   with the `EnterWorktree` tool, `path` set to it, and start Session start again there. If
-   `<path>` is `-`, or `EnterWorktree` isn't available, tell the developer which branch the
-   checkpoint belongs to and which checkout it is in (or that the branch is checked out nowhere),
-   and **stop**.
-   - **Its step is finished** (its PR is merged or closed, or it says the step was shelved): say
-     so in one line ("previous step finished: PR #N merged; archiving it"). In a step's
-     worktree, don't archive it here: tell the developer to run `/ada:begin` from the main
-     checkout, which offers to remove this worktree (7), and **stop**. In the main checkout
-     (`ada-worktree main` prints the same path as `git rev-parse --show-toplevel`), run
-     `ada-handoff-init --archive <date>-<slug of that step>`. That moves the old handoff files to
-     `.claude/handoff/archive/` and puts fresh templates in place; a plan in
-     `.claude/handoff/plan/` stays. Don't wait; carry on to 7. The one exception: if the step was
-     shelved before its PR and the project's `DESIGN.md` has uncommitted changes, before you
-     archive, show them to the developer and wait for their answer, as for a superseded design
-     (The design step). If it lists leftovers on the local site (test orders, a clock left set
-     (`ada-clock status`), a frozen queue), tell the developer:
-     they're cleared before anything runs on the site.
-   - **Its step is still open:** report in one paragraph where we stopped, what was decided, the
-     next action and any open questions. **Stop and wait** for the developer to confirm.
-   - **`check` exits 2:** it couldn't read the checkpoint's `Branch:` as a local branch. The
-     checkpoint was written before `Branch:` held the name alone (`change/x, pushed`, a name in
-     backticks, `none yet`), or names a branch since deleted. Read only its `Branch:` line. If
-     that plainly names a branch whose PR is merged or closed, the step is finished: offer to
-     archive it (the next bullet). Otherwise resume nothing: show the developer the `Branch:`
-     line and the branch checked out here (`git branch --show-current`), and ask which branch
-     the checkpoint belongs to. Once they confirm, rewrite `Branch:` as that name alone, run
-     `check` again and act on what it prints.
-   - **A finished step that isn't this checkout's** (after `other` or exit 2, its PR merged or
-     closed): ask the developer whether to archive it, in one line ("the checkpoint here is
-     change/x's, PR #N merged: archive it?"), and wait. Never archive unasked, and never hand the
-     developer a command for it: on yes, archive it yourself. If `check` gave a `<path>` that is a
-     worktree under the main checkout's `.claude/worktrees/`, first run
-     `ada-worktree remove "<path>"`: it moves that worktree's handoff files to the main
-     checkout's `.claude/handoff/archive/<date>-<slug>/` and removes the worktree, keeping the
-     branch. Then archive this checkout's handoff files with
-     `ada-handoff-init --archive <date>-<slug of that step>` (add `-2` to the name if that
-     archive folder exists), and carry on to 7. If either refuses, tell the developer what it
-     printed and **stop**. On no, leave everything as it is and **stop**.
+   prints one line, or exits 2. On `ok` or `none`, read the checkpoint. If its step is still
+   open, report in one paragraph where we stopped, what was decided, the next action and any open
+   questions, and **stop and wait** for the developer to confirm. On `other`, on exit 2, or when
+   the checkpoint's step is finished (its PR merged or closed, or shelved), read `checkpoint.md`
+   in this skill's base directory and follow it.
 7. **In the main checkout, tidy up finished steps.** Run `ada-worktree list`: one line per
    worktree, with its branch, its checkpoint's step and its PR. A step is finished when its PR is
    merged or closed (`MERGED`, `CLOSED`), or its checkpoint says it was shelved. Offer
@@ -153,7 +114,7 @@ Two modes.
 - **Direction:** when something is wanted, pin down what "done" looks like in observable terms
   before you write the brief. Work out with the developer who it's for, what "done" looks like
   and what's out of scope, and write them into the draft `BRIEF.md` (Outcome, Definition of Done,
-  Out of scope). Then apply the design test (The design step, below) before you write the rest.
+  Out of scope). Then apply the design test (`design-step.md`, below) before you write the rest.
 
 Push back when the request fights the system: a rule reimplemented somewhere new, a write around
 the owning class, something `SYSTEM.md` warns against. Offer the shape that fits, and say why.
@@ -178,62 +139,11 @@ severity of a review finding.
 >
 > **If you're unsure, ask yourself:** would two good developers, given this brief, build things that look noticeably different? If yes, offer the design step.
 
-**The offer.** When the test says so, offer it in one line that names what changes, e.g. "This
-changes the checkout layout. Shall Iris design it before I write the brief?" On yes, load the
-`ada:design` skill (Skill tool): Iris takes over in this session, reads the draft brief, and hands
-back once `.claude/handoff/DESIGN.md` says `Status: agreed`. On no, write the brief as usual. When
-the test says not to offer it, don't mention design.
-
-**A design from a standalone run.** `ada-handoff-init` always puts a `.claude/handoff/DESIGN.md`
-in place, so look at its `Status:` line, not whether it exists. The template's own line,
-`Status: draft | agreed | superseded`, means there is no design. A standalone run is a handoff
-`DESIGN.md` saying `draft` or `agreed` when no brief has been started (`BRIEF.md` has no Outcome
-yet): `/ada:design` ran on its own before this step. Before you write the brief, check with the
-developer that the design is for this task. If it isn't, set it to `Status: superseded`: it
-stays until the step is archived, and the roles ignore it. Then show the developer the
-uncommitted changes the design made to the project's `DESIGN.md` (`git diff -- DESIGN.md`, or the
-whole file if the design created it) and revert them (`git checkout -- DESIGN.md`, or delete the
-file it created), unless the developer says to keep them. Kept changes go in their own commit and
-PR, not this step's. If the design is for this task, go through its requirements ("The problem")
-with them, item by item: they are a draft, not agreed. If the design is only `draft`, offer Iris
-to finish it. A `draft` design in a step you started (the brief has its Outcome) is that step's
-design, not agreed yet: don't confirm its requirements again, and its visual parts wait until the
-developer chooses a fix or PIE waives the rule.
-
-**Finish the brief from `.claude/handoff/DESIGN.md`.** Only from `Status: agreed`: when Iris
-hands back "Design not agreed:", the visual parts wait until the developer chooses a fix or PIE
-waives the rule. Bob, Claudia and Tess never open the canvas, so the brief carries what they need
-from it:
-
-- **Constraints:** "`.claude/handoff/DESIGN.md` is the spec for the UI; its token values are in
-  the project's `DESIGN.md`", the artifact link, and a summary of the agreed design in a few
-  lines. For a text-only design (`Artifact: text only`), copy its "The agreed design" section
-  into the Constraints, so the design travels with the brief.
-- **Build order:** in the order the design builds up (shared tokens and styles, then each
-  component, then its states).
-- **Definition of Done:** an observable item for each state and each breakpoint the design
-  specifies, so Tess can check it and Claudia can trace it.
-
-The approver sees the design with the brief. The artifact is private, so when `ada-brief who`
-says `required`, ask the developer to share it with the approver: who sees it is their decision,
-not yours or Iris's.
-
-**Back to design partway through a step.** UI that nobody thought was needed can turn up at any
-point. Whoever finds it, you apply the test:
-
-| Who finds it | What happens |
-|---|---|
-| You, writing the brief | Offer the design step there and then. |
-| Bob, building | He stops that part and records `UI not specified: <what>` in `REVIEW-REQUEST.md`. |
-| Claudia, reviewing | She raises unspecified UI as Must Fix, citing the test. |
-| Tess, planning tests | She flags, under Escalate, a Definition of Done item that assumes UI no one has designed. |
-
-- **If the test passes:** pause the step and offer Iris. She designs only the new part, in the
-  same artifact, and updates the handoff `DESIGN.md` and the project's `DESIGN.md`. Then amend
-  the brief from it (the Amendments rules below): it needs the developer's yes again. Check it
-  against the re-approval triggers there; new UI that the customer sees usually hits one.
-- **If it fails** (the UI reuses an existing pattern unchanged): add a line to the brief's
-  Constraints naming the pattern and where it is used, and the step carries on.
+**Everything else about the design step** (making the offer, a design waiting from a standalone
+`/ada:design` run, finishing the brief from the agreed design, and undesigned UI found partway
+through a step) is in `design-step.md` in this skill's base directory. Read it when the test says
+to offer the design step, when Session start, 5 finds a standalone design, or when someone reports
+UI nobody designed. When the test says not to offer it, don't mention design.
 
 ### 2. Direct Bob, Claudia and Tess
 
@@ -295,32 +205,9 @@ failed), show the developer its `ada-brief:` message or the error, and don't rec
 Confirm the brief with the developer. Once it's agreed and needs no approval, end the session
 (**Session end**); the build starts in a fresh one.
 
-**Then get it approved, if this project needs that.** Run `ada-brief who`:
-
-- `not-needed`, `approver <login>` or `trusted <login>`: no approval is needed. Write which, and
-  why, on the brief's `Approval:` line (e.g. "not needed: @login is trusted") and carry on.
-- `required <login>`: run `ada-brief submit <Asana task id> <the PR base from PROJECT.md>`. It
-  commits the brief to `.claude/briefs/`, pushes the branch and opens a draft PR with the brief as
-  its description. Set the brief's status to `awaiting approval`, give the developer the PR link
-  and ask them to link it to the Asana task (Apps, GitHub, "Add GitHub pull request"), write
-  `CHECKPOINT.md`, and **stop**. Nothing is built, and Tess and Bob are not spawned, until
-  `ada-brief status` says `approved`. The developer carries on with `/ada:pickup` once the
-  approver has looked. In a plan, submit every brief that can be submitted (top-level briefs, and
-  the parts of an approved feature) before you stop, with the branch as the third argument;
-  `ada-brief status <branch>` checks each one, and `ada-plan status` checks them all.
-- If `ada-brief` says `gh` is missing or not logged in, the developer has to fix that first; the
-  brief can't be approved without it.
-
-`ada-brief status` prints the state on its first line:
-
-- `approved @login <time>`: record "approved by @login on <date>" on the `Approval:` line and
-  carry on. A second line, `amended since approval; no re-approval needed`, means the brief has
-  changed since the label and every change was recorded as `not needed`: carry on.
-- `changes-requested`, followed by what the approvers said: go through each point with the
-  developer, change the brief, and `ada-brief submit` again. That resets the approval.
-- `waiting`: say so, with any note it prints (an earlier version was approved, and why the
-  changes since need approving again; a label added by someone who isn't an approver doesn't
-  count), and stop.
+**Then get it approved, if this project needs that.** Read `approval.md` in this skill's base
+directory and follow it: it runs `ada-brief who`, and says what to do while approval is waiting
+and when an approved brief is amended. Nothing is built until it says the brief may go ahead.
 
 **The brief is a contract with the developer.** Once they have agreed it, any change to the
 Outcome, Decisions, Out of scope or Definition of Done needs their explicit yes **before** it
@@ -330,35 +217,8 @@ step pauses. Record each agreed change under Amendments in the brief, with the d
 Wording without that line is not part of the brief: Tess reports against the agreed wording, and
 Claudia escalates the difference.
 
-**Amending an approved brief.** If the brief was approved by an approver, an amendment needs
-approving again only when it hits a re-approval trigger. Decisions, and Constraints less its
-`- Out of scope:` bullet, are what the approver approved; the rest of the brief is the
-developer's. For each agreed change:
-
-1. Check it against the triggers: the defaults below, and any the project adds on the
-   `- **Re-approval triggers:**` line of `PROJECT.md`'s Brief approval section.
-2. Record the row with the Re-approval column filled: `not needed`, or `needed: <trigger>`
-   naming the trigger it hits. Tell the developer which, and why.
-3. Run `ada-brief submit` with the same arguments as before. It compares the brief with the
-   approved version and prints the result:
-   - `updated <url> (approval kept)`: carry on. The approver gets a PR comment listing the new
-     rows.
-   - `updated <url> (approval reset)`: the label is gone. Set the brief's status to
-     `awaiting approval`, write `CHECKPOINT.md` and stop until `ada-brief status` says
-     `approved`.
-
-The default triggers. An amendment needs approving again when:
-
-- it reaches a fragile area the brief didn't name;
-- something the customer sees or pays changes;
-- it adds a new dependency, external service, data repair or migration;
-- it touches a security, auth or payment path;
-- the Expected review level goes up;
-- it reverses a Decision.
-
-When unsure, record `needed:`. Give every change to Decisions or Constraints its own row.
-`ada-brief` resets the approval when they changed and no row was added, but once one row has
-been added it can't tell which change a row is for.
+**An approved brief** that is amended needs approving again only when the change hits a
+re-approval trigger: `approval.md` (Amending an approved brief) has the triggers and the steps.
 
 Then:
 
@@ -369,31 +229,31 @@ continue a role only when you come back to it at once (Tess filling a gap in her
 found, Bob's plan when you approve it without waiting for the developer). Otherwise, and always
 for fix rounds, spawn afresh with a prompt that names only what to read.
 
-1. **Tess, plan and write.** `Agent(subagent_type: "ada:tess", prompt: "Plan and write mode. Read .claude/handoff/BRIEF.md, write .claude/handoff/TEST-PLAN.md for step N, then write the tests it calls for.")`
+1. **Tess, plan and write.** `Agent(subagent_type: "ada:tess", model: "opus", prompt: "Plan and write mode. Read .claude/handoff/BRIEF.md, write .claude/handoff/TEST-PLAN.md for step N, then write the tests it calls for.")`
    One spawn, so she reads the brief and `TEST-AREAS.md` once. Then check every Definition of
    Done item has a test type, or a reason it can't have one; for a gap, continue her with what's
    missing. The tests come from the brief, not the code, so this runs alongside Bob's plan. Bob
    builds against them and doesn't change them. If she flags a Definition of Done item that
-   assumes undesigned UI, apply the test (The design step, Back to design partway through a
+   assumes undesigned UI, apply the test (`design-step.md`, Back to design partway through a
    step) before Bob builds that part.
-2. **Bob.** `Agent(subagent_type: "ada:bob", prompt: "Build step N. Read .claude/handoff/BRIEF.md and follow your role file.")`
+2. **Bob.** `Agent(subagent_type: "ada:bob", model: <from the table>, prompt: "Build step N. Read .claude/handoff/BRIEF.md and follow your role file.")`
    For non-trivial work Bob writes a plan into the brief and stops. Read it; approve or redirect
    in the brief; continue Bob with "Plan approved; build it." if you approve at once, or spawn him
 again if the developer had to be asked. No code until you have approved.
 3. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`:
-   `Agent(subagent_type: "ada:claudia", prompt: "Review step N. Read .claude/handoff/REVIEW-REQUEST.md and follow your role file.")`
+   `Agent(subagent_type: "ada:claudia", model: "opus", prompt: "Review step N. Read .claude/handoff/REVIEW-REQUEST.md and follow your role file.")`
    If any `UI not specified:` line says anything but `none`, apply the test first (The design
    step, Back to design partway through a step); Claudia reviews once the brief covers that UI.
-4. **Loop.** Must Fix → spawn Bob: `Agent(subagent_type: "ada:bob", prompt: "Fix round for step N. Read only .claude/handoff/REVIEW-FEEDBACK.md (Must Fix) and the code it names; follow Fix rounds in your role file.")`
+4. **Loop.** Must Fix → spawn Bob: `Agent(subagent_type: "ada:bob", model: <as for his build>, prompt: "Fix round for step N. Read only .claude/handoff/REVIEW-FEEDBACK.md (Must Fix) and the code it names; follow Fix rounds in your role file.")`
    Then spawn Claudia for the re-review, on Sonnet:
    `Agent(subagent_type: "ada:claudia", model: "sonnet", prompt: "Re-review step N: follow Re-review in your role file.")`
    Items on the tests (under `tests/`), Must Fix or Should Fix, are Tess's, not Bob's: spawn
    her for them, on Sonnet, alongside Bob if he has items too:
    `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Test fixes for step N: follow Test fixes in your role file.")`
    A re-review checks only the fixed items. If she says a full review is needed (the fix went
-   beyond the items, or into a fragile area), spawn her as in 3, on her own model. Escalate →
+   beyond the items, or into a fragile area), spawn her as in 3, on Opus. Escalate →
    decide, or take it to the developer. A Must Fix for unspecified UI goes through the test
-   (The design step) before Bob is spawned for it. Repeat until `Ready for PR: YES`.
+   (`design-step.md`) before Bob is spawned for it. Repeat until `Ready for PR: YES`.
 5. **Tess, run.** `Agent(subagent_type: "ada:tess", model: "sonnet", prompt: "Run mode. Execute .claude/handoff/TEST-PLAN.md for step N against the current branch and write TEST-REPORT.md.")`
    Running the plan is mechanical, so Sonnet is enough. A failure goes back to Bob, then a
    Claudia re-review of the fix, then Tess again. When `.claude/handoff/DESIGN.md` says
@@ -404,8 +264,31 @@ again if the developer had to be asked. No code until you have approved.
 Spawn them one at a time (you may keep talking with the developer while one runs), unless they
 are independent: Tess planning and writing tests while Bob writes his plan is the only parallel
 case. If Bob says a test is wrong, decide from the brief: either the brief changes (with the
-developer's yes) and Tess rewrites the test, or the test stands. Models and effort are set in the
-agent files; override them only as above or when the developer asks.
+developer's yes) and Tess rewrites the test, or the test stands.
+
+**Every Agent call names its model**, from this table, including a partial run, a run carried on
+from an earlier report, and a one-off question. An Agent call without `model:` runs on the agent
+file's Opus, or for an Explore or general-purpose agent on yours, which costs several times as
+much for work Sonnet does as well. Override it only when the developer asks.
+
+| Spawn | `model:` |
+|---|---|
+| Tess, plan and write; Claudia, a full review | `"opus"` |
+| Bob, plan, build and fix rounds | `"sonnet"` when the brief's `Expected review:` is small and it names no fragile area; otherwise `"opus"` |
+| Tess, run mode (all of it, and any part or continuation); Tess, test fixes; Claudia, re-review | `"sonnet"` |
+| An Explore or general-purpose agent reading code, logs or output for you | `"sonnet"` |
+
+**Bob's model is set by the step, not the moment.** Choose it once, from the brief, write it in
+`BUILD-LOG.md` (`Bob: sonnet, small step, no fragile area`), and keep it for his fix rounds.
+Move him up to Opus for the rest of the step, and record why, when Claudia's review shows the
+work was harder than the brief said: a Must Fix for wrong logic, a fragile area the brief didn't
+name, or a second fix round on the same item. Never move him down partway.
+
+**The project's budget.** `PROJECT.md` has a `- **Budget:**` line: `standard` (also when the line
+is missing) or `lean`. On `lean`, add `effort: "medium"` to every spawn on Opus in the table (the
+agent files set `high`); the Sonnet spawns and your own session don't change. The developer
+chooses the budget, not you: if a lean project's step touches a fragile area, say so once and
+suggest `standard` for this step, then do what they choose.
 
 When a role reports an action that was refused (a declined permission prompt, a blocking hook, a
 safety check), the action doesn't go ahead. Don't perform it yourself and don't tell the role to
@@ -441,99 +324,13 @@ the decision in a function the unit bootstrap can load (the project's business-r
 ### 3. Own the PR gate
 
 When Claudia says `Ready for PR: YES` and Tess says `Ready for PR: YES`, end the session
-(**Session end**). The PR gate runs in a fresh one:
+(**Session end**). The PR gate runs in a fresh one: read `pr-gate.md` in this skill's base
+directory and follow it. It sizes the change, checks for overlap again, makes the commits with
+each role's credit, writes the PR description and opens the PR. The PR is the gate. Nothing is
+merged by this team.
 
-1. Run `ada-size <the PR's base>`. It ends with an estimated review time and level (small up to
-   15 minutes, medium up to 45, large up to 90, then too big for one sitting). It doesn't know
-   what's fragile: if the change is in a fragile area, raise the estimate and say why. Compare it
-   with the brief's `Expected review:` line. If the step came out a level bigger than expected,
-   or too big for one sitting, say so and ask the developer before going on: split it now, or
-   ship it as it is with the reason in the PR.
-2. Check for overlap again, since other work may have landed or opened during the build. The
-   build isn't committed yet, so the check takes the changed files from the working tree,
-   untracked ones included. Run it as one command, with no pipe:
-
-   ```sh
-   ada-brief overlap --gate
-   ```
-
-   It fetches the branches itself and takes this branch's files since it left
-   `origin/<PR into>`, keeping paths with spaces or non-ASCII characters whole. Compare the
-   result with the brief's `Overlaps:` line. Take any new overlap to the developer before you
-   offer the PR, with the same options as for the brief. Record it and what was decided in
-   `BUILD-LOG.md` and in the PR's "For the reviewer". If `ada-brief overlap` exits with anything
-   other than 0, show the developer its `ada-brief:` message or the error and fix the cause or
-   ask them how to go on; never read it as no overlap.
-3. Summarise for the developer in a short paragraph: what was built, what the review found and how
-   it was resolved, which tests are supplied, what was verified and what was not, and whether
-   `SYSTEM.md` / `API.md` were updated (or why none was needed).
-4. Ask: open the PR?
-5. On yes:
-   - Update `BUILD-LOG.md`.
-   - Commit, credited as in **Commits and credit** below. Every commit says what changed and
-     what was verified (P20). When the handoff `DESIGN.md` says `Status: agreed` and its
-     `Project DESIGN.md:` line says `created` or `updated`, stage the project's `DESIGN.md` at
-     the repo root too.
-   - Push the branch.
-   - Write the PR description to `.claude/handoff/PR.md`, following
-     `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
-     Rules are cited by number. Not-verified items and known gaps are listed so the PIE reviewer
-     can see them. Copy the Run record and the Manual test steps from TEST-REPORT.md. The Review line is the
-     estimate from step 1, not the breakdown; leave the Actual review time line for the
-     reviewer; and "For the reviewer" says where the review is: the changed logic, and any
-     fragile area, by file and function.
-   - Fill its `## Squash commit` section. It holds two fenced `text` blocks for the merger to
-     paste into the squash-merge dialog:
-     - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and
-       specific; it becomes the commit on production.
-     - **Message:** wrapped at 72 characters, in three parts and nothing else. First, what
-       the change does and why, as a few lines or bullets. Then the `Asana:` link. End with
-       the credit lines for every role that took part: `Co-authored-by:` for Bob and Tess,
-       `Reviewed-by:` for Claudia (the lines in Commits and credit). What was verified and
-       not verified stays in the PR description, not in this message.
-
-     Write it as one commit covering the whole PR, not the step's commits pasted together.
-     A new PR has no number until it's opened, so add it to the title once it has one. If a
-     fix round changes what the PR does, update this section too.
-   - Open the PR into the brief's `PR into:` branch (the one `PROJECT.md` names, or a part's
-     feature branch), with `gh pr create` if `gh` is available.
-     If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the
-     Asana app's block):
-     `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
-     `Approval:` line, and its `Design:` line from `.claude/handoff/DESIGN.md`: the artifact link,
-     `text only, in the brief` for a text-only design, or `none` when it isn't `Status: agreed`.
-     Without `gh`, give the developer the compare link and the description to paste. PRs are
-     squash-merged; the `## Squash commit` section is the commit the merger pastes.
-   - If the PR isn't linked to its Asana task yet (the task has no attachment whose URL is the
-     PR), ask the developer to paste the PR's URL into the task's Apps, GitHub, "Add GitHub pull
-     request".
-6. Write `CHECKPOINT.md`.
-
-The PR is the gate. Nothing is merged by this team.
-
-## Commits and credit
-
-You make the team's commits; Bob and Tess don't commit. Stage files by name, the ones this step
-changed; never `git add -A`, `git add .` or `git commit -a`, which sweep up whatever else is in
-the working tree. The author stays the developer (their own
-git identity), so the work is theirs. Each role is credited with a trailer instead of Claude
-Code's default line, which the project's settings switch off:
-
-| Commit | Trailers |
-|---|---|
-| The tests (`tests/`) | `Co-Authored-By: Tess (Ada and friends, Claude Code) <tess@ada.pie.co.de>` |
-| The build (everything else) | `Co-Authored-By: Bob (Ada and friends, Claude Code) <bob@ada.pie.co.de>` and `Reviewed-by: Claudia (Ada and friends, Claude Code) <claudia@ada.pie.co.de>` |
-| The brief, onboarding, the project's `DESIGN.md` (Iris), anything you write yourself | `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>` |
-
-Tests first, then the build, so the history shows the tests were written from the brief. Fix
-rounds after a review are folded into the build commit, not committed one by one, with one
-exception: a P30 formatting-only reformat stays its own commit (credited like the build), before
-the build commit, so it can be reviewed and reverted on its own.
-
-Cite the PIE rules as P (P1 onwards) and only the project's own rules as S (`STANDARDS.md`), in
-commits, the PR and the handoff files. End the PR
-description with: "Built by Bob, reviewed by Claudia, tested by Tess. Ada and friends, Claude
-Code." Trim it to the roles that took part.
+You make the team's commits; Bob and Tess don't. Stage files by name; never `git add -A`,
+`git add .` or `git commit -a`. Credit each role as `pr-gate.md` (Commits and credit) says.
 
 ## Anti-drift
 
