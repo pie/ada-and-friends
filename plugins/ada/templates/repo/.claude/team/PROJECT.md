@@ -109,10 +109,10 @@ emails disabled. Say what a check should verify.>
   `PRESSTEST_CUSTOMER_USERNAME` / `PRESSTEST_CUSTOMER_PASSWORD` if a test needs a shop customer.
   For staging (`--env staging`), the same with `PRESSTEST_STAGING_` in front: local values are
   never sent to staging. Needs Docker, curl and jq, and the Presstest Companion plugin (1.3.0 or
-  later) on the local site. The runner image is private, so each developer logs Docker in to
-  ghcr.io once, with a GitHub account that can read pie/presstest.io:
-  `gh auth refresh -h github.com -s read:packages`, then
-  `gh auth token | docker login ghcr.io -u <their GitHub username> --password-stdin`.
+  later) on the local site. The runner image is private: each developer logs Docker in to
+  ghcr.io once, as the "PressTest tests" section of the ada README says
+  (https://github.com/pie/ada-and-friends#presstest-tests), which also says how to read the
+  report token.
   <Which tests need the customer, if any.>
 - **Also checked before anything runs on the local site:** the background runners (Action
   Scheduler, WP-Cron) are frozen; the time WordPress reports from a web request is the intended

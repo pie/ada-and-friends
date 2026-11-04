@@ -9,8 +9,8 @@ Releasing in DEVELOPING.md).
   runs the project's own Playwright tests, in `tests/presstest/`, in the PressTest runner image
   (`ghcr.io/pie/presstest-runner`), with the shared suites the project names. Docker pulls the
   image the first time a version is used. The image is private: each developer logs Docker in
-  to ghcr.io once (`PROJECT.md`, Local copies, says how), with a GitHub account that can read
-  pie/presstest.io.
+  to ghcr.io once, with a GitHub account that can read pie/presstest.io. The README's new
+  PressTest tests section has the steps, and how to read the site's report token.
   - Two lines in `PROJECT.md` replace `PressTest suite:`: `PressTest image:` (the version the
     tests are pinned to, such as `1.0.0`) and `PressTest shared suites:` (such as
     `wordpress-core`, `woocommerce-core`). `PRESSTEST_DIR` is no longer used.

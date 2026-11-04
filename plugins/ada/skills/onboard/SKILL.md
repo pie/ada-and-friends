@@ -183,7 +183,7 @@ the lines of `local.env` named here; the file also holds the developer's secrets
    - that each developer adds their PressTest logins and the site's report token, the
      `PRESSTEST_*` lines, to `.claude/team/local.env` (`PROJECT.md`, Local copies), checks them
      with `presstest config`, logs Docker in to ghcr.io once (the runner image is private:
-     `PROJECT.md`, Local copies), and runs `presstest run` once against their local site;
+     the ada README's PressTest tests section has the steps), and runs `presstest run` once against their local site;
    - if pie/presstest.io has tests for this project, that moving them into `tests/presstest/` is
      its own step;
    - if the project is clock-sensitive, the clock setup `ada-onboard clock` chose, and what is

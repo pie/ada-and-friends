@@ -238,7 +238,12 @@ run)
 	if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 		echo "presstest: pulling $IMAGE"
 		docker pull -q "$IMAGE" >&2 \
-			|| die "couldn't pull $IMAGE. The image is private: log Docker in to ghcr.io once, with gh auth refresh -h github.com -s read:packages, then gh auth token | docker login ghcr.io -u <your GitHub username> --password-stdin. If you have, check the version in PROJECT.md is published."
+			|| die "$(printf '%s\n' "couldn't pull $IMAGE." \
+				'The image is private. Log Docker in to ghcr.io once, in a normal terminal:' \
+				'  gh auth refresh -h github.com -s read:packages   (approve the code in the browser)' \
+				'  gh auth status                                    (read:packages must be listed)' \
+				'  gh auth token | docker login ghcr.io -u "$(gh api user -q .login)" --password-stdin' \
+				"If you have, check the version in PROJECT.md is published. The steps, and what to do without gh: the ada plugin's README, PressTest tests.")"
 	fi
 
 	# Exit 3: the site asks for a Basic auth password (such as a host's staging protection), which
