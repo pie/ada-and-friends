@@ -58,11 +58,12 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
 - `presstest` runs a project's PressTest tests on the developer's local site, in the runner image
   `ghcr.io/pie/presstest-runner`. The tests (`tests/presstest/`), the image version and the shared
   suites are the repo's (`PROJECT.md`); the site and the secrets are the developer's
-  (`.claude/team/local.env`). It starts the site's test session and always ends it. It tests the local site (`.local` and `.test` hosts) or, with
-  `--env staging`, the staging URL in `PROJECT.md`, with separate `PRESSTEST_STAGING_*` settings.
-  There is no production option: the suites place orders, and nothing marks a test as safe for
-  live. It only touches the clone's `playwright` container, recreating it when the local site's
-  domain isn't mapped into it.
+  (`.claude/team/local.env`). It starts the site's test session and always ends it. It tests the
+  local site (`.local` and `.test` hosts) or, with `--env staging`, the staging URL in
+  `PROJECT.md`, with separate `PRESSTEST_STAGING_*` settings. There is no production option: the
+  suites place orders, and nothing marks a test as safe for live. Each run starts a fresh
+  container from the image, removed when it ends, with the local site's domain mapped to the
+  host.
 - `ada-clock` puts the developer's local WordPress site at a fake time. The site, its WordPress
   root and the WP-CLI command are the developer's (`.claude/team/local.env`); it refuses any site
   not on `localhost`, `127.0.0.1`, `.local` or `.test`. `install` copies a mu-plugin from

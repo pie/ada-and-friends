@@ -309,7 +309,8 @@ run)
 		-v "$RESULTS:/app/test-results")
 	[ ! -d "$TESTS" ] || docker_args+=(-v "$TESTS:/all-tests/project:ro")
 	echo "presstest: $env, $URL, ${targets[*]}"
-	docker run "${docker_args[@]}" "$IMAGE" playwright test "${targets[@]}" --project="$browser" || true
+	ran=0
+	docker run "${docker_args[@]}" "$IMAGE" playwright test "${targets[@]}" --project="$browser" || ran=$?
 	session_end
 
 	report="$RESULTS/run/results.json"
@@ -324,6 +325,16 @@ run)
 	total=$(( passed + failed + $(count skipped) ))
 	if [ "$failed" -gt 0 ]; then
 		echo "presstest: failed $failed of $total; artifacts in .claude/presstest/run/artifacts"
+		exit 1
+	fi
+	# Playwright can fail with no test failed (no tests found, an error before they start), and a
+	# run where nothing passed proves nothing: either is a failure, never a pass.
+	if [ "$ran" -ne 0 ]; then
+		echo "presstest: failed, Playwright exited $ran with no test failed (see above)"
+		exit 1
+	fi
+	if [ "$passed" -eq 0 ]; then
+		echo 'presstest: failed, no test ran (see above)'
 		exit 1
 	fi
 	echo "presstest: passed $passed"

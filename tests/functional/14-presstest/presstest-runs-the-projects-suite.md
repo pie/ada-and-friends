@@ -3,7 +3,7 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220130039368040
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 4 Nov 2026, 110 PASS, 0 failed under bash 5 (with node); under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
+- Last run: 4 Nov 2026, 114 PASS, 0 failed under bash 5 (with node); under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
 
 ## Precondition
 
@@ -54,7 +54,8 @@ mkrepo() {
 # A stand-in docker. `image inspect` finds the image when STUB_IMAGE is set; `pull` exits
 # STUB_PULL_RC. A `run` of node is the pre-flight check; a `run` of playwright test records its
 # arguments, the values of the variables it passes in with -e NAME, and writes a report with
-# STUB_PASSED passed and STUB_FAILED failed into the mounted results folder.
+# STUB_PASSED passed and STUB_FAILED failed into the mounted results folder, then exits
+# STUB_PLAYWRIGHT_RC.
 mkdir -p "$W/bin" "$W/log"
 cat > "$W/bin/docker" <<'EOF'
 #!/usr/bin/env bash
@@ -94,7 +95,7 @@ done
 mkdir -p "$results/run"
 printf '{"suites":[{"status":"expected"}],"stats":{"duration":1,"expected":%s,"skipped":1,"unexpected":%s,"flaky":0}}\n' "${STUB_PASSED:-2}" "${STUB_FAILED:-0}" > "$results/run/results.json"
 [ -n "${PRESSTEST_STORAGE_STATE:-}" ] && : > "$results/run/session-state.json"
-exit 0
+exit "${STUB_PLAYWRIGHT_RC:-0}"
 EOF
 # A stand-in curl: a POST starts session 7 (or answers STUB_SESSION_CODE), a DELETE ends it. It
 # records each call's method and URL, its arguments, and the headers it was given in a file.
@@ -220,6 +221,12 @@ t "the last line says failed 1 of 4" grep -q '^presstest: failed 1 of 4' <(tail 
 STUB_NO_REPORT=1 run "$R" run
 t "no report exits 1" test "$(rc)" = 1
 t "and says so" test "$(tail -1 "$W/out")" = 'presstest: failed, no report written'
+STUB_PASSED=0 STUB_PLAYWRIGHT_RC=1 run "$R" run
+t "Playwright failing with no test failed (no tests found) exits 1" test "$(rc)" = 1
+t "and says so" test "$(tail -1 "$W/out")" = 'presstest: failed, Playwright exited 1 with no test failed (see above)'
+STUB_PASSED=0 run "$R" run
+t "a run where no test passed exits 1" test "$(rc)" = 1
+t "and says no test ran" test "$(tail -1 "$W/out")" = 'presstest: failed, no test ran (see above)'
 clear
 STUB_IMAGE='' run "$R" run
 t "a missing image is pulled" test -e "$W/log/pull"
