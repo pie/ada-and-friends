@@ -5,7 +5,31 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **PressTest tests live in the project, and run without a presstest.io clone.** `presstest run`
+  runs the project's own Playwright tests, in `tests/presstest/`, in the PressTest runner image
+  (`ghcr.io/pie/presstest-runner`), with the shared suites the project names. Docker pulls the
+  image the first time a version is used. The image is private: each developer logs Docker in
+  to ghcr.io once (`PROJECT.md`, Local copies, says how), with a GitHub account that can read
+  pie/presstest.io.
+  - Two lines in `PROJECT.md` replace `PressTest suite:`: `PressTest image:` (the version the
+    tests are pinned to, such as `1.0.0`) and `PressTest shared suites:` (such as
+    `wordpress-core`, `woocommerce-core`). `PRESSTEST_DIR` is no longer used.
+  - `presstest run` starts the site's test session and always ends it, even when a test fails,
+    and prints what the session removed. It needs curl and jq, and the Presstest Companion plugin
+    1.3.0 or later on the site. The report token never goes on a command line.
+  - The report and the screenshots of failed tests go to `.claude/presstest/`, which
+    `ada-onboard gitignore` ignores.
+- **Tess writes PressTest tests**, in `tests/presstest/`, instead of functional scripts marked
+  `Automate as: presstest`, and runs them in run mode. She uses the browser only for what a
+  PressTest test can't do: visual checks, exploring a page, and looking into a failure.
+- **Onboarding sets up PressTest**: the image and shared suites lines, a first test
+  (`tests/presstest/site_test.js`), the PressTest column in `TEST-AREAS.md`, and the test logins
+  each developer adds to `local.env`.
+- **In a repo onboarded earlier:** run `ada-onboard gitignore`, and replace the `PressTest suite:`
+  line in `PROJECT.md` with the two new lines (`ada-onboard check` says so until it's done). If
+  the project's tests are still in pie/presstest.io, `presstest run` doesn't reach them: run
+  them from presstest.io (`local-test.sh`) or the companion plugin until the project's own step
+  moves them into `tests/presstest/`.
 
 ## 0.12.0, 4 Nov 2026
 

@@ -55,9 +55,10 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
 - Agents are spawned by their prefixed name: `ada:bob`, never `bob`.
 - `bin/` is on the PATH, so `prod-wp` and `presstest` ship here. Each project still allows them in
   its settings.
-- `presstest` runs a project's PressTest suite on the developer's local site. The suite is the
-  repo's (`PROJECT.md`); the site, the presstest.io clone and the secrets are the developer's
-  (`.claude/team/local.env`). It tests the local site (`.local` and `.test` hosts) or, with
+- `presstest` runs a project's PressTest tests on the developer's local site, in the runner image
+  `ghcr.io/pie/presstest-runner`. The tests (`tests/presstest/`), the image version and the shared
+  suites are the repo's (`PROJECT.md`); the site and the secrets are the developer's
+  (`.claude/team/local.env`). It starts the site's test session and always ends it. It tests the local site (`.local` and `.test` hosts) or, with
   `--env staging`, the staging URL in `PROJECT.md`, with separate `PRESSTEST_STAGING_*` settings.
   There is no production option: the suites place orders, and nothing marks a test as safe for
   live. It only touches the clone's `playwright` container, recreating it when the local site's

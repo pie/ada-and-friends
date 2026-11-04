@@ -62,8 +62,8 @@ State the scripts read and write, in an onboarded project:
 | `.claude/team/.template-hashes` (`<copied\|declined> <sha256> <path>`) | `ada-onboard files` / `refresh` (`bin/ada-onboard:64-88`) | `ada-onboard refresh` |
 | `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:183-247`) | Claude Code |
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:184-187`) |
-| `PROJECT.md` `**PressTest suite:**` and `**PressTest staging:**` (first code span, else first word; `none` or a `<prompt>` means none) | the developer, at onboarding | `presstest` (`bin/presstest:57-71`) |
-| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:272-341`) | `presstest` (`bin/presstest:73-93`); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
+| `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
+| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:272-341`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
 
@@ -414,8 +414,8 @@ Traps:
   `:591`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
   (`bin/prod-wp:17-24`). No production server exists for this repo, so `prod-wp` is never used here.
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
-  overridable, and `PRESSTEST_SUITE` / `PRESSTEST_STAGING_URL` override `PROJECT.md`. This repo's
-  suite is `none`. `ada-clock` reads `LOCAL_URL`, `LOCAL_WP_PATH` (the site's WordPress root),
+  overridable, and `PRESSTEST_IMAGE_VERSION`, `PRESSTEST_SHARED_SUITES` and `PRESSTEST_STAGING_URL`
+  override `PROJECT.md`. This repo's image is `none`. `ada-clock` reads `LOCAL_URL`, `LOCAL_WP_PATH` (the site's WordPress root),
   `ADA_CLOCK_ADAPTER` (`manual` or `local-linux`; unset means `manual`), `ADA_CLOCK_LOCAL_SITE` (the
   Local site ID, local-linux only; unset means the site whose `app/public` is `LOCAL_WP_PATH`) and
   `LOCAL_WP` (the command that runs WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`)

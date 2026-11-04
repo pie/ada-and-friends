@@ -63,10 +63,14 @@ nobody does it again.
    (`LOCAL_URL`) in `.claude/team/local.env`. `PROJECT.md` says what goes there. This file stays
    on your machine. If the project's dates matter, set up its clock too (A local site's clock,
    below).
-6. If the project has a PressTest suite (`PROJECT.md`, Tests), also put in `local.env` where your
-   clone of pie/presstest.io is (`PRESSTEST_DIR`) and the local site's report token
-   (`PRESSTEST_SECRET`). `presstest config` shows what it found. Then `presstest run` runs the
-   project's suite against your local site, for you or for Tess. `presstest run --env staging`
+6. If the project has PressTest tests (`tests/presstest/`, and `PROJECT.md`, Tests), also put the
+   local site's report token (`PRESSTEST_SECRET`) in `local.env`. `presstest config` shows what it
+   found. Then `presstest run` runs the project's tests, and the shared suites it names, against
+   your local site in the PressTest runner image, for you or for Tess. No presstest.io clone is
+   needed, but the image is private: log Docker in to ghcr.io once, with
+   `gh auth refresh -h github.com -s read:packages` and then
+   `gh auth token | docker login ghcr.io -u <your GitHub username> --password-stdin`. Your
+   GitHub account needs read access to pie/presstest.io. `presstest run --env staging`
    runs it on the project's staging site, if `PROJECT.md` names one; its token goes in
    `PRESSTEST_STAGING_SECRET`. It needs Docker, and never runs on production.
 

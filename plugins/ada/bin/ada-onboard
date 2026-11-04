@@ -165,7 +165,7 @@ PY
 	;;
 gitignore)
 	# ada-worktree new copies the lines that name a file into a new worktree (--list).
-	ignore_lines=('.claude/handoff/' '.claude/worktrees/' '.claude/settings.local.json' '.claude/team/local.env' '.phpunit.cache/' 'tools/vendor/')
+	ignore_lines=('.claude/handoff/' '.claude/worktrees/' '.claude/settings.local.json' '.claude/team/local.env' '.claude/presstest/' '.phpunit.cache/' 'tools/vendor/')
 	case "${1:-}" in
 	--list)
 		[ $# -eq 1 ] || die 'usage: ada-onboard gitignore [--list]'
@@ -266,6 +266,10 @@ check)
 	[ -f .claude/settings.json ] && grep -q '"ada@pie"' .claude/settings.json || echo "missing  ada@pie in .claude/settings.json (run: ada-onboard settings)"
 	if [ -f .claude/team/PROJECT.md ]; then
 		grep -q '^## Brief approval' .claude/team/PROJECT.md || echo 'missing  "Brief approval" section in .claude/team/PROJECT.md (see the plugin template)'
+		# Before 0.13.0 the suite was a folder in pie/presstest.io; now the tests are in tests/presstest.
+		if grep -q '\*\*PressTest suite:\*\*' .claude/team/PROJECT.md && ! grep -q '\*\*PressTest image:\*\*' .claude/team/PROJECT.md; then
+			echo 'missing  "PressTest image" and "PressTest shared suites" lines in .claude/team/PROJECT.md, which replace "PressTest suite" (see the plugin template)'
+		fi
 		out="$("$here/ada-brief" who 2>&1 >/dev/null)" || echo "error    brief approval: $out"
 	fi
 	;;
