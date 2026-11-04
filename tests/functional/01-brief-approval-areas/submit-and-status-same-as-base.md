@@ -5,7 +5,7 @@
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198400793919
 - Automate as: none (a self-checking shell script, but it needs GitHub: it pushes, labels and
   opens PRs)
-- Last run: 2026-11-04, not a clean run: this checkout's DoD lines all PASS; the base side and the comparison were hit by GitHub 500s on push (best run 98 PASS, 2 FAIL, a heads read); see the PR
+- Last run: 2026-11-04, clean on host bash 5.2, bash 3.2 and Python 3.8: 100 PASS, 0 FAIL each; both breaks print FAIL where Step 4 says; see the PR
 
 The refactor into a list of areas (Unit A) changes no printed line, exit code, PR body, PR comment
 or label. This script runs one sequence of `who`, `submit` and `status` twice on a scratch GitHub
