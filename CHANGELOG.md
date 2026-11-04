@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.0, 4 Nov 2026
+
 - **Ada costs less to run.** Measured over 215 Ada sessions, over half the cost was Ada's own
   context being re-read on every turn, and about a sixth was work meant for Sonnet running on
   Opus.
