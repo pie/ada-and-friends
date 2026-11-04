@@ -49,7 +49,9 @@ couldn't find or aren't sure of, and wait for answers:
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |
 | Expensive or sensitive tables, classes whose constructors write | ask, and grep for views, `CREATE VIEW` and constructors that save |
 | How local copies are made safe | ask |
-| PressTest suite | the folder names under `all-tests/` in a pie/presstest.io clone, if the developer has one (ask where); then ask them to confirm which is this project's, or `none` |
+| PressTest image | the latest runner image version: `gh api repos/pie/presstest.io/contents/VERSION -q .content \| base64 -d`. If `gh` can't read it, ask |
+| PressTest shared suites | `wordpress-core`, and `woocommerce-core` if the site runs WooCommerce; confirm with the developer, or `none` |
+| Existing PressTest tests | whether pie/presstest.io has a folder for this project under `all-tests/` (`gh api repos/pie/presstest.io/contents/all-tests -q '.[].name'`). If it does, its tests move into `tests/presstest/` as a separate step, not during onboarding |
 | PressTest staging site | ask: the staging URL PressTest may run against, or `none` if there's no staging or Cloudflare's bot challenge blocks PressTest there. Never production |
 | Design guide (what Iris designs within) | if the repo has a root `DESIGN.md`, `Design guide: DESIGN.md`; else a style guide or pattern library in the repo (e.g. under `docs/`, a `styleguide` folder), or a link to one in the README; else `none`, for the developer to correct with a URL or a design system artifact link |
 
@@ -92,9 +94,11 @@ existing docs:
   prompt. Fill the `Design guide:` line under The project (add it if `PROJECT.md` was there
   before and has none): `DESIGN.md` for a root `DESIGN.md`, another path in the repo, a URL, a
   design system artifact link, or `none`. Iris reads it when she designs (`ada:design`, Look
-  first). Write the `PressTest suite:` line as the suite's folder name in a code span, first on
-  the line (`` `vandme` ``), and the `PressTest staging:` line as the staging URL in a code span,
-  or `none` for either: `presstest run` reads them.
+  first). Write the `PressTest image:` line as the version in a code span, first on the line
+  (`` `1.0.0` ``), the `PressTest shared suites:` line as one code span per suite
+  (`` `wordpress-core`, `woocommerce-core` ``), and the `PressTest staging:` line as the staging
+  URL in a code span, or `none` for any of them: `presstest run` reads them. `ada-onboard files`
+  copies a first test, `tests/presstest/site_test.js`; keep it unless PressTest is `none`.
 - **`SYSTEM.md`:** the model, what fires when (hooks, scheduled actions, webhooks, cron), each
   fragile area, the environments, and the gotchas. Trace each claim to code and cite it
   (`file:line`). Mark anything you inferred but couldn't trace with *(unverified)*.
@@ -103,7 +107,8 @@ existing docs:
   owning classes. Leave the P rules to the plugin; don't copy them in.
 - **`TEST-AREAS.md`:** the areas, numbered; where to observe results; the clock positions, if
   anything depends on time. If nothing does, Dates and the clock says "none" and nothing else:
-  delete its `ada-clock` steps and rules.
+  delete its `ada-clock` steps and rules. The PressTest column names each area's files under
+  `tests/presstest/` (`site_test.js` to start with), or `none`.
 - **`CLAUDE.md`:** short. The layout, the team commands, and the project's one or two hard rules.
 - **`prod.env`:** add the never-query list (`PROD_FORBIDDEN`) once you know it.
 
@@ -175,9 +180,12 @@ the lines of `local.env` named here; the file also holds the developer's secrets
    - what you couldn't find out;
    - that **they must read and correct `SYSTEM.md` and `PROJECT.md` before the first
      `/ada:begin`**;
-   - if the project has a PressTest suite, that each developer adds their `PRESSTEST_*` lines to
-     `.claude/team/local.env` (`PROJECT.md`, Local copies), then checks them with
-     `presstest config`;
+   - that each developer adds their PressTest logins and the site's report token, the
+     `PRESSTEST_*` lines, to `.claude/team/local.env` (`PROJECT.md`, Local copies), checks them
+     with `presstest config`, logs Docker in to ghcr.io once (the runner image is private:
+     the ada README's PressTest tests section has the steps), and runs `presstest run` once against their local site;
+   - if pie/presstest.io has tests for this project, that moving them into `tests/presstest/` is
+     its own step;
    - if the project is clock-sensitive, the clock setup `ada-onboard clock` chose, and what is
      still to do for it (`LOCAL_URL`, `sudo apt install faketime`, `ada-clock install`, the
      restart in Local). Each other developer runs `ada-onboard clock` and `ada-clock install`

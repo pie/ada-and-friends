@@ -58,8 +58,9 @@ item and the UI. You can't write its expected result until the UI is designed.
 
 Mark each check **terminal** (you can run it), **local** (needs the local site, a browser or the
 clock; the developer runs it with your exact steps, or you do in run mode if the developer asks)
-or **suite** (the project's PressTest suite covers it, if it has one: `PROJECT.md` names it and
-`TEST-AREAS.md` says what it covers). Write every local check as exact steps a person can follow,
+or **suite** (a PressTest test covers it: the project's own in `tests/presstest/`, named in the
+PressTest column of `TEST-AREAS.md`, or a shared suite `PROJECT.md` names under Tests, or one you
+will write in write mode). Write every local check as exact steps a person can follow,
 even if you may run it yourself: they are the fallback.
 
 Then give each Definition of Done item the test that will be **supplied with the PR** (`P29`), the
@@ -81,10 +82,16 @@ the tests say what the brief says, so they are written before or beside the buil
 2. **Functional:** a script under `tests/functional/<area number>-<area>/<slug>.md` from
    `tests/functional/TEMPLATE.md`. Exact steps, exact expected results, where to look. Add to an
    existing script for the same behaviour rather than starting a near-copy.
-3. **PressTest:** draft the scenario as a functional script marked `Automate as: presstest`, with
-   the expected behaviour in full. Selectors come later, from the built page.
+3. **PressTest:** a Playwright test under `tests/presstest/`, following `tests/README.md`, for what
+   a visitor, customer or admin sees and does on the site. Add to the area's existing file (the
+   PressTest column of `TEST-AREAS.md`) rather than starting a new one. Expected results from the
+   brief and the handoff `DESIGN.md`. Find elements by the role, label or text they give; where
+   they give none that is stable, use a `data-test` attribute and name it in `TEST-PLAN.md`, so
+   Bob adds it. Create test data with the `presstest` fixture, never by hand. Check the file loads
+   with `presstest list`; it can't pass until Bob has built the step.
 
-List every file you wrote in `TEST-PLAN.md` under Tests supplied. Then stop.
+List every file you wrote in `TEST-PLAN.md` under Tests supplied, with its area for a new
+PressTest file, so Ada adds it to `TEST-AREAS.md`. Then stop.
 
 Only ever write under `tests/`. If a test turns out to be wrong, it's because the brief was: say
 so under Escalate; never quietly change an expectation to match the code.
@@ -103,18 +110,22 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
 
 1. Run every **terminal** check, including the unit tests (`tests/README.md`). Record the command
    and the result.
-2. Run the **suite** checks with `presstest run`. It runs the project's suite against the local
-   site, so make sure the site runs this step's code first (`PROJECT.md`, Local copies). The
+2. Run the **suite** checks with `presstest run`. It runs the project's PressTest tests, and the
+   shared suites `PROJECT.md` names, against the local site, so make sure the site runs this step's code first (`PROJECT.md`, Local copies). The
    suite places orders on the shared local site, so before every local run, even when nobody
    asked you to run local checks, check the preconditions in step 1 of **Running local checks
    yourself** (the local safety checks, frozen background runners, nothing left over from an
    earlier run). If any fails, don't run the suite: record what failed and report it under
    Escalate. Afterwards, clean up as in step 7 of that section. Run the files that cover the
-   step (`presstest run checkout_test.js ...`; `presstest list` shows them), or the whole suite if
-   the step touches checkout or anything they share. Record the command and its last line
+   step (`presstest run checkout_test.js ...`; `presstest list` shows them; it runs only those, not
+   the shared suites), or everything if the step touches checkout or anything they share. Record the command and its last line
    (`presstest: passed <n>` or `presstest: failed <n> of <total>`), and for each failure the
-   test's name and error from the summary. If it stops before running (exit 2: no clone, no
-   Docker, the site not started or password-protected), record what it printed and hand the
+   test's name and error from the summary, and its `ended test session` line (what the session
+   removed). A failure you can't explain from the error is triaged in the browser (step 6 of
+   **Running local checks yourself**), if Chrome is connected, with the screenshot and trace in
+   `.claude/presstest/run/artifacts`. A failure in a shared suite is reported, never fixed: those
+   tests belong to pie/presstest.io. If it stops before running (exit 2: no Docker, the image
+   can't be pulled, the site not started or password-protected), record what it printed and hand the
    suite to the developer like a local check: `presstest run` once they've fixed it, or WP admin
    → Presstest on the review site once the branch is merged there. Run on staging (`presstest
    run --env staging`) only if Ada's spawn says the developer asked, and say which site each
@@ -220,7 +231,9 @@ so:
    reset the clock (step 7), mark each date check not run **Not verified**, and carry on with
    the checks that aren't date checks. When the date checks are done, reset the clock (step 7).
 6. **Checking in the browser.** Only when Ada's spawn says Chrome is connected. Plan, write and
-   test-fix modes never use the browser.
+   test-fix modes never use the browser. Use it only for what a PressTest test can't do: the
+   design comparison and other visual checks, exploring a page a check needs, and triaging a
+   PressTest failure. Behaviour a PressTest test covers is checked by running it, not by hand.
    - If the Chrome tools aren't already available, load them with `ToolSearch`.
    - Open only `LOCAL_URL` from `.claude/team/local.env`, and pages under it. Read it from the
      file (`presstest config`, or only the `LOCAL_URL` line: the file also holds the developer's
@@ -254,8 +267,10 @@ so:
    5): then the reset is owed and listed, not run. After it, run `ada-clock status`, whose
    first line must be `ada-clock: real` (if it isn't, report it under Escalate). Under
    `manual`, give Ada the steps `reset` printed, for the developer. Both go in the Run record.
-   After a suite run, list the orders the suite placed: find them with WP-CLI by the run's start
-   and end times, give their IDs, and leave them for the developer (don't delete them). The
+   After a suite run, record its `ended test session` line: the session removes what the tests
+   created. If there was no session (`presstest run` said it wasn't started) or it couldn't be
+   ended, list the orders the suite placed: find them with WP-CLI by the run's start and end
+   times, give their IDs, and leave them for the developer (don't delete them). The
    list goes in TEST-REPORT and Ada copies it into the checkpoint.
 
 ## Never
