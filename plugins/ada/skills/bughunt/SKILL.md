@@ -46,7 +46,11 @@ you keep its conclusion and the evidence.
   chat, the issue tracker or findings beyond what the bug needs. Refer to customers by order or
   record ID.
 - Never query what `PROD_FORBIDDEN` lists. `prod-wp` refuses it, but don't try to get round it
-  either.
+  either. While the list is set, a query on `posts` or `postmeta` must name its post types or
+  IDs, so a broad search can't return a forbidden post type's rows.
+- `prod-wp` blocks writes, mail and HTTP from an inspector and says `prod-wp: blocked …`. If you
+  see that line, the script tried to change production: stop, tell the developer, and fix the
+  script before running it again.
 
 ## The hunt
 

@@ -101,6 +101,8 @@ for arg in sys.argv[1:]:
         sys.exit(f'ada-onboard: expected KEY=value with KEY one of {" ".join(sorted(keys))}: {arg}')
     if '\n' in v or '{{' in v:
         sys.exit(f'ada-onboard: bad value for {k}')
+    if k == 'NAMESPACE' and (v.lower() in ('none', 'global') or not re.match(r'^[A-Za-z_][A-Za-z0-9_]*(\\[A-Za-z_][A-Za-z0-9_]*)*$', v)):
+        sys.exit(f'ada-onboard: NAMESPACE must be a PHP namespace; for a project with none, name one for its tests (e.g. AscottAnalytical): {v}')
     values[k] = v
 left = set()
 hashes = read_hashes(root)

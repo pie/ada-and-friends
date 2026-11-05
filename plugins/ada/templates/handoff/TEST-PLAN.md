@@ -19,7 +19,7 @@ automated test).
 
 ## Tests supplied
 
-One row per Definition of Done item (`S29`). Type: **unit**, **presstest** or **functional**.
+One row per Definition of Done item (`P29`). Type: **unit**, **presstest** or **functional**.
 
 | DoD item | Type | File | If none, why |
 |---|---|---|---|

@@ -38,7 +38,7 @@ couldn't find or aren't sure of, and wait for answers:
 |---|---|
 | Project name, client, people | git log authors, README, `style.css` / plugin headers |
 | Code directory (`CODE_DIR`) | the repo layout |
-| Text domain, package, namespace | `style.css`, plugin headers, `namespace` lines, `phpcs.xml.dist` |
+| Text domain, package, namespace | `style.css`, plugin headers, `namespace` lines, `phpcs.xml.dist`. The unit tests live in `<NAMESPACE>\Tests`, so a project with no namespace gets one for its tests from its name, e.g. `AscottAnalytical`; never `none` |
 | Timezone | ask (WordPress's own setting is in the database) |
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
