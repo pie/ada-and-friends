@@ -30,6 +30,22 @@ Releasing in DEVELOPING.md).
   the project's tests are still in pie/presstest.io, `presstest run` doesn't reach them: run
   them from presstest.io (`local-test.sh`) or the companion plugin until the project's own step
   moves them into `tests/presstest/`.
+- **`prod-wp` enforces read-only instead of trusting a marker.** Before, an inspector only had to
+  say `READ-ONLY` in a comment, so one that called `update_option()` still ran on production.
+  - `prod-wp inspect` refuses a script whose code (not its comments) calls a known write, send or
+    shell function, and lists the lines. `tools/bughunt/README.md` has the rules.
+  - On production every inspector now runs after a guard that makes the database session
+    `READ ONLY`, drops any `$wpdb` query that isn't SELECT, SHOW, DESCRIBE or EXPLAIN, and stops
+    email and outgoing HTTP requests, printing `prod-wp: blocked …` for each.
+  - `prod-wp sql` runs in a `READ ONLY` session too.
+  - While `PROD_FORBIDDEN` is set, a query on `posts` or `postmeta` must name its post types or
+    IDs. A `post_content LIKE` search across every post type used to return the rows of a
+    forbidden post type, because the query never named it.
+- **Onboarding templates fit any project** (Copilot's review of the Ascott onboarding): the PR
+  and test plan templates cite the test rule as P29, not S29; `PROJECT.md` says that Approvers
+  `none` means no brief needs approval; the unit test examples work without a namespace or
+  WooCommerce; the functional test template and `phpcs.xml.dist` no longer describe V&Me.
+  `ada-onboard files` refuses `NAMESPACE=none`, which made `namespace none\Tests`.
 
 ## 0.12.0, 4 Nov 2026
 
