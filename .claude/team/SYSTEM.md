@@ -412,7 +412,7 @@ Traps:
   `bin/ada-handoff-init:20`, `bin/ada-plan:31, 35`).
 - **Flags.** `ADA_BRIEF_REQUIRE=1` makes everyone `required` for a dry run (`bin/ada-brief:13-14`,
   `:591`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
-  (`bin/prod-wp:17-24`). No production server exists for this repo, so `prod-wp` is never used here.
+  (`bin/prod-wp:19-30`). No production server exists for this repo, so `prod-wp` is never used here.
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
   overridable, and `PRESSTEST_IMAGE_VERSION`, `PRESSTEST_SHARED_SUITES` and `PRESSTEST_STAGING_URL`
   override `PROJECT.md`. This repo's image is `none`. `ada-clock` reads `LOCAL_URL`, `LOCAL_WP_PATH` (the site's WordPress root),

@@ -20,8 +20,9 @@ not what the code happens to do.
 
 ## Observe at
 
-Where to look: the page, Reports → Meal deliveries, order notes, WooCommerce → Status → Logs
-(source), Tools → Scheduled Actions, the export.
+Where to look (the full list is in `.claude/team/TEST-AREAS.md`), e.g. the page, the browser's
+Network tab and console, an admin screen, order notes, WooCommerce → Status → Logs (source),
+Tools → Scheduled Actions, `debug.log`.
 
 ## Regression
 

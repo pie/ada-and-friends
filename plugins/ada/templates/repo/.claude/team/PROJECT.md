@@ -34,8 +34,8 @@ values.
 - **Trusted:** <`none`, or the GitHub logins who don't need approval but can't approve>
 - **Re-approval triggers:** none (the defaults in /ada:begin apply)
 
-Approvers never need approval. Anyone on neither list does: a new developer is covered without
-anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
+Approvers never need approval. When Approvers is `none`, no brief needs approval. Otherwise
+anyone on neither list does: a new developer is covered without anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
 added by an approver. Once a brief is approved, Ada checks each amendment against the default
 triggers in `/ada:begin` and any this project adds above. Only an amendment that hits one needs
 approving again.
