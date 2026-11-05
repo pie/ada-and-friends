@@ -304,9 +304,15 @@ def gh(path):
 def flat(items):
     return items
 
-def approval(repo, n, label, approvers, labels):
-    """While the label is on the PR: who added it last, when, and whether they are an approver.
-    None when it isn't on."""
+def implicit_areas(approvers):
+    """The areas a brief's approval is split into, each with its label and approvers: one area,
+    covering everything, approved with the LABEL label by any of the approvers."""
+    return [{'slug': 'everything', 'name': 'Everything', 'label': os.environ['LABEL'], 'approvers': approvers, 'catch_all': True}]
+
+def approval(repo, n, area, labels):
+    """While the area's label is on the PR: who added it last, when, and whether they are one of
+    the area's approvers. None when it isn't on."""
+    label = area['label']
     if label not in labels:
         return None
     events = [e for e in flat(gh(f'repos/{repo}/issues/{n}/events')) if e.get('event') == 'labeled' and e.get('label', {}).get('name') == label]
@@ -314,7 +320,7 @@ def approval(repo, n, label, approvers, labels):
         return None
     last = events[-1]
     who = (last.get('actor') or {}).get('login', '').lower()
-    return who, last['created_at'], who in approvers
+    return who, last['created_at'], who in area['approvers']
 PY
 }
 
@@ -527,23 +533,33 @@ PY
 #   comment   amended with no re-approval needed (allowed), and the description doesn't show it
 #             yet; the PR comment is written to its file
 #   reset     re-approval is needed, or there is no approver's label to keep
+# then one line for each label submit removes: those of the areas whose approval isn't kept, so
+# brief-approved after reset and nothing otherwise.
 # after_submit <repo> <pr number> <branch> <brief path in repo> <approvers> <description file> <comment file>
 # The files are arguments, not environment, so Git Bash converts their paths for Python.
 after_submit() {
 	{ brief_py; cat <<'PY'
-repo, n, label, branch, path = (os.environ[k] for k in ('REPO', 'N', 'LABEL', 'BRANCH', 'FILE'))
+repo, n, branch, path = (os.environ[k] for k in ('REPO', 'N', 'BRANCH', 'FILE'))
 pr = gh(f'repos/{repo}/pulls/{n}')
-found = approval(repo, n, label, os.environ['APPROVERS'].split(), [l['name'] for l in pr['labels']])
-verdict = since_approval(f'origin/{branch}', path, found[1]) if found and found[2] else None
+labels = [l['name'] for l in pr['labels']]
+# Each area with its verdict: compare() of its approved version with the brief just pushed, or
+# None when no approver's label is on for it or there is no approved version.
+verdicts = []
+for area in implicit_areas(os.environ['APPROVERS'].split()):
+    found = approval(repo, n, area, labels)
+    verdicts.append((area, since_approval(f'origin/{branch}', path, found[1]) if found and found[2] else None))
 with open(sys.argv[1], encoding='utf-8') as f:
     shown = lines_of(pr['body'] or '') == lines_of(f.read())
-if verdict is None or verdict[0] not in ('same', 'allowed'):
+# The labels of the areas whose approval doesn't carry over to the brief just pushed.
+remove = [area['label'] for area, verdict in verdicts if verdict is None or verdict[0] not in ('same', 'allowed')]
+if remove:
     print('reset')
-elif shown or verdict[0] == 'same':
+elif shown or all(verdict[0] == 'same' for _, verdict in verdicts):
     print('keep' if shown else 'patch')
 else:
+    area, verdict = next((a, v) for a, v in verdicts if v[0] == 'allowed')
     added = verdict[1]
-    text = [f'**Brief amended after approval; no re-approval needed.** Remove the `{label}` label to withdraw the approval.', '']
+    text = [f"**Brief amended after approval; no re-approval needed.** Remove the `{area['label']}` label to withdraw the approval.", '']
     if added:
         text += ['Amendments added since the approved version, each agreed and hitting no re-approval trigger:', '']
         text += amendments_table(added)
@@ -553,8 +569,20 @@ else:
         f.write('\n'.join(text) + '\n')
     print('comment')
 print(pr['html_url'])
+for label in remove:
+    print(label)
 PY
 	} | REPO="$1" N="$2" LABEL="$LABEL" BRANCH="$3" FILE="$4" APPROVERS="$5" py - "$6" "$7"
+}
+
+# The approval areas' labels, one a line. An area's label doesn't depend on its approvers, so
+# none are passed.
+area_labels() {
+	{ brief_py; cat <<'PY'
+for area in implicit_areas([]):
+    print(area['label'])
+PY
+	} | LABEL="$LABEL" py -
 }
 
 # Commits one or more files to a branch that isn't checked out, without touching the working
@@ -652,7 +680,10 @@ submit)
 		out="$(git push -q -u origin "$branch" 2>&1)" || die "push failed: $out"
 	fi
 
-	gh label create "$LABEL" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
+	labels="$(area_labels)" || exit 2
+	while IFS= read -r label; do
+		gh label create "$label" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
+	done <<<"$labels"
 	body="$(mktemp)"; comment="$(mktemp)"; trap 'rm -f "$body" "$comment"' EXIT
 	render_body "$file" "$branch" >"$body"
 	if n="$(pr_number "$branch")"; then
@@ -662,7 +693,9 @@ submit)
 		approvers="${pol%%$'\n'*}"   # the first line: the approvers, or none or missing
 		case "$approvers" in missing|none) approvers='' ;; esac
 		kept="$(after_submit "$r" "$n" "$branch" "$file" "$approvers" "$body" "$comment")" || exit 2
-		{ read -r action; read -r url; } <<<"$kept"
+		# The action, the URL, then the labels to remove. No mapfile: macOS has bash 3.2.
+		kept_lines=(); while IFS= read -r line; do kept_lines+=("$line"); done <<<"$kept"
+		action="${kept_lines[0]}"; url="${kept_lines[1]}"
 		case "$action" in
 		keep)
 			echo "updated  $url (approval kept)" ;;
@@ -675,7 +708,9 @@ submit)
 			echo "updated  $url (approval kept)" ;;
 		reset)
 			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
-			gh api -X DELETE "repos/$r/issues/$n/labels/$LABEL" >/dev/null 2>&1 || true
+			for label in "${kept_lines[@]:2}"; do
+				gh api -X DELETE "repos/$r/issues/$n/labels/$label" >/dev/null 2>&1 || true
+			done
 			echo "updated  $url (approval reset)" ;;
 		esac
 	else
@@ -700,7 +735,7 @@ status)
 	{ brief_py; cat <<'PY'
 pr = json.loads(os.environ['PR'])
 approvers = os.environ['APPROVERS'].split()
-label, mark, repo, pushed = os.environ['LABEL'], os.environ['MARK'], os.environ['REPO'], os.environ['PUSHED']
+mark, repo, pushed = os.environ['MARK'], os.environ['REPO'], os.environ['PUSHED']
 m = re.search(re.escape(mark) + r'\s*(\S+)\s*-->', pr['body'] or '')
 if not m:
     print('not-submitted'); print(f"{pr['url']} has no ada-brief marker: submit with ada-brief submit"); sys.exit()
@@ -713,21 +748,35 @@ from datetime import datetime
 def t(s): return datetime.fromisoformat(s.replace('Z', '+00:00'))
 since_t = t(since)
 n = pr['number']
-found = approval(repo, n, label, approvers, [l['name'] for l in pr['labels']])
-notes = []
-if found:
+labels = [l['name'] for l in pr['labels']]
+# Each area's approval: (who, when, amended since approval) when it holds, else None with its notes.
+approved, notes = [], []
+for area in implicit_areas(approvers):
+    found = approval(repo, n, area, labels)
+    if not found:
+        approved.append(None)
+        continue
     who, when, by_approver = found
     if not by_approver:
-        notes.append(f'the {label} label was added by @{who}, who is not an approver, so it does not count')
+        approved.append(None)
+        notes.append(f"the {area['label']} label was added by @{who}, who is not an approver, so it does not count")
     elif t(when) >= since_t:
-        print(f'approved @{who} {when}'); print(pr['url']); sys.exit()
+        approved.append((who, when, False))
     else:
         # Approved before the brief last changed: the amendments since decide.
         verdict = since_approval(pushed, brief, when)
         if verdict and verdict[0] in ('same', 'allowed'):
-            print(f'approved @{who} {when}'); print('amended since approval; no re-approval needed'); print(pr['url']); sys.exit()
-        reason = ': ' + verdict[0][len('reapprove '):] if verdict else ''
-        notes.append(f'@{who} approved an earlier version; the brief has changed since{reason}')
+            approved.append((who, when, True))
+        else:
+            approved.append(None)
+            reason = ': ' + verdict[0][len('reapprove '):] if verdict else ''
+            notes.append(f'@{who} approved an earlier version; the brief has changed since{reason}')
+if None not in approved:
+    who, when, _ = max(approved, key=lambda a: t(a[1]))
+    print(f'approved @{who} {when}')
+    if any(amended for _, _, amended in approved):
+        print('amended since approval; no re-approval needed')
+    print(pr['url']); sys.exit()
 # The approvers' words since the brief last changed: reviews, line comments and PR comments.
 said = []
 for r in flat(gh(f'repos/{repo}/pulls/{n}/reviews')):
