@@ -5,7 +5,48 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **PressTest tests live in the project, and run without a presstest.io clone.** `presstest run`
+  runs the project's own Playwright tests, in `tests/presstest/`, in the PressTest runner image
+  (`ghcr.io/pie/presstest-runner`), with the shared suites the project names. Docker pulls the
+  image the first time a version is used. The image is private: each developer logs Docker in
+  to ghcr.io once, with a GitHub account that can read pie/presstest.io. The README's new
+  PressTest tests section has the steps, and how to read the site's report token.
+  - Two lines in `PROJECT.md` replace `PressTest suite:`: `PressTest image:` (the version the
+    tests are pinned to, such as `1.0.0`) and `PressTest shared suites:` (such as
+    `wordpress-core`, `woocommerce-core`). `PRESSTEST_DIR` is no longer used.
+  - `presstest run` starts the site's test session and always ends it, even when a test fails,
+    and prints what the session removed. If the site couldn't clean up yet, it says so, with the
+    command that finishes it, and Tess reports it. It needs curl and jq, and the Presstest
+    Companion plugin 1.3.0 or later on the site. The report token never goes on a command line.
+  - The report and the screenshots of failed tests go to `.claude/presstest/`, which
+    `ada-onboard gitignore` ignores.
+- **Tess writes PressTest tests**, in `tests/presstest/`, instead of functional scripts marked
+  `Automate as: presstest`, and runs them in run mode. She uses the browser only for what a
+  PressTest test can't do: visual checks, exploring a page, and looking into a failure.
+- **Onboarding sets up PressTest**: the image and shared suites lines, a first test
+  (`tests/presstest/site_test.js`), the PressTest column in `TEST-AREAS.md`, and the test logins
+  each developer adds to `local.env`.
+- **In a repo onboarded earlier:** run `ada-onboard gitignore`, and replace the `PressTest suite:`
+  line in `PROJECT.md` with the two new lines (`ada-onboard check` says so until it's done). If
+  the project's tests are still in pie/presstest.io, `presstest run` doesn't reach them: run
+  them from presstest.io (`local-test.sh`) or the companion plugin until the project's own step
+  moves them into `tests/presstest/`.
+- **`prod-wp` enforces read-only instead of trusting a marker.** Before, an inspector only had to
+  say `READ-ONLY` in a comment, so one that called `update_option()` still ran on production.
+  - `prod-wp inspect` refuses a script whose code (not its comments) calls a known write, send or
+    shell function, and lists the lines. `tools/bughunt/README.md` has the rules.
+  - On production every inspector now runs after a guard that makes the database session
+    `READ ONLY`, drops any `$wpdb` query that isn't SELECT, SHOW, DESCRIBE or EXPLAIN, and stops
+    email and outgoing HTTP requests, printing `prod-wp: blocked …` for each.
+  - `prod-wp sql` runs in a `READ ONLY` session too.
+  - While `PROD_FORBIDDEN` is set, a query on `posts` or `postmeta` must name its post types or
+    IDs. A `post_content LIKE` search across every post type used to return the rows of a
+    forbidden post type, because the query never named it.
+- **Onboarding templates fit any project** (Copilot's review of the Ascott onboarding): the PR
+  and test plan templates cite the test rule as P29, not S29; `PROJECT.md` says that Approvers
+  `none` means no brief needs approval; the unit test examples work without a namespace or
+  WooCommerce; the functional test template and `phpcs.xml.dist` no longer describe V&Me.
+  `ada-onboard files` refuses `NAMESPACE=none`, which made `namespace none\Tests`.
 
 ## 0.12.0, 4 Nov 2026
 

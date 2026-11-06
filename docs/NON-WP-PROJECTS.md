@@ -24,7 +24,7 @@ Flavour: wordpress | slim
 
 `wordpress` is today's behaviour and the default for a repo with no line, so existing projects
 don't change. Everything below hangs off that line. It follows the precedent of `Versioning:` and
-`PressTest suite:`, which are also free-text lines in PROJECT.md that scripts and prompts read.
+`PressTest image:`, which are also free-text lines in PROJECT.md that scripts and prompts read.
 
 ## Two more things a project varies on
 

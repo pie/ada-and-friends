@@ -78,16 +78,24 @@ less its `<type>/`). No Python of its own; `new` calls `ada-onboard`, which need
 | `remove <path>` | Copies the worktree's `.claude/handoff/*.md` to the main checkout's `.claude/handoff/archive/<YYYY-MM-DD>-<slug>/`, then `git worktree remove`, which deletes the originals with the worktree; if that fails, deletes the copies and the archive folder. Never deletes the branch. Exit 2, nothing changed, for uncommitted changes or untracked files, anything but `*.md` in its handoff, an existing archive folder, the main checkout, the worktree it runs in, a locked worktree, or a path that isn't a worktree | `archived N file(s) to …` and `removed  <path>`, both after the worktree is gone |
 | `main` | | The main checkout's path (the first entry of `git worktree list --porcelain`). Read by `ada-plan`, `ada-brief submit`, `ada-handoff-init --archive-plan` and the skills |
 
-### `prod-wp` (`bin/prod-wp:1-26`)
+### `prod-wp` (`bin/prod-wp:1-39`)
 
 Read-only production access for `/ada:bughunt` in WordPress projects: `config`, `sql`, `inspect`,
-`notes`, `option`, `actions`, `logs`. Not used in this repo (no production).
+`notes`, `option`, `actions`, `logs`. Not used in this repo (no production). Read-only is enforced:
+`sql` runs in a `READ ONLY` MySQL session; `inspect` refuses a script whose code calls a name in
+`WRITE_CALLS` (`bin/prod-wp:82-86`), then runs it after a guard (`GUARD`, `bin/prod-wp:88-140`)
+that makes the session `READ ONLY`, drops any `$wpdb` query that isn't SELECT, SHOW, DESCRIBE or
+EXPLAIN, and stops `wp_mail` and outgoing HTTP, printing `prod-wp: blocked …` on stderr for
+each. With `PROD_FORBIDDEN` set, a `sql` query on `posts` or `postmeta` must name its post type
+or IDs.
 
-### `presstest` (`bin/presstest:1-46`)
+### `presstest` (`bin/presstest:1-54`)
 
-Runs the project's PressTest suite on the developer's local site or the project's staging site:
-`config`, `list`, `run [--env local|staging] [-b <browser>] [<file>_test.js ...]`. `run` prints
-`presstest: <env>, <url>` before the tests and ends with `presstest: passed <n>` or
+Runs the project's PressTest tests (`tests/presstest/`) and its shared suites in the runner image
+on the developer's local site or the project's staging site: `config`, `list`,
+`run [--env local|staging] [-b <browser>] [<file>_test.js ...]`. `run` starts the site's test
+session when there's a report token and always ends it (`presstest: ended test session <id>:
+<summary>`), prints `presstest: <env>, <url>, <targets>` before the tests and ends with `presstest: passed <n>` or
 `presstest: failed <n> of <total>` (exit 1), or `presstest: failed, no report written` (exit 1);
 settings, usage and Docker errors exit 2. Tess reads the last line (`agents/tess.md`, Run mode).
 Not used in this repo (no suite).
