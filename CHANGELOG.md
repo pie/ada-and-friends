@@ -18,6 +18,8 @@ Releasing in DEVELOPING.md).
     and prints what the session removed. If the site couldn't clean up yet, it says so, with the
     command that finishes it, and Tess reports it. It needs curl and jq, and the Presstest
     Companion plugin 1.3.0 or later on the site. The report token never goes on a command line.
+  - A `PROJECT.md` line whose first word is `none` means none, even if an explanation after it
+    names a suite or a site in a code span.
   - The report and the screenshots of failed tests go to `.claude/presstest/`, which
     `ada-onboard gitignore` ignores.
 - **Tess writes PressTest tests**, in `tests/presstest/`, instead of functional scripts marked

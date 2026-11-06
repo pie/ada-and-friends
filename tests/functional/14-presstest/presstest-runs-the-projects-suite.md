@@ -3,7 +3,7 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220130039368040
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 6 Nov 2026, 119 PASS, 0 failed under bash 5 (with node); 4 Nov: 114 PASS; under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
+- Last run: 6 Nov 2026, 122 PASS, 0 failed under bash 5 (with node); 4 Nov: 114 PASS; under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
 
 ## Precondition
 
@@ -150,6 +150,11 @@ R7=$W/r7; mkrepo "$R7" '`1.0.0`' '`../etc`'; run "$R7" config
 t "a shared suite that isn't a name is refused" test "$(rc)" = 2
 R8=$W/r8; mkrepo "$R8" '`1.0.0`' '`project`'; run "$R8" config
 t "a shared suite can't take the project's own folder" test "$(rc)" = 2
+R11=$W/r11; mkrepo "$R11" '`1.0.0`' 'none. The shared `wordpress-core` suite has no guard, so it stays off' 'none (Cloudflare blocks `https://staging.shop.example.com`)'; run "$R11" config
+t "none first, then a suite in a code span, means no shared suites" grep -qx 'shared: *(none)' "$W/out"
+t "none first, then a URL in a code span, means no staging site" grep -qx 'staging: *(none)' "$W/out"
+R12=$W/r12; mkrepo "$R12" '`1.0.0`' '`None`'; run "$R12" config
+t "a code-span None counts as none" grep -qx 'shared: *(none)' "$W/out"
 
 # 2. Settings come from local.env, parsed not executed; other keys and stray lines are ignored;
 #    a # inside a value is kept; the environment overrides; secrets are never printed.
