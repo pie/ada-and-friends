@@ -15,8 +15,9 @@ Releasing in DEVELOPING.md).
     tests are pinned to, such as `1.0.0`) and `PressTest shared suites:` (such as
     `wordpress-core`, `woocommerce-core`). `PRESSTEST_DIR` is no longer used.
   - `presstest run` starts the site's test session and always ends it, even when a test fails,
-    and prints what the session removed. It needs curl and jq, and the Presstest Companion plugin
-    1.3.0 or later on the site. The report token never goes on a command line.
+    and prints what the session removed. If the site couldn't clean up yet, it says so, with the
+    command that finishes it, and Tess reports it. It needs curl and jq, and the Presstest
+    Companion plugin 1.3.0 or later on the site. The report token never goes on a command line.
   - The report and the screenshots of failed tests go to `.claude/presstest/`, which
     `ada-onboard gitignore` ignores.
 - **Tess writes PressTest tests**, in `tests/presstest/`, instead of functional scripts marked
