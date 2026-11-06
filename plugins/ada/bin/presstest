@@ -277,6 +277,13 @@ run)
 		if response="$(curl --silent --show-error --max-time 300 --fail-with-body ${insecure:+--insecure} \
 			-H @<(token_header) -X DELETE "$api/$session_id" 2>&1)"; then
 			echo "presstest: ended test session $session_id: $(jq -c '.summary' <<< "$response" 2>/dev/null || echo "$response")"
+			# The site puts cleanup off while it counts requests still running in the session, and
+			# retries on its hourly expiry job, which needs WP-Cron. Until then the run's data stays.
+			left="$(jq -r '.summary.outstanding // 0' <<< "$response" 2>/dev/null || echo 0)"
+			state="$(jq -r '.status // "ended"' <<< "$response" 2>/dev/null || echo ended)"
+			if [ "$state" != ended ] || { [[ "$left" =~ ^[0-9]+$ ]] && [ "$left" -gt 0 ]; }; then
+				echo "presstest: test session $session_id not cleaned up: $left records left ($state). The site retries on its hourly job, which needs WP-Cron; where WP-Cron is off, an hour after the run: wp cron event run presstest_companion_expire_sessions"
+			fi
 		else
 			echo "presstest: couldn't end test session $session_id; the site removes its data once the session expires, or an administrator can now, from Presstest > Settings. $response" >&2
 		fi

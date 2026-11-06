@@ -268,7 +268,9 @@ so:
    first line must be `ada-clock: real` (if it isn't, report it under Escalate). Under
    `manual`, give Ada the steps `reset` printed, for the developer. Both go in the Run record.
    After a suite run, record its `ended test session` line: the session removes what the tests
-   created. If there was no session (`presstest run` said it wasn't started) or it couldn't be
+   created. If `presstest run` also printed `not cleaned up`, the run's data is still on the site:
+   report the line under Escalate and give Ada its clean-up step for the developer, in the
+   cleanup list. If there was no session (`presstest run` said it wasn't started) or it couldn't be
    ended, list the orders the suite placed: find them with WP-CLI by the run's start and end
    times, give their IDs, and leave them for the developer (don't delete them). The
    list goes in TEST-REPORT and Ada copies it into the checkpoint.

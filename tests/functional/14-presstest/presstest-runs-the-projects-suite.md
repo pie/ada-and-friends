@@ -3,7 +3,7 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220130039368040
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 4 Nov 2026, 114 PASS, 0 failed under bash 5 (with node); under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
+- Last run: 6 Nov 2026, 119 PASS, 0 failed under bash 5 (with node); 4 Nov: 114 PASS; under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
 
 ## Precondition
 
@@ -114,8 +114,10 @@ echo "$method $url" >> "$STUB_LOG/curl"
 if [ "$method" = POST ]; then
   code=${STUB_SESSION_CODE:-201}
   if [ "$code" = 201 ]; then printf '{"id":7,"cookie":{"value":"cookie-v"}}\n201'; else printf '{"message":"Test data is off"}\n%s' "$code"; fi
+elif [ -n "${STUB_CLEANUP_STUCK:-}" ]; then
+  printf '{"id":7,"status":"incomplete","summary":{"in_flight":14,"outstanding":208}}'
 else
-  printf '{"summary":{"deleted":{"user":1}}}'
+  printf '{"id":7,"status":"ended","summary":{"deleted":{"user":1},"outstanding":0}}'
 fi
 EOF
 chmod +x "$W/bin/docker" "$W/bin/curl"
@@ -247,7 +249,8 @@ t "the token is never on curl's command line" not grep -q 's3cr' "$W/log/curl-ar
 t "the session reaches the tests" grep -qx 'PRESSTEST_SESSION_ID=7' "$W/log/env"
 t "so does its cookie" grep -qx 'PRESSTEST_SESSION_CREDENTIALS=cookie-v' "$W/log/env"
 t "the session is ended" grep -qx 'DELETE https://shop.local/wp-json/presstest-companion/v1/sessions/7' "$W/log/curl"
-t "and what it removed is printed" grep -q '^presstest: ended test session 7: {"deleted":{"user":1}}' "$W/out"
+t "and what it removed is printed" grep -q '^presstest: ended test session 7: {"deleted":{"user":1}' "$W/out"
+t "a clean session prints no clean-up warning" not grep -q 'not cleaned up' "$W/out"
 t "the session's cookie file is deleted" not test -e "$R/.claude/presstest/run/session-state.json"
 clear
 STUB_FAILED=1 run "$R" run
@@ -255,6 +258,12 @@ t "the session is ended when a test fails" grep -q '^DELETE ' "$W/log/curl"
 clear
 STUB_NO_REPORT=1 run "$R" run
 t "the session is ended when no report is written" grep -q '^DELETE ' "$W/log/curl"
+clear
+STUB_CLEANUP_STUCK=1 run "$R" run
+t "a session left with records says it wasn't cleaned up" grep -q '^presstest: test session 7 not cleaned up: 208 records left (incomplete)' "$W/out"
+t "and how to finish it" grep -q 'wp cron event run presstest_companion_expire_sessions' "$W/out"
+t "and the result line is still last" test "$(tail -1 "$W/out")" = 'presstest: passed 2'
+t "and the tests' result decides the exit status" test "$(rc)" = 0
 clear
 STUB_SESSION_CODE=403 run "$R" run
 t "a refused session doesn't stop the run" test "$(rc)" = 0
