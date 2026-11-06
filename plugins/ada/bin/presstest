@@ -20,8 +20,8 @@
 #   - **PressTest staging:** `https://staging.example.com`    the staging site's URL
 #
 # The image and staging lines are read from their first `code` span, or else their first word; the
-# shared suites line from all its `code` spans, or else its words. "none", or the template's
-# unfilled <prompt>, means there is none. PRESSTEST_IMAGE_VERSION, PRESSTEST_SHARED_SUITES and
+# shared suites line from all its `code` spans, or else its words. "none" as the first word,
+# whatever follows it, or the template's unfilled <prompt>, means there is none. PRESSTEST_IMAGE_VERSION, PRESSTEST_SHARED_SUITES and
 # PRESSTEST_STAGING_URL in the environment override them. There is no production: the suites
 # place orders.
 #
@@ -65,11 +65,22 @@ project="$root/.claude/team/PROJECT.md"
 conf="$root/.claude/team/local.env"
 
 # A `- **<label>:** value` line from PROJECT.md: its first code span, or else its first word.
+# Whether a line's value is "none": its first word, plain or in a code span, whatever follows, so an
+# explanation after it that names a suite or a site in a code span can't switch it back on.
+is_none() {
+	local first="${1#\`}"
+	first="${first%%[^A-Za-z]*}"
+	shopt -s nocasematch
+	[[ "$first" == none ]]
+	local rc=$?
+	shopt -u nocasematch
+	return $rc
+}
 project_line() {
 	local line
 	[ -f "$project" ] || return 0
 	line="$(sed -n "s/^[[:space:]]*-[[:space:]]*\*\*$1:\*\*[[:space:]]*//p" "$project" | head -1)"
-	if [[ "$line" == '<'* ]]; then
+	if [[ "$line" == '<'* ]] || is_none "$line"; then
 		return 0
 	elif [[ "$line" =~ \`([^\`]*)\` ]]; then
 		echo "${BASH_REMATCH[1]}"
@@ -82,7 +93,7 @@ project_list() {
 	local line
 	[ -f "$project" ] || return 0
 	line="$(sed -n "s/^[[:space:]]*-[[:space:]]*\*\*$1:\*\*[[:space:]]*//p" "$project" | head -1)"
-	[[ "$line" == '<'* ]] && return 0
+	{ [[ "$line" == '<'* ]] || is_none "$line"; } && return 0
 	if [[ "$line" == *\`* ]]; then
 		while [[ "$line" =~ \`([^\`]*)\` ]]; do
 			echo "${BASH_REMATCH[1]}"
