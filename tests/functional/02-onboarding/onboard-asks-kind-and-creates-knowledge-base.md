@@ -11,13 +11,33 @@ what only the skill decides: what it asks, whether it runs `ada-onboard kb`, and
   `kb-folder-and-check.md`, section 8)
 - Last run: not yet run
 
+## What this checks
+
+When a developer runs `/ada:onboard`, Ada asks whether the project is a product or a site. Only a
+product gets a knowledge base. You play a developer onboarding two made-up projects, one of each,
+then check what onboarding wrote.
+
+## Who does what
+
+- Setup and the checks afterwards can be done by Ada, in a session in this checkout. Each has a
+  prompt to paste.
+- Only the two onboarding conversations (B1 and B2) need you, because you answer Ada's questions
+  in a fresh `claude` session in each scratch repo.
+
 ## Precondition
 
 - `claude` logged in, and this checkout with the change in its working tree.
-- Two scratch repos, made below, outside this checkout. Each turns `ada@pie` off in
-  `.claude/settings.local.json` so only the checkout's plugin loads (`DEVELOPING.md:15-22`).
+- Two scratch repos, made by the Setup block below, outside this checkout. Each turns `ada@pie`
+  off in `.claude/settings.local.json` so only the checkout's plugin loads
+  (`DEVELOPING.md:15-22`).
 - Made-up support details only: no real mailbox, query or Asana project. The values below are
   examples; whatever you type, the same values must reach `config.json`.
+- In this script, `<this checkout>` means the full path of the `ada-and-friends` checkout you
+  are testing. The path may have spaces, so quote it.
+
+### Setup
+
+Paste this into a shell, or ask Ada to run it:
 
 ```sh
 for k in product site; do
@@ -28,24 +48,57 @@ for k in product site; do
 done
 ```
 
+Or paste this to Ada, in a session in this checkout:
+
+```text
+Set up the two scratch repos for the onboard dry run in tests/functional/02-onboarding/onboard-asks-kind-and-creates-knowledge-base.md (its Setup block), then wait while I run the onboarding.
+```
+
 ## Steps
 
-### B1. A product
+### B1. A product (you)
 
-1. `cd ~/scratch-onboard-product && claude --plugin-dir <this checkout>/plugins/ada`
-2. Type `/ada:onboard`. Answer its questions; when it asks the kind of project, say
-   **product**. If it asks for the Gmail mailbox, say `support@example.com`; the search query,
-   `label:scratch-support`; the Asana project for support tickets, `Scratch support` with GID
-   `1200000000000001`. Say **no** to anything that would push, open a PR or install anything.
-3. When it finishes (or stops at the hand-over), quit and run the snapshot below in the repo.
+1. Open a new terminal. Don't use the one Ada is running in.
+2. `cd ~/scratch-onboard-product`
+3. `claude --plugin-dir "<this checkout>/plugins/ada"`
+4. Type `/ada:onboard`.
+5. When it asks the kind of project, answer `product`.
+6. Only after that should it ask for the Gmail mailbox, the search query and the Asana support
+   project. Answer with the made-up values:
+   - mailbox: `support@example.com`
+   - search query: `label:scratch-support`
+   - Asana support project: `Scratch support`, GID `1200000000000001`
+7. For any other question, give a sensible answer, or `none`.
+8. Say **no** to anything that pushes, opens a PR or installs anything.
+9. Near the end it should run `ada-onboard kb` and print five `created` lines. If it says
+   something like unknown command `kb`, the installed Ada ran instead of this checkout's. Stop
+   and note it.
+10. Type `/exit`.
+11. Note down the questions it asked, in order.
 
-### B2. A site
+### B2. A site (you)
 
-1. `cd ~/scratch-onboard-site && claude --plugin-dir <this checkout>/plugins/ada`
-2. `/ada:onboard`; when asked the kind, say **site**. Answer the rest as in B1.
-3. Quit and run the snapshot.
+1. In a new terminal, `cd ~/scratch-onboard-site`
+2. `claude --plugin-dir "<this checkout>/plugins/ada"`
+3. Type `/ada:onboard`.
+4. When it asks the kind of project, answer `site`.
+5. It should not ask about Gmail or Asana support, and should not run `ada-onboard kb`.
+6. If it asks whether the project is clock-sensitive, say no. Answer any other question as in B1
+   (sensible answer or `none`), and say no to anything that pushes, opens a PR or installs.
+7. Type `/exit`.
+8. Note down the questions it asked, in order.
 
-Snapshot (from the repo's root; uses this checkout's `ada-onboard`):
+### Checks and clean-up (Ada, or you by hand)
+
+Paste this to Ada, in a session in this checkout, with the questions filled in:
+
+```text
+The onboard dry run is done. Product run asked: <questions>. Site run asked: <questions>. Run the snapshot in both scratch repos, compare with Expected, record the run in TEST-REPORT.md and this script's Last run, then delete both scratch repos.
+```
+
+By hand, run the snapshot in each scratch repo's root (`cd ~/scratch-onboard-product`, then
+`cd ~/scratch-onboard-site`). Replace `<this checkout>` with the checkout's path, keeping the
+quotes. It uses this checkout's `ada-onboard`.
 
 ```sh
 echo "== Kind / Knowledge base lines"; grep -E '^- \*\*(Kind|Knowledge base):\*\*' .claude/team/PROJECT.md
@@ -53,7 +106,13 @@ echo "== folders"; ls -A knowledge-base 2>&1; ls -A knowledge-base/issues 2>&1
 echo "== config.json"; cat knowledge-base/config.json 2>&1
 echo "== placeholders left"; grep -c '{{' knowledge-base/config.json 2>&1
 echo "== sync-state.json"; cat knowledge-base/sync-state.json 2>&1
-echo "== check, knowledge-base lines"; bash <this checkout>/plugins/ada/bin/ada-onboard check | grep -Ei 'knowledge|config\.json' || echo "(none)"
+echo "== check, knowledge-base lines"; bash "<this checkout>/plugins/ada/bin/ada-onboard" check | grep -Ei 'knowledge|config\.json' || echo "(none)"
+```
+
+Compare each output with Expected below. Then clean up:
+
+```sh
+rm -rf ~/scratch-onboard-product ~/scratch-onboard-site
 ```
 
 ## Expected
@@ -95,5 +154,3 @@ The session transcript (questions and the commands it ran), then the snapshot's 
   bullets filled with `site` and `none`.
 - The clock step still behaves as in `onboard-asks-before-clock-install.md` (answer the
   Clock-sensitive question **no** here, so it asks nothing about the clock).
-
-Afterwards: `rm -rf ~/scratch-onboard-product ~/scratch-onboard-site`.
