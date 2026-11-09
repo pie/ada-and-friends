@@ -30,6 +30,8 @@ then check what onboarding wrote.
 - Two scratch repos, made by the Setup block below, outside this checkout. Each turns `ada@pie`
   off in `.claude/settings.local.json` so only the checkout's plugin loads
   (`DEVELOPING.md:15-22`).
+- The fake plugin sits under `plugins/scratch-waitlist/`, not at the repo root, because onboarding
+  stops when the repo root is the plugin (`plugins/ada/skills/onboard/SKILL.md:25-26`).
 - Made-up support details only: no real mailbox, query or Asana project. The values below are
   examples; whatever you type, the same values must reach `config.json`.
 - In this script, `<this checkout>` means the full path of the `ada-and-friends` checkout you
@@ -41,9 +43,9 @@ Paste this into a shell, or ask Ada to run it:
 
 ```sh
 for k in product site; do
-  R=$HOME/scratch-onboard-$k; rm -rf "$R"; mkdir -p "$R/.claude"; git -C "$R" init -q
+  R=$HOME/scratch-onboard-$k; rm -rf "$R"; mkdir -p "$R/.claude" "$R/plugins/scratch-waitlist"; git -C "$R" init -q
   printf '%s\n' '{ "enabledPlugins": { "ada@pie": false } }' > "$R/.claude/settings.local.json"
-  printf '%s\n' '<?php' '/* Plugin Name: Scratch Waitlist' ' * Text Domain: scratch-waitlist */' > "$R/scratch.php"
+  printf '%s\n' '<?php' '/* Plugin Name: Scratch Waitlist' ' * Text Domain: scratch-waitlist */' > "$R/plugins/scratch-waitlist/scratch-waitlist.php"
   git -C "$R" add -A; git -C "$R" -c user.name=t -c user.email=t@example.com commit -q -m init
 done
 ```
@@ -61,7 +63,8 @@ Set up the two scratch repos for the onboard dry run in tests/functional/02-onbo
 1. Open a new terminal. Don't use the one Ada is running in.
 2. `cd ~/scratch-onboard-product`
 3. `claude --plugin-dir "<this checkout>/plugins/ada"`
-4. Type `/ada:onboard`.
+4. Type `/ada:onboard`. If onboarding says the repo root is the plugin and stops, the setup is
+   out of date: stop and tell Ada.
 5. When it asks the kind of project, answer `product`.
 6. Only after that should it ask for the Gmail mailbox, the search query and the Asana support
    project. Answer with the made-up values:
