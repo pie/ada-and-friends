@@ -9,6 +9,15 @@
 #       tell an untouched copy from an edited one.
 #       Keys: PROJECT_NAME PACKAGE NAMESPACE TEXT_DOMAIN TIMEZONE CODE_DIR PROD_SSH PROD_PREFIX
 #       PROD_LOGS
+#   ada-onboard kb [<path>]
+#       Creates a product's knowledge-base folder at <path> (default knowledge-base), for
+#       /ada:kb-sync to fill: copies the plugin's templates/knowledge-base/ into it, never
+#       overwriting a file that exists. Prints "created  <path>/<file>" or "kept     <path>/<file>"
+#       per file. Records no hashes: refresh doesn't touch the folder. <path> is a folder inside
+#       the repo, relative to its root: letters, digits, ., _ and -, separated by /, with no part
+#       starting with a dot (so no . or ..). Anything else, more than one argument, a part of
+#       <path> that is a file, or one that is a symlink to a folder outside the repo exits 2
+#       with nothing written.
 #   ada-onboard refresh [--force | --decline]
 #       Brings the project's PR template up to the plugin's. /ada:begin runs it, so a project
 #       picks up a new template on its first session after a plugin update. Prints one line per
@@ -28,7 +37,11 @@
 #       project already sets it. Reads the SSH host from .claude/team/prod.env to deny direct
 #       SSH to it. Prints the result.
 #   ada-onboard check
-#       Lists what's still missing or still holds a placeholder.
+#       Lists what's still missing or still holds a placeholder. When PROJECT.md's Kind line
+#       reads product and its Knowledge base line gives a path (not none), also prints
+#       "missing  <path>/" when that folder isn't there, "missing  <path>/config.json" when the
+#       folder has none, or "fill in  <path>/config.json: <placeholders>" while it holds a
+#       {{KEY}}; nothing when it's filled in.
 #   ada-onboard clock LOCAL_WP_PATH=<path> LOCAL_WP=<command>
 #       Writes this computer's ada-clock setup to .claude/team/local.env, which /ada:onboard runs
 #       in a clock-sensitive project: ADA_CLOCK_ADAPTER (local-linux on Linux when
@@ -127,6 +140,44 @@ for dirpath, _, files in os.walk(src):
 write_hashes(root, hashes)
 if left:
     print('\nPlaceholders left: ' + ', '.join(sorted(left)))
+PY
+	;;
+kb)
+	usage='usage: ada-onboard kb [<path>]'
+	[ $# -le 1 ] || die "$usage"
+	if [ $# -eq 1 ]; then kb_path="${1%/}"; else kb_path='knowledge-base'; fi
+	# A relative path with no part starting with a dot, so it can't leave the repo through ..
+	kb_path_re='^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$'
+	[[ "$kb_path" =~ $kb_path_re ]] || die "<path> must be a folder inside the repo, relative to its root: letters, digits, ., _ and - separated by /, no part starting with a dot: ${1:-}"
+	# Each part of <path> that exists must be a folder, and the real folder it leads to (after any
+	# symlink) must be inside the repo, so every file kb writes lands in the repo.
+	kb_root="$(cd "$root" && pwd -P)"
+	kb_rel=''
+	for kb_part in ${kb_path//\// }; do
+		kb_rel="${kb_rel:+$kb_rel/}$kb_part"
+		[ -e "$root/$kb_rel" ] || [ -L "$root/$kb_rel" ] || break
+		[ -e "$root/$kb_rel" ] || die "$kb_rel is a symlink to nothing"
+		[ -d "$root/$kb_rel" ] || die "$kb_rel is a file, not a folder"
+		kb_real="$(cd "$root/$kb_rel" 2>/dev/null && pwd -P)" || die "$kb_rel can't be opened"
+		case "$kb_real/" in "$kb_root"/*) ;; *) die "$kb_rel leads outside the repo, to $kb_real" ;; esac
+	done
+	kb_src="$(cd "$(dirname "$0")/../templates/knowledge-base" && pwd)"
+	ADA_SRC="$kb_src" ADA_DEST="$root/$kb_path" ADA_PATH="$kb_path" py - <<'PY'
+import os
+src, dest, path = os.environ['ADA_SRC'], os.environ['ADA_DEST'], os.environ['ADA_PATH']
+for dirpath, dirnames, files in os.walk(src):
+    dirnames.sort()
+    for name in sorted(files):
+        s = os.path.join(dirpath, name)
+        rel = os.path.relpath(s, src).replace(os.sep, '/')
+        d = os.path.join(dest, rel)
+        if os.path.exists(d):
+            print(f'kept     {path}/{rel}')
+            continue
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        text = open(s, encoding='utf-8').read()
+        open(d, 'w', encoding='utf-8', newline='\n').write(text)
+        print(f'created  {path}/{rel}')
 PY
 	;;
 refresh)
@@ -251,12 +302,15 @@ check)
 	# This script's folder, worked out before the cd below so a relative $0 still resolves.
 	here="$(cd "$(dirname "$0")" && pwd)"
 	cd "$root"
+	# The {{KEY}} placeholders in a file, each once, followed by a space; empty when it has none.
+	placeholders() { grep -oE '\{\{[A-Z_]+\}\}' "$1" | sort -u | tr '\n' ' ' || true; }
 	for f in CLAUDE.md .claude/team/PROJECT.md .claude/team/SYSTEM.md .claude/team/API.md \
 	         .claude/team/STANDARDS.md .claude/team/TEST-AREAS.md .claude/team/prod.env \
 	         .claude/settings.json tests/README.md tools/composer.json phpcs.xml.dist phpunit.xml.dist; do
 		[ -e "$f" ] || { echo "missing  $f"; continue; }
-		if grep -qE '\{\{[A-Z_]+\}\}' "$f"; then
-			echo "fill in  $f: $(grep -oE '\{\{[A-Z_]+\}\}' "$f" | sort -u | tr '\n' ' ')"
+		left="$(placeholders "$f")"
+		if [ -n "$left" ]; then
+			echo "fill in  $f: $left"
 		# A <prompt> counts outside code only: `<type>/<slug>` in backticks or a fence is syntax.
 		elif [[ "$f" == *.md ]] && prompts="$(awk '/^ *```/ { fence = !fence; next } !fence' "$f" |
 				sed -E 's/`[^`]*`//g' | grep -cE '<[A-Za-z][^<>]{3,}>')" && [ "$prompts" -gt 0 ]; then
@@ -273,6 +327,36 @@ check)
 			echo 'missing  "PressTest image" and "PressTest shared suites" lines in .claude/team/PROJECT.md, which replace "PressTest suite" (see the plugin template)'
 		fi
 		out="$("$here/ada-brief" who 2>&1 >/dev/null)" || echo "error    brief approval: $out"
+	fi
+	project="$root/.claude/team/PROJECT.md"
+	# A `- **<label>:** value` line from PROJECT.md: its first code span, or else its first word.
+	# A copy of bin/presstest's project_line, because scripts can't share a file outside
+	# templates/: a change to one is made to both.
+	project_line() {
+		local line
+		[ -f "$project" ] || return 0
+		line="$(sed -n "s/^[[:space:]]*-[[:space:]]*\*\*$1:\*\*[[:space:]]*//p" "$project" | head -1)"
+		if [[ "$line" == '<'* ]]; then
+			return 0
+		elif [[ "$line" =~ \`([^\`]*)\` ]]; then
+			echo "${BASH_REMATCH[1]}"
+		else
+			echo "${line%%[[:space:],;(]*}"
+		fi
+	}
+	# Only a product with a knowledge-base path has a folder to check: no Kind line, site, a
+	# <prompt> or Knowledge base none add nothing, as for a project onboarded before Kind.
+	kb_path="$(project_line 'Knowledge base')"
+	kb_path="${kb_path%/}"
+	if [ "$(project_line 'Kind')" = product ] && [ -n "$kb_path" ] && [ "$kb_path" != none ]; then
+		if [ ! -d "$kb_path" ]; then
+			echo "missing  $kb_path/ (run: ada-onboard kb $kb_path)"
+		elif [ ! -f "$kb_path/config.json" ]; then
+			echo "missing  $kb_path/config.json (run: ada-onboard kb $kb_path)"
+		else
+			left="$(placeholders "$kb_path/config.json")"
+			[ -z "$left" ] || echo "fill in  $kb_path/config.json: $left"
+		fi
 	fi
 	;;
 clock)
@@ -346,6 +430,6 @@ clock)
 	echo "setup: $(env_value ADA_CLOCK_ADAPTER)"
 	;;
 *)
-	die 'usage: ada-onboard files KEY=value... | refresh [--force | --decline] | gitignore | settings | check | clock LOCAL_WP_PATH=<path> LOCAL_WP=<command> (see the header of this script)'
+	die 'usage: ada-onboard files KEY=value... | kb [<path>] | refresh [--force | --decline] | gitignore | settings | check | clock LOCAL_WP_PATH=<path> LOCAL_WP=<command> (see the header of this script)'
 	;;
 esac

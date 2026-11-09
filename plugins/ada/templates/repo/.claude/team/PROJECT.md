@@ -10,6 +10,8 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 - **Client:** <name>. Approves: <who>. Releases: <who>.
 - **People:** <PIE developers>, <client developers>
 - **Known issues live in:** <Asana project name and URL>. Search it before investigating a bug.
+- **Kind:** <one of `product` (a plugin or theme PIE sells and supports) or `site` (a client's website)>
+- **Knowledge base:** `none` <or, for a product, the folder's path, e.g. `knowledge-base/`>
 - **Design guide:** `none` <or a path in the repo, a URL, or a design system artifact link>
 - **Budget:** standard <`standard`, or `lean`: Bob, Claudia and Tess's Opus work at medium effort
   instead of high, for a project where a slip costs little. `/ada:begin` has the model table>

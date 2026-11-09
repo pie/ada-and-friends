@@ -3,7 +3,7 @@
 - Area: 02 Onboarding and refresh (`ada-onboard`); 12 Platforms (bash 3.2, a CRLF `local.env`)
 - Asana: https://app.asana.com/1/100438094841948/project/100438094841951/task/1219984586830313
 - Automate as: none (the Steps block is a self-checking shell script)
-- Last run: 29 Oct 2026, 0 failed (61 PASS) under bash 5.2 and Docker bash 3.2; both breaks fail as they should (see the PR)
+- Last run: 30 Oct 2026, 0 failed under bash 5.2 (see the PR)
 
 ## Precondition
 

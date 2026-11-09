@@ -42,6 +42,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Timezone | ask (WordPress's own setting is in the database) |
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
+| Kind | ask: "Is this a plugin or theme PIE sells and supports, or a client's website?" The first is `product`, the second `site`. For a product, also ask for the Gmail mailbox its support emails arrive in, the Gmail search query that finds them, and the Asana project for its support tickets (its name and GID). Step 5 puts them in the knowledge base's `config.json` |
 | Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin` (its `approval.md`); list them on `Re-approval triggers:`, else leave `none` |
 | Budget | ask: "Is this a project where a slip costs little (a brochure site, no payments or subscriptions)?" Yes → `lean`; otherwise `standard`. Say they can change it at any time, and that a step in a fragile area should run on `standard` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
@@ -98,7 +99,9 @@ existing docs:
   (`` `1.0.0` ``), the `PressTest shared suites:` line as one code span per suite
   (`` `wordpress-core`, `woocommerce-core` ``), and the `PressTest staging:` line as the staging
   URL in a code span, or `none` for any of them: `presstest run` reads them. `ada-onboard files`
-  copies a first test, `tests/presstest/site_test.js`; keep it unless PressTest is `none`.
+  copies a first test, `tests/presstest/site_test.js`; keep it unless PressTest is `none`. Write
+  the `Kind:` line as `` `product` `` or `` `site` `` in a code span, and leave `Knowledge base:`
+  as `` `none` ``: step 5 sets it for a product.
 - **`SYSTEM.md`:** the model, what fires when (hooks, scheduled actions, webhooks, cron), each
   fragile area, the environments, and the gotchas. Trace each claim to code and cite it
   (`file:line`). Mark anything you inferred but couldn't trace with *(unverified)*.
@@ -115,7 +118,29 @@ existing docs:
 Depth matters most where the fragile areas are. A shallow line about a stable area is fine; a
 shallow line about the area that breaks is not.
 
-## 5. The local clock
+## 5. The knowledge base
+
+Only when `PROJECT.md`'s Kind line says `product`. When it says `site`, skip this step: don't run
+`ada-onboard kb`, and leave `Knowledge base:` as `` `none` ``.
+
+A product's knowledge base holds its past support issues, for `/ada:kb-sync` to fill from the
+support emails and tickets and for Grace to search when she investigates a bug.
+
+1. **Create the folder.** Run `ada-onboard kb`. It copies the plugin's knowledge-base template
+   into `knowledge-base/`, never overwriting a file that exists, and prints `created` or `kept`
+   per file. If the developer wants the folder somewhere else in the repo, give its path:
+   `ada-onboard kb docs/kb`.
+2. **Fill `config.json`** in the folder from the step 2 answers: `{{GMAIL_MAILBOX}}` with the
+   Gmail mailbox, `{{GMAIL_QUERY}}` with the search query, and `{{ASANA_PROJECT_NAME}}` and
+   `{{ASANA_PROJECT_GID}}` with the Asana project for support tickets. Leave `sync-state.json` as
+   it is: `/ada:kb-sync` keeps it.
+3. **Set the `Knowledge base:` line** in `PROJECT.md` to the folder's path in a code span
+   (`` `knowledge-base/` ``). `ada-onboard check` reads it, and reports the folder if it's
+   missing or `config.json` still holds a `{{KEY}}`.
+
+The folder is committed with the drafted knowledge (step 7).
+
+## 6. The local clock
 
 Only when `PROJECT.md`'s Clock-sensitive behaviour line says yes. When it says no, skip this
 step: don't run `ada-onboard clock` or any `ada-clock` command, and don't ask about the clock.
@@ -169,12 +194,13 @@ the lines of `local.env` named here; the file also holds the developer's secrets
      `ada-clock extension`; it copies the extension to `~/.config/ada-clock/chrome-extension/` and
      prints how to load it in Chrome (`chrome://extensions`, Developer mode, Load unpacked).
 
-## 6. Hand over
+## 7. Hand over
 
 1. Run `ada-onboard check` and fix what it lists, except the prompts only the developer can
    answer.
 2. Commit on the onboarding branch: the templates and settings in one commit, the drafted
-   knowledge in another, so the knowledge can be reviewed on its own.
+   knowledge in another (with the knowledge-base folder, for a product), so the knowledge can be
+   reviewed on its own.
 3. Tell the developer, in a short list:
    - what you drafted, and how many lines are marked *(unverified)*;
    - what you couldn't find out;
@@ -186,6 +212,8 @@ the lines of `local.env` named here; the file also holds the developer's secrets
      the ada README's PressTest tests section has the steps), and runs `presstest run` once against their local site;
    - if pie/presstest.io has tests for this project, that moving them into `tests/presstest/` is
      its own step;
+   - if the project is a product, where its knowledge base is, and that it starts empty:
+     `/ada:kb-sync` fills it from the mailbox and the Asana project in its `config.json`;
    - if the project is clock-sensitive, the clock setup `ada-onboard clock` chose, and what is
      still to do for it (`LOCAL_URL`, `sudo apt install faketime`, `ada-clock install`, the
      restart in Local). Each other developer runs `ada-onboard clock` and `ada-clock install`
