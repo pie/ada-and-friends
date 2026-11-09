@@ -9,7 +9,7 @@ what only the skill decides: what it asks, whether it runs `ada-onboard kb`, and
 - Asana: https://app.asana.com/0/0/1220058587596437/f
 - Automate as: none (a dry run for a person; the skill's text is checked by
   `kb-folder-and-check.md`, section 8)
-- Last run: not yet run
+- Last run: 2026-11-09, Anna Werno with Ada: passed (product and site).
 
 ## What this checks
 
@@ -127,7 +127,9 @@ behaves exactly as today):
 
 - Step 2 of the skill asks the kind of project (product or site) and, because the answer is
   product, asks for the Gmail mailbox, the search query and the Asana project for support
-  tickets. It doesn't ask them before the kind is known to be product.
+  tickets. It asks them only for a product: either after the kind is known, or in the same list
+  as the kind question but marked as for a product only (the skill asks everything in one batch
+  at step 2).
 - After step 4, it runs `ada-onboard kb` (the transcript shows the `created` lines for
   `README.md`, `INDEX.md`, `config.json`, `sync-state.json`, `issues/.gitkeep`).
 - Snapshot: `Kind:` is `product` (in a code span); `Knowledge base:` names the folder it made,
