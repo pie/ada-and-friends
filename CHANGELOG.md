@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.13.0, 9 Nov 2026
+
 - **PressTest tests live in the project, and run without a presstest.io clone.** `presstest run`
   runs the project's own Playwright tests, in `tests/presstest/`, in the PressTest runner image
   (`ghcr.io/pie/presstest-runner`), with the shared suites the project names. Docker pulls the
