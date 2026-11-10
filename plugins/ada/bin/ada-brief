@@ -52,6 +52,12 @@
 #                                         ("approved section changed with no amendment
 #                                         recorded")
 #         allowed                         anything else
+#       After "reapprove", when <current-brief> has an "Areas: <slug>, ..." header line, a second
+#       line "areas: <slug>, ..." names the areas to approve again, in that line's order: from
+#       each added row, the slugs of its "needed: <slug>, ..." when all are on the Areas line
+#       and the row has an Agreed by, none for "not needed", else every area; "areas:
+#       catch-all" when an approved section changed with no added row. Without an Areas line
+#       (or with one holding no slug, or the template's "<...>" prompt) the output is as above.
 #       Exits 0 for all three; 2 on wrong arguments or a file it can't read.
 #   The approved version is the brief as committed at or before the last time the
 #   brief-approved label was added, on the pushed branch.
@@ -184,6 +190,9 @@ import json, os, re, subprocess, sys
 # The Re-approval cell of an Amendments row: "not needed ..." or "needed: <trigger>".
 NOT_NEEDED, NEEDED = 'not needed', 'needed:'
 NO_AMENDMENT = 'approved section changed with no amendment recorded'
+# The area reapprove_areas() names for an approved section changed with no Amendments row: the
+# project's catch-all area.
+CATCH_ALL = 'catch-all'
 
 def git_show(rev, path):
     r = subprocess.run(['git', 'show', f'{rev}:{path}'], capture_output=True, encoding='utf-8')
@@ -286,6 +295,73 @@ def compare(approved, current):
     if not added and approved_sections(old) != approved_sections(new):
         return 'reapprove ' + NO_AMENDMENT, added
     return 'allowed', added
+
+def header_value(text, name):
+    """The value of the brief's "<name>:" header line, before the first "##", stripped. None with
+    no such line, an empty value, or a value starting "<" (the template's prompt)."""
+    head, _ = split(strip_comments(text))
+    for line in head:
+        m = re.match(r'^' + re.escape(name) + r':\s*(.*)$', line)
+        if m:
+            value = m.group(1).strip()
+            return None if not value or value.startswith('<') else value
+    return None
+
+def slugs(value):
+    """A comma-separated list as slugs: stripped, lowercased, empty items and repeats dropped,
+    order kept."""
+    out = []
+    for item in value.split(','):
+        slug = item.strip().lower()
+        if slug and slug not in out:
+            out.append(slug)
+    return out
+
+def brief_areas(text):
+    """The slugs on the brief's "Areas:" line, or None without one or with no slug on it."""
+    value = header_value(text, 'Areas')
+    if value is None:
+        return None
+    areas = slugs(value)
+    return areas if areas else None
+
+def brief_author(text):
+    """The login on the brief's "Author: @<login>" line, lowercased without the "@"; None unless
+    the value is one @login."""
+    value = header_value(text, 'Author')
+    if value is None:
+        return None
+    m = re.fullmatch(r'@([A-Za-z0-9-]+)', value)
+    return m.group(1).lower() if m else None
+
+def row_areas(cells, areas):
+    """The areas an added Amendments row sends back for approval: none for "not needed"; the
+    slugs after "needed:" when every one is in areas and the row has an Agreed by; else all of
+    areas (an older "needed: <trigger>" row, a slug the brief doesn't list, no Agreed by, or no
+    re-approval decision)."""
+    problem = row_problem(cells)
+    if problem is None:
+        return []
+    if problem.startswith(NEEDED) and cells[-1]:
+        named = slugs(problem[len(NEEDED):])
+        if named and all(slug in areas for slug in named):
+            return named
+    return list(areas)
+
+def reapprove_areas(approved, current):
+    """The areas of current's "Areas:" line that compare() sends back for approval, in that
+    line's order: those of the added rows, or [CATCH_ALL] when an approved section changed with
+    no added row; [] for "same" and "allowed". None when current has no "Areas:" line."""
+    areas = brief_areas(current)
+    if areas is None:
+        return None
+    verdict, added = compare(approved, current)
+    if not verdict.startswith('reapprove '):
+        return []
+    if not added:
+        return [CATCH_ALL]
+    named = [slug for cells in added for slug in row_areas(cells, areas)]
+    return [slug for slug in areas if slug in named]
 
 def approved_version(rev, path, when):
     """The brief as committed at <rev> at or before <when> (an approval's time), or None."""
@@ -820,6 +896,10 @@ print(verdict)
 if verdict == 'allowed':
     for cells in added:
         print(row_text(cells))
+elif verdict.startswith('reapprove '):
+    areas = reapprove_areas(*texts)
+    if areas is not None:
+        print('areas: ' + ', '.join(areas))
 PY
 	} | py - "$1" "$2"
 	;;
