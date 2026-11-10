@@ -3,7 +3,7 @@
 - Area: 02 Onboarding and refresh (`ada-onboard`); 11 Templates; 12 Platforms
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 28 Oct 2026 (after the rebase onto PR #39), 0 failed (28 PASS) under bash 5, BASE pinned to 05a5365^; see the PR
+- Last run: 30 Oct 2026, 0 failed under bash 5.2 (see the PR)
 
 ## Precondition
 
