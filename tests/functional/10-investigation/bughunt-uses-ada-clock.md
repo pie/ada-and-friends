@@ -5,7 +5,7 @@
 - Asana: https://app.asana.com/0/0/1220047815458144
 - Automate as: none (part A is a self-checking shell script; parts B and C are dry runs on a Local
   site, each with a self-checking after-script)
-- Last run: 2026-11-10, part A passed (0 failed; 16 failed on the start commit, as expected); parts B and C not run (see the PR)
+- Last run: 2026-11-10, part A passed again after PR review round 1 (0 failed; 16 failed on the start commit, as expected); parts B and C not run (see the PR)
 
 ## Precondition
 
