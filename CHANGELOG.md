@@ -5,7 +5,12 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **`/ada:bughunt` names the `ada-clock` commands.** When a bug depends on the time, Grace moves
+  the local site's clock with `ada-clock set`, checks it with `ada-clock status`, runs WP-CLI
+  through `ada-clock wp` and finishes with `ada-clock reset` and a `status` that says
+  `ada-clock: real`. She hands the steps to the developer under the `manual` setup, records the
+  fake time in `FINDINGS.md`, and reports a clock that couldn't be reset. Projects onboarded before
+  `ada-clock` no longer depend on their `TEST-AREAS.md` for the commands.
 
 ## 0.13.0, 9 Nov 2026
 
