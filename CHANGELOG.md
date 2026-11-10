@@ -5,7 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Onboarding allows `ada-clock status`, `ada-clock set` and `ada-clock reset`**, so Tess can
+  read and move the clock without a permission prompt. `ada-clock install`, `uninstall`, `wp` and
+  `extension` still ask. A repo that is already onboarded gets the rules the next time
+  `ada-onboard settings` runs.
 
 ## 0.13.0, 9 Nov 2026
 
