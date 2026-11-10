@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219790041247935
 - Automate as: none (part A is a self-checking shell script with a stub `gh`; part B needs GitHub)
-- Last run: 28 Oct 2026 (after the rebase onto PR #39), part A 0 failed (156 PASS) under bash 5 and Docker bash 3.2; part B not run this round; see the PR
+- Last run: 10 Nov 2026, part A 0 failed (161 PASS) under bash 5, Docker bash 3.2 and Docker Python 3.8; the released-plugin break prints 10 FAIL; part B 0 failed (real GitHub, this repo); see the PR
 
 ## Precondition
 
@@ -34,6 +34,8 @@ as a set (the brief doesn't fix their order).
 3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, and in the copy's
    `bin/ada-brief` make the overlap arm skip the first file argument (or print `touching 0`
    always), then run `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL`.
+   Run against the released plugin (`git archive origin/next-release plugins/ada`), only section
+   7's ten `BF` checks fail: it guesses `production`.
 
 ```bash
 #!/bin/bash
@@ -440,18 +442,40 @@ t "one entry per PR: '  #31 <subject> [src/part1.php, src/part2.php]' (either co
 t "trailing (#N): '#14 Revert ...' listed, its title keeping the inner (#12)" entry_ok "$W8" '#14 Revert "Tidy the reports (#12)"' src/reports.php
 t "trailing (#N): still exactly one '#12' entry" test "$(grp "$W8" | grep -c '^  #12 ')" = 1
 
-# 7. D7 and the Amendments: a PROJECT.md without the branch lines uses production / next-release;
-#    no PROJECT.md at all dies; one line given, the other takes its default.
+# 7. A PROJECT.md without **Branch from:** stops (brief of 10 Nov 2026, "Stop instead of guessing
+#    production", DoD 2; it replaces the 22 Oct production default): exit non-zero, one line
+#    'ada-brief: ...' naming PROJECT.md, **Branch from:** and Code and branches, nothing listed, no
+#    fetch of production, even when origin has a production branch. The PR into default
+#    (next-release) is unchanged; no PROJECT.md at all still dies.
 export STUB_PRS=""   # no open PRs for sections 7 to 9: only the waiting group is under test
+REALGIT=$(command -v git)
+mkdir -p "$W/lg"
+cat > "$W/lg/git" <<EOF
+#!/bin/sh
+echo "git \$*" >> "$W/git.log"
+exec "$REALGIT" "\$@"
+EOF
+chmod +x "$W/lg/git"
+LGPATH="$W/lg:$STUBPATH"   # a git that logs each call, then the stub gh
+bf_msg() { cat "$W/out" "$W/err" | grep -E '^ada-brief: ' | grep -F PROJECT.md | grep -F '**Branch from:**' | grep -qF 'Code and branches'; }
+bf_stop() { test "$(rc)" != 0 && bf_msg && not grep -q '^touching' "$W/out" && not grep -qi "couldn't fetch production" "$W/out" "$W/err"; }
+fetched_prod() { grep -E '(^| )fetch( |$)' "$W/git.log" | grep -q production; }
 history "$W/d" production next-release '# A project with no branch lines'
-run "$W/d/clone" "$STUBPATH" src/shared.php
-t "D7 no branch lines: exit 0 (defaults production / next-release)" test "$(rc)" = 0
-t "D7 no branch lines: 'touching 1'" first_is 'touching 1'
-t "D7 no branch lines: '  #11 Add the widget cache [...]' waiting and marked" eval 'entry_ok "$W8" "#11 Add the widget cache" src/cache.php src/shared.php && ends "$W8" "^  #11 " src/shared.php'
-t "D7 no branch lines: three entries waiting" n_entries "$W8" 3
+for args in src/shared.php '' --gate; do
+  : > "$W/git.log"; run "$W/d/clone" "$LGPATH" $args
+  echo "info: no branch lines, overlap $args: exit $(rc): $(cat "$W/out" "$W/err" | head -n 2 | tr '\n' ' ')"
+  t "BF no branch lines, origin has production, overlap ${args:-(no arguments)}: exits non-zero, the 'ada-brief: ...' Branch from message, nothing listed" bf_stop
+  t "BF no branch lines, origin has production, overlap ${args:-(no arguments)}: no git fetch of production" not fetched_prod
+done
 history "$W/d2" production develop '- **PR into:** `develop`.'
-run "$W/d2/clone" "$STUBPATH" src/shared.php
-t "D7 only PR into given: Branch from defaults to production (exit 0, 'touching 1', #11 waiting)" eval 'test "$(rc)" = 0 && first_is "touching 1" && n_entries "$W8" 3'
+: > "$W/git.log"; run "$W/d2/clone" "$LGPATH" src/shared.php
+t "BF only PR into given, origin has production: stops with the Branch from message" bf_stop
+t "BF only PR into given: no git fetch of production" not fetched_prod
+history "$W/d4" main next-release '- **PR into:** `next-release`. **Test on:** a scratch repo.'
+: > "$W/git.log"; run "$W/d4/clone" "$LGPATH" src/shared.php
+echo "info: no Branch from, no production on origin: exit $(rc): $(cat "$W/out" "$W/err" | head -n 2 | tr '\n' ' ')"
+t "BF no Branch from, no production on origin (like this repo): stops with the Branch from message, no \"couldn't fetch production\"" bf_stop
+t "BF no Branch from, no production on origin: no git fetch of production" not fetched_prod
 history "$W/d3" main next-release '- **Branch from:** `main`.'
 run "$W/d3/clone" "$STUBPATH" src/shared.php
 t "D7 only Branch from given: PR into defaults to next-release (exit 0, 'touching 1', #11 waiting)" eval 'test "$(rc)" = 0 && first_is "touching 1" && n_entries "$W8" 3'
@@ -624,10 +648,11 @@ ok() { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((fails
 grp() { awk -v h="$1" '$0==h{p=1;next} /^[^ ]/{p=0} p' "$W/out"; }
 gh auth status >/dev/null 2>&1 || { echo "SKIP gh is not logged in"; exit 3; }
 b1=$(sed -n 's/.*\*\*Branch from:\*\* *`\([^`]*\)`.*/\1/p' .claude/team/PROJECT.md | head -1)
+[ -n "$b1" ] || { echo "SKIP PROJECT.md has no **Branch from:** line (overlap stops there; part A, section 7)"; exit 3; }
 b2=$(sed -n 's/.*\*\*PR into:\*\* *`\([^`]*\)`.*/\1/p' .claude/team/PROJECT.md | head -1)
 cur=$(git branch --show-current)
 : > "$W/prs"
-for b in $(printf '%s\n%s\n' "${b1:-production}" "${b2:-next-release}" | sort -u); do
+for b in $(printf '%s\n%s\n' "$b1" "${b2:-next-release}" | sort -u); do
   gh pr list --state open --base "$b" --limit 100 --json number,headRefName,isDraft \
     -q ".[] | select(.headRefName != \"$cur\") | \"\(.number) \(.isDraft)\"" >> "$W/prs"
 done
@@ -639,14 +664,14 @@ if [ "$DIR" = "$REPO" ]; then
 fi
 bash "$AB" overlap > "$W/out" 2> "$W/err"; rc0=$?
 ok "$([ $rc0 = 0 ]; echo $?)" "waiting group: exit 0"
-w1=${b1:-production}; w2=${b2:-next-release}
+w1=$b1; w2=${b2:-next-release}
 git log --no-merges --format='%h %s' "origin/$w2" "^origin/$w1" \
   | awk '{ if (match($0, /\(#[0-9]+\)[ \t]*$/)) { k = substr($0, RSTART + 2); sub(/\).*/, "", k); print "#" k } else print $1 }' \
   | sort -u > "$W/want.w"
 [ -s "$W/want.w" ] || echo none > "$W/want.w"
 grp 'waiting to ship:' | grep '^  [^ ]' | awk '{print $1}' | sort -u > "$W/got.w"
 ok "$(cmp -s "$W/want.w" "$W/got.w"; echo $?)" "waiting group lists exactly origin/$w2 not in origin/$w1 ($(wc -l < "$W/want.w" | tr -d ' ') entries: $(tr '\n' ' ' < "$W/want.w"))"
-[ -s "$W/prs" ] || { echo "SKIP no open PR other than this branch's into ${b1:-production} or ${b2:-next-release}"; exit 3; }
+[ -s "$W/prs" ] || { echo "SKIP no open PR other than this branch's into $b1 or ${b2:-next-release}"; exit 3; }
 bash "$AB" overlap > "$W/out" 2> "$W/err"; rc=$?
 ok "$([ $rc = 0 ]; echo $?)" "exit 0"
 ok "$([ "$(head -1 "$W/out")" = 'touching -' ]; echo $?)" "first line 'touching -'"
@@ -682,8 +707,8 @@ that `.claude/team/PROJECT.md` says Branch from `main` and PR into `next-release
 Sources: the brief's Decisions and Definition of Done (groups, `(#N)`, short hash, files from
 git, current branch's PR left out, `draft`, exact path after normalising `./` and `\`,
 `touching -`, `unknown (<need_gh's reason>)` with exit 0, `die` exit 2 on a fetch failure,
-argument rules S102, as ruled for KG-1 on 25 Oct 2026: only a leading `-`, an absolute path, `..` and a newline are refused; commas, brackets, `#` and non-ASCII are accepted and matched, as git lists them with `core.quotePath=false`) and its Amendments of 22 Oct 2026, agreed by Neil: a PROJECT.md without the
-branch lines uses `production` and `next-release`; no PROJECT.md at all exits 2 with
+argument rules S102, as ruled for KG-1 on 25 Oct 2026: only a leading `-`, an absolute path, `..` and a newline are refused; commas, brackets, `#` and non-ASCII are accepted and matched, as git lists them with `core.quotePath=false`) and its Amendments of 22 Oct 2026, agreed by Neil: a PROJECT.md without `**PR into:**`
+uses `next-release`; no PROJECT.md at all exits 2 with
 `ada-brief: ...`; the entry format with literal `[a, b]` file lists; in this repo `overlap` reads
 `main` and `next-release` (D13, here). The Definition of Done items and Amendments of 26 Oct
 2026 from the PIE review (Anna, PR #35), agreed by Neil: `--gate` lists the files itself, the diff
@@ -692,7 +717,14 @@ paths whole; a failing merge base exits 2 and lists nothing; `--gate` with files
 changes prints `touching 0`; no `mapfile`; 101 open PRs into a base gives
 `  unknown (more than 100 open PRs into <base>)`, a PR with 100 files
 `  unknown (#N has 100 or more files)`, exit 0 (sections 10 and 11). `ada-brief`'s `need_gh` reasons at b83e15c ("gh (GitHub
-CLI) is needed", "gh is not logged in"). Not from the brief, so not asserted: the order of files
+CLI) is needed", "gh is not logged in"). Section 7's `BF` checks are from the brief of 10 Nov 2026,
+"Stop instead of guessing `production` when PROJECT.md has no Branch from" (Asana
+https://app.asana.com/0/1206474484537567/1219575720822902), Decisions and Definition of Done 2,
+which replace the 22 Oct default of `production`: a missing `**Branch from:**` line is an
+error; the message, prefixed `ada-brief:`, names `PROJECT.md`, the missing line and the Code and
+branches section; `--gate` stops too, as it uses the value (API.md: it fetches `Branch from`).
+Not asserted there: the exact exit code (any non-zero) or wording beyond those three things.
+Not from the brief, so not asserted: the order of files
 inside the brackets, which commit's subject a multi-commit PR shows, the wording of the `die`
 message.
 
@@ -705,7 +737,7 @@ scratch repo (`git log --oneline origin/develop`); `q/clone` the `--gate` repo (
 
 ## Regression
 
-The checks in part A that are not tagged D1 to D7 or D13 (other bases and closed PRs left out, merge
+The checks in part A that are not tagged D1 to D7, BF or D13 (other bases and closed PRs left out, merge
 and shipped commits left out, the working tree untouched, fetch failures die) guard behaviour
 next to the change. Part B's `gh` calls are the oracle for real PRs. `ada-brief body` and `who`
 are in `overlaps-line-in-body.md`.

@@ -64,14 +64,14 @@
 #   ada-brief overlap [<file>...]
 #   ada-brief overlap --gate
 #       Work in flight that a step could overlap. Fetches the "Branch from" and "PR into"
-#       branches PROJECT.md names (production and next-release when it doesn't name them) and
-#       lists two groups: commits in origin/<PR into> not in origin/<Branch from>, one entry per
-#       PR number in a squash commit's "(#N)" or per commit without one; and the open PRs into
-#       either branch, except the current branch's own. Each <file> is a path from the top of
-#       the repo; an entry that changed one is marked. With --gate (no <file>), the files are
-#       the branch's own: the working tree's changes since git merge-base origin/<PR into> HEAD
-#       (committed, staged and unstaged) plus untracked files; if git merge-base fails (a
-#       shallow clone), it exits 2. Prints:
+#       branches PROJECT.md names ("Branch from" must be there, and this stops without it; "PR
+#       into" is next-release when it isn't) and lists two groups: commits in origin/<PR into>
+#       not in origin/<Branch from>, one entry per PR number in a squash commit's "(#N)" or per
+#       commit without one; and the open PRs into either branch, except the current branch's
+#       own. Each <file> is a path from the top of the repo; an entry that changed one is
+#       marked. With --gate (no <file>), the files are the branch's own: the working tree's
+#       changes since git merge-base origin/<PR into> HEAD (committed, staged and unstaged)
+#       plus untracked files; if git merge-base fails (a shallow clone), it exits 2. Prints:
 #         touching <n>                    entries marked (0 with --gate and no changed files),
 #                                         or "touching -" with no <file> and no --gate
 #         waiting to ship:
@@ -148,7 +148,8 @@ PY
 }
 
 # Prints the "Branch from" then the "PR into" branch named in PROJECT.md, read as ada-plan reads
-# them; a line PROJECT.md doesn't have gives production or next-release.
+# them. A PROJECT.md with no "Branch from" line is an error; with no "PR into" line, the branch
+# is next-release.
 branches() {
 	py - "$root/.claude/team/PROJECT.md" <<'PY'
 import re, sys
@@ -156,11 +157,14 @@ try:
     text = open(sys.argv[1], encoding='utf-8').read()
 except FileNotFoundError:
     sys.exit('ada-brief: no .claude/team/PROJECT.md; onboard the repo first')
-def named(label, default):
+def named(label):
     m = re.search(r'\*\*' + label + r':\*\*\s*`([^`]+)`', text)
-    return m.group(1) if m else default
-print(named('Branch from', 'production'))
-print(named('PR into', 'next-release'))
+    return m.group(1) if m else None
+production = named('Branch from')
+if production is None:
+    sys.exit('ada-brief: .claude/team/PROJECT.md has no **Branch from:** line; add one under Code and branches')
+print(production)
+print(named('PR into') or 'next-release')
 PY
 }
 

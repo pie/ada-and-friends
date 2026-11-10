@@ -9,6 +9,10 @@ Releasing in DEVELOPING.md).
   read and move the clock without a permission prompt. `ada-clock install`, `uninstall`, `wp` and
   `extension` still ask. A repo that is already onboarded gets the rules the next time
   `ada-onboard settings` runs.
+- **`ada-plan` and `ada-brief overlap` stop when PROJECT.md has no `**Branch from:**` line.**
+  They used to assume a branch called `production` and fail later with "couldn't fetch
+  production". Now they say PROJECT.md has no `**Branch from:**` line and to add one under Code and
+  branches. Only `ada-plan init` runs without it. With the line present nothing changes.
 
 ## 0.13.0, 9 Nov 2026
 
