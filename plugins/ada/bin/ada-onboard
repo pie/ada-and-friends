@@ -215,6 +215,9 @@ add('allow', [
     'Bash(ada-handoff-init*)', 'Bash(ada-onboard refresh)', 'Bash(prod-wp *)', 'Bash(presstest *)', 'Bash(ada-brief *)', 'Bash(ada-plan *)', 'Bash(ada-size *)',
     # ada-worktree new and remove make and delete a directory, so they still ask.
     'Bash(ada-worktree check)', 'Bash(ada-worktree list)', 'Bash(ada-worktree main)',
+    # ada-clock install, uninstall, wp and extension still ask: they swap Local's php-fpm, run
+    # any WP-CLI command, or write outside the repo.
+    'Bash(ada-clock status)', 'Bash(ada-clock set *)', 'Bash(ada-clock reset)',
     'Bash(php -l *)', 'Bash(tools/vendor/bin/phpcs *)', 'Bash(tools/vendor/bin/phpunit*)',
     'Bash(composer install -d tools*)',
     'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git merge-base *)',

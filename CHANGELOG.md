@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **Onboarding allows `ada-clock status`, `ada-clock set` and `ada-clock reset`**, so Tess can
+  read and move the clock without a permission prompt. `ada-clock install`, `uninstall`, `wp` and
+  `extension` still ask. A repo that is already onboarded gets the rules the next time
+  `ada-onboard settings` runs.
 - **`/ada:bughunt` names the `ada-clock` commands.** When a bug depends on the time, Grace moves
   the local site's clock with `ada-clock set`, checks it with `ada-clock status`, runs WP-CLI
   through `ada-clock wp` and finishes with `ada-clock reset` and a `status` that says
