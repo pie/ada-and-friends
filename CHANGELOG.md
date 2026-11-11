@@ -5,6 +5,12 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+- **`/ada:bughunt` names the `ada-clock` commands.** When a bug depends on the time, Grace moves
+  the local site's clock with `ada-clock set`, checks it with `ada-clock status`, runs WP-CLI
+  through `ada-clock wp` and finishes with `ada-clock reset` and a `status` that says
+  `ada-clock: real`. She hands the steps to the developer under the `manual` setup, records the
+  fake time in `FINDINGS.md`, and reports a clock that couldn't be reset. Projects onboarded before
+  `ada-clock` no longer depend on their `TEST-AREAS.md` for the commands.
 - **`ada-plan` and `ada-brief overlap` stop when PROJECT.md has no `**Branch from:**` line.**
   They used to assume a branch called `production` and fail later with "couldn't fetch
   production". Now they say PROJECT.md has no `**Branch from:**` line and to add one under Code and
