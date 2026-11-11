@@ -330,8 +330,19 @@ The same for parts B and C. Say it in the session, word for word:
 
 ### Afterwards
 
+First make sure the shared Local site is back on real time. `status` exits 0 for a verified fake
+clock too, so the check is its exit code and its first line:
+
 ```sh
-cd "$WT" && bash "$REPO/plugins/ada/bin/ada-clock" status   # must say ada-clock: real; if not, ada-clock reset
+cd "$WT"
+real() { out="$(bash "$REPO/plugins/ada/bin/ada-clock" status)" && [ "${out%%$'\n'*}" = 'ada-clock: real' ]; }
+real || { bash "$REPO/plugins/ada/bin/ada-clock" reset; real; } && echo 'CLOCK REAL' || echo 'STOP: clock not reset'
+```
+
+Go on only if it printed `CLOCK REAL`. If it printed `STOP`, leave the worktree in place, put the
+site back on real time by hand (`16-clock/local-linux-on-a-local-site.md`), and run the block again.
+
+```sh
 bash "$REPO/plugins/ada/bin/ada-handoff-init" --archive dry-run-c
 cd ~/Repos/vandme && git worktree remove ~/Repos/vandme-grace-clock-dry-run && git branch -D dry/grace-clock-dry-run
 ```
