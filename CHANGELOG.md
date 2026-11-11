@@ -5,7 +5,14 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-- **Brief approval by area.** `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
+- **Brief approval by area.** A project can list its areas of concern, each with its approvers,
+  in a table in `PROJECT.md`'s Brief approval section (`| Area | Slug | Approved by |`, one row
+  marked `(catch-all)`). `ada-brief areas` prints the areas in effect with their approvers, and the
+  Trusted logins, without `gh`. `ada-brief who <area>...` says whether a brief touching those areas
+  needs approval for you, and after `required` lists the areas you can't approve and who can. A
+  bad table stops `ada-brief` with a message saying what is wrong. `ada-brief who` with no areas
+  is unchanged, and nothing calls the new commands yet.
+  `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
   ...` (the approval areas the brief touches) and `Author: @<login>`, and an amendment's
   Re-approval `needed: <area>, ...`. When an amended brief needs approving again,
   `ada-brief compare` adds a second line, `areas: <slug>, ...`, naming the areas it goes back to
