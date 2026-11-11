@@ -12,6 +12,12 @@ Releasing in DEVELOPING.md).
   needs approval for you, and after `required` lists the areas you can't approve and who can. A
   bad table stops `ada-brief` with a message saying what is wrong. `ada-brief who` with no areas
   is unchanged, and nothing calls the new commands yet.
+  `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
+  ...` (the approval areas the brief touches) and `Author: @<login>`, and an amendment's
+  Re-approval `needed: <area>, ...`. When an amended brief needs approving again,
+  `ada-brief compare` adds a second line, `areas: <slug>, ...`, naming the areas it goes back to
+  (`catch-all` for a change to an approved section with no Amendments row). A brief without an
+  `Areas:` line gets exactly the output it got before.
 
 ## 0.12.0, 4 Nov 2026
 

@@ -172,7 +172,18 @@ How it works:
   added row, a change to Decisions or Constraints less its `- Out of scope:` bullet and that
   bullet's indented lines (`approved_sections()`, `:236-250`, comments stripped) gives
   `reapprove approved section changed with no amendment recorded`. Else `allowed`, followed by
-  the added rows. Exit 0 for all three; 2 on usage or an unreadable file.
+  the added rows. Exit 0 for all three; 2 on usage or an unreadable file. After `reapprove`, when
+  `<current>` has an `Areas:` header line, a second line `areas: <slug>, ...`
+  (`reapprove_areas()`, in `brief_py()` after `compare()`): from each added row
+  (`row_areas()`, which classifies it with `row_problem()`), the slugs of its `needed: <slug>,
+  ...` when all are on `Areas:` and the row has an `Agreed by`, none for `not needed`, else all
+  of them; `catch-all` for an approved section changed with no added row; listed in `Areas:`
+  order. `header_value()` reads a header line (before the first `##`, comments stripped): a
+  missing line, an empty value or one starting `<` (the template's prompt) is none, so such a
+  brief prints only the first line. `brief_areas()` lowercases the slugs and drops repeats; an
+  `Areas:` line holding only commas is none too, and prints only the first line as well.
+  `brief_author()` reads `Author: @<login>` (lowercased; `None` unless the value is one
+  `@login`), which nothing reads yet.
 - The approved version (`approved_version()`, `:290-294`): `git log -1 --until=<label time>
   <ref> -- <brief>`, then `git show`. The label time is the last `labeled` event's `created_at`
   (`approval()`, `:307-317`, which returns nothing unless the label is on the PR).
