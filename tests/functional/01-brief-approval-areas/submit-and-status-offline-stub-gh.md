@@ -9,7 +9,7 @@ Bob's build (it ran it against the base and this branch, both before and after t
   Python 3.8)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198400793919
 - Automate as: none (a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-04, 0 failed (66 PASS) on bash 5.2, Docker bash 3.2 and Python 3.8; both breaks print FAIL; see the PR
+- Last run: 2026-11-11, 0 failed (66 PASS) with BASE=febfd7b on bash 5.3 and Docker bash 3.2; see the PR
 
 It runs one 14-step sequence of `submit` and `status` twice, once with the base branch's
 `ada-brief` and once with this checkout's (or `PLUGIN`), each on a fresh scratch git repo with a
