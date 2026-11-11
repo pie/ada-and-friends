@@ -3,32 +3,43 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220130039368040
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 6 Nov 2026, 119 PASS, 0 failed under bash 5 (with node); 4 Nov: 114 PASS; under Docker bash 3.2 all PASS but the Basic auth checks, which SKIP there (no node); the broken copy fails as it should. Real runs the same day on annamason.local and pds-printing.local (companion 1.3.0): a session started and ended, wordpress-core 5 passed, 1 skipped, its 3 test users deleted and 1 email captured; and on example.com as staging
+- Last run: 11 Nov 2026, 344 PASS 0 failed under bash 5.3, 331 PASS 1 SKIP 0 failed under bash 3.2 (see the PR)
 
 ## Precondition
 
 - This checkout (`REPO`). The script makes its own scratch repos, a stand-in `docker` and a
   stand-in `curl` under a temporary folder. It never runs Docker or touches a real site.
-- `git`, `mktemp`, `jq`, Python 3 (for `ada-onboard`). `node`, if installed, for the Basic auth checks; without it they are skipped.
+- `git`, `mktemp`, `jq`, `tar`, Python 3 (for `ada-onboard`). `origin/next-release` fetched: section 9
+  compares the docker calls with the released `presstest` exported from it (or from `BASE_REF`,
+  or the copy `BASE_PLUGIN` names). `node`, if installed, for the Basic auth checks; without it they are skipped.
 - Run the checkout's script by path, never the `presstest` on the PATH (that is the installed
   plugin).
 
 ## Steps
 
 1. Save the block below as `check.sh` in a scratch folder (not in this repo).
-2. Run it under a current bash: `REPO=<this checkout> bash check.sh`, and under bash 3.2:
-   `docker run --rm -v <this checkout>:/repo -v <scratch folder>:/c bash:3.2 bash -c 'apk add -q git jq python3 >/dev/null; REPO=/repo bash /c/check.sh'`.
+2. Run it under a current bash: `REPO=<this checkout> bash check.sh`, and under bash 3.2, with the
+   released plugin exported first (git can't read a worktree's history inside the container):
+   `git -C <this checkout> archive origin/next-release plugins/ada | tar -x -C <scratch folder>/base`
+   (make `<scratch folder>/base` first), then
+   `docker run --rm -v <this checkout>:/repo -v <scratch folder>:/c bash:3.2 bash -c 'apk add -q git jq python3 >/dev/null; REPO=/repo BASE_PLUGIN=/c/base/plugins/ada bash /c/check.sh'`.
 3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, change `(local|test)` in
    the copy's `bin/presstest` to `(local|test|com)`, and run
-   `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL` lines.
+   `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL` lines. Then run it
+   once with `PLUGIN=<scratch folder>/base/plugins/ada` (the released plugin, which has no
+   `PRESSTEST_ENV_` settings): section 9's checks on passing, refusing and `config` must print
+   `FAIL`.
 
 ```bash
 #!/usr/bin/env bash
 # presstest: image version, shared suites and staging site from PROJECT.md, settings from
 # local.env, local or staging only (never production, never local values on staging), the
 # project's tests mounted into the image, the test session started and always ended, the result
-# line and exit status. Prints PASS/FAIL per check; exits 1 if any FAIL.
-# Env: REPO (this checkout), PLUGIN (plugin under test, default $REPO/plugins/ada).
+# line and exit status; the project's own PRESSTEST_ENV_<NAME> settings, local only and never
+# printed. Prints PASS/FAIL per check; exits 1 if any FAIL.
+# Env: REPO (this checkout), PLUGIN (plugin under test, default $REPO/plugins/ada), BASE_PLUGIN
+# (the released plugin to compare with) or BASE_REF (where to export it from, default
+# origin/next-release).
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
 PLUGIN=${PLUGIN:-$REPO/plugins/ada}
@@ -338,6 +349,210 @@ t "and told why" grep -q 'not a local one' "$W/err"
 # 8. The results are git-ignored by onboarding.
 t "ada-onboard ignores .claude/presstest/" grep -qx '.claude/presstest/' <(cd "$R" && bash "$PLUGIN/bin/ada-onboard" gitignore --list 2>/dev/null)
 
+# 9. The project's own settings: each PRESSTEST_ENV_<NAME> in local.env reaches a local run as
+#    <NAME>, through the environment only (-e NAME, the value exported), never on a command line
+#    or in output; not on staging and not in the pre-flight check; reserved and malformed names
+#    refused before Docker runs. Settings errors exit 2 (API.md, presstest).
+unset STAFF_HUB_SECRET TEST_HELPER_SECRET S3_KEY QUOTED CRLF FOO PRESSTEST_ENV_FOO
+# The names the main docker run passes with -e, one per line.
+enames() { awk 'p {print} {p = ($0 == "-e")}' "$W/log/args"; }
+# True if any of the project settings' values shows in the named files.
+leaks() { grep -q -w -e abc -e def1 -e k3y-v -e crlf-v -e 'q #1 v' "$@"; }
+R11=$W/r11; mkrepo "$R11" '`1.0.0`' none '`https://staging.shop.example.com`'
+cp "$R/.claude/team/local.env" "$R11/.claude/team/local.env"
+cat >> "$R11/.claude/team/local.env" <<'EOF'
+PRESSTEST_ENV_STAFF_HUB_SECRET=abc
+PRESSTEST_ENV_TEST_HELPER_SECRET=def1
+PRESSTEST_ENV_S3_KEY=k3y-v
+PRESSTEST_ENV_QUOTED='q #1 v'
+PRESSTEST_ENV_FOO=<your secret>
+EOF
+printf 'PRESSTEST_ENV_CRLF=crlf-v\r\n' >> "$R11/.claude/team/local.env"
+clear
+run "$R11" run
+t "a local run with project settings exits 0" test "$(rc)" = 0
+t "STAFF_HUB_SECRET is passed with -e" grep -qx STAFF_HUB_SECRET <(enames)
+t "TEST_HELPER_SECRET is passed with -e" grep -qx TEST_HELPER_SECRET <(enames)
+t "a name with a digit is passed (S3_KEY)" grep -qx S3_KEY <(enames)
+t "the tests see STAFF_HUB_SECRET=abc" grep -qx 'STAFF_HUB_SECRET=abc' "$W/log/env"
+t "the tests see TEST_HELPER_SECRET=def1" grep -qx 'TEST_HELPER_SECRET=def1' "$W/log/env"
+t "the tests see S3_KEY=k3y-v" grep -qx 'S3_KEY=k3y-v' "$W/log/env"
+t "a quoted value keeps its spaces and #" grep -qx 'QUOTED=q #1 v' "$W/log/env"
+t "a CRLF line's value has no CR" grep -qx 'CRLF=crlf-v' "$W/log/env"
+t "an unfilled <example> is not passed" not grep -qx FOO <(enames)
+t "no project setting's value is on docker's command line" not leaks "$W/log/docker"
+t "no --env-file is used" not grep -q -- '--env-file' "$W/log/docker"
+t "no project setting's value is printed by run" not leaks "$W/out" "$W/err"
+t "the pre-flight check passes no project setting" not grep -q -w -e STAFF_HUB_SECRET -e TEST_HELPER_SECRET -e S3_KEY -e QUOTED -e CRLF "$W/log/preflight"
+t "the site and logins still reach the tests" grep -qx 'URL=https://shop.local' "$W/log/env"
+run "$R11" config
+t "config with project settings exits 0" test "$(rc)" = 0
+t "config lists STAFF_HUB_SECRET as (set)" grep -qE 'STAFF_HUB_SECRET[^A-Z0-9_].*\(set\)' "$W/out"
+t "config lists TEST_HELPER_SECRET as (set)" grep -qE 'TEST_HELPER_SECRET[^A-Z0-9_].*\(set\)' "$W/out"
+t "config doesn't list the unfilled FOO as (set)" not grep -qE '(^|[^A-Z0-9_])FOO[^A-Z0-9_].*\(set\)' "$W/out"
+t "config never prints a project setting's value" not leaks "$W/out" "$W/err"
+run "$R11" list
+t "list is unchanged by project settings" test "$(cat "$W/out")" = "$(printf 'account_test.js\ncheckout_test.js')"
+clear
+run "$R11" run --env staging
+t "a staging run with project settings exits 0" test "$(rc)" = 0
+t "staging: no project setting is passed" not grep -qx -e STAFF_HUB_SECRET -e TEST_HELPER_SECRET -e S3_KEY -e QUOTED -e CRLF <(enames)
+t "staging: the pre-flight check passes no project setting" not grep -q -w -e STAFF_HUB_SECRET -e TEST_HELPER_SECRET -e S3_KEY -e QUOTED -e CRLF "$W/log/preflight"
+t "staging: no project setting's value is on a command line or printed" not leaks "$W/log/docker" "$W/out" "$W/err"
+# The environment overrides the file, under the key's full name.
+R12=$W/r12; mkrepo "$R12" '`1.0.0`'
+printf 'LOCAL_URL=https://shop.local\nPRESSTEST_ENV_FOO=fromfile\n' > "$R12/.claude/team/local.env"
+clear
+run "$R12" run
+t "a setting from the file alone is passed" grep -qx 'FOO=fromfile' "$W/log/env"
+clear
+PRESSTEST_ENV_FOO=fromenv run "$R12" run
+t "PRESSTEST_ENV_FOO in the environment overrides the file" grep -qx 'FOO=fromenv' "$W/log/env"
+# Reserved names: every name run already sets (NODE_NO_WARNINGS among them), anything starting
+# PRESSTEST_ or DOCKER_ (DOCKER_HOST and DOCKER_CONFIG tried), and PATH, NODE_OPTIONS,
+# NODE_TLS_REJECT_UNAUTHORIZED, BASH_ENV, ENV, IFS, LD_PRELOAD, LD_LIBRARY_PATH (brief,
+# Amendments, 11 Nov); and what the running bash won't export, anything starting BASH, and
+# EXECIGNORE (Amendments, second 11 Nov row). Refused, naming the full key, before docker is
+# called (an unexportable name used to print "readonly variable" and let the run carry on).
+# BASHOPTS is read-only only on bash 4.1 and later, so it is tried only there.
+bv=$(bash -c 'echo "${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"')
+bash_reserved='SHELLOPTS UID EUID PPID BASH_VERSINFO BASH_FOO EXECIGNORE'
+case $bv in 3.*|4.0) ;; *) bash_reserved="$bash_reserved BASHOPTS" ;; esac
+# shellcheck disable=SC2086
+for n in $bash_reserved URL USERNAME PASSWORD CUSTOMER_USERNAME CUSTOMER_PASSWORD HOME IGNORE_HTTPS_ERRORS \
+  REPORT_FILE OUTPUT_DIR PRESSTEST_SESSION_ID PRESSTEST_ANYTHING PATH NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED \
+  DOCKER_HOST DOCKER_CONFIG BASH_ENV ENV IFS LD_PRELOAD LD_LIBRARY_PATH NODE_NO_WARNINGS; do
+  printf 'LOCAL_URL=https://shop.local\nPRESSTEST_ENV_%s=leak-%s\n' "$n" "$n" > "$R12/.claude/team/local.env"
+  clear
+  run "$R12" run
+  t "PRESSTEST_ENV_$n is refused with exit 2" test "$(rc)" = 2
+  t "PRESSTEST_ENV_$n: the message names the key" grep -qF "PRESSTEST_ENV_$n" "$W/err"
+  t "PRESSTEST_ENV_$n: docker is never called" not test -e "$W/log/docker"
+  t "PRESSTEST_ENV_$n: the value isn't printed" not grep -q 'leak-' "$W/out" "$W/err"
+done
+# Names that don't fit [A-Z][A-Z0-9_]*: an error naming the line's key, not silently dropped.
+# A dot or a space in the name must be refused too, not dropped (Claudia's Must Fix 1).
+for k in 'PRESSTEST_ENV_bad-name' 'PRESSTEST_ENV_' 'PRESSTEST_ENV_lower' 'PRESSTEST_ENV_3D' 'PRESSTEST_ENV__X' 'PRESSTEST_ENV_FOO.BAR' 'PRESSTEST_ENV_FOO BAR'; do
+  printf 'LOCAL_URL=https://shop.local\n%s=leak-v\n' "$k" > "$R12/.claude/team/local.env"
+  kre=$(printf '%s' "$k" | sed 's/[][\.*^$]/\\&/g')
+  clear
+  run "$R12" run
+  t "'$k' is refused with exit 2" test "$(rc)" = 2
+  t "'$k': the message names the key" grep -qE "(^|[^A-Za-z0-9_-])${kre}([^A-Za-z0-9_-]|\$)" "$W/err"
+  t "'$k': docker is never called" not test -e "$W/log/docker"
+  t "'$k': the value isn't printed" not grep -q 'leak-' "$W/out" "$W/err"
+done
+# A bad or reserved key stops only a local run: config shows it as (invalid name) / (reserved)
+# without a value, and a staging run passes no project setting and runs (brief, answered Q4).
+R13=$W/r13; mkrepo "$R13" '`1.0.0`' none '`https://staging.shop.example.com`'
+cp "$R/.claude/team/local.env" "$R13/.claude/team/local.env"
+cat >> "$R13/.claude/team/local.env" <<'EOF'
+PRESSTEST_ENV_URL=leak-url
+PRESSTEST_ENV_DOCKER_HOST=leak-dh
+PRESSTEST_ENV_BASH_ENV=leak-be
+PRESSTEST_ENV_bad-name=leak-bn
+PRESSTEST_ENV_FOO.BAR=leak-fb
+PRESSTEST_ENV_SHELLOPTS=leak-so
+PRESSTEST_ENV_UID=leak-uid
+PRESSTEST_ENV_EUID=leak-euid
+PRESSTEST_ENV_PPID=leak-ppid
+PRESSTEST_ENV_BASH_VERSINFO=leak-bv
+PRESSTEST_ENV_BASH_FOO=leak-bf
+PRESSTEST_ENV_EXECIGNORE=leak-ei
+PRESSTEST_ENV_FOO=leak-foo
+EOF
+printf 'PRESSTEST_ENV_FOO BAR=leak-sp\n' >> "$R13/.claude/team/local.env"
+case $bv in 3.*|4.0) ;; *) printf 'PRESSTEST_ENV_BASHOPTS=leak-bo\n' >> "$R13/.claude/team/local.env" ;; esac
+run "$R13" config
+t "config with a bad or reserved key exits 0" test "$(rc)" = 0
+t "config shows PRESSTEST_ENV_URL as reserved" grep -qE 'PRESSTEST_ENV_URL +\(reserved\)' "$W/out"
+t "config shows PRESSTEST_ENV_DOCKER_HOST as reserved" grep -qE 'PRESSTEST_ENV_DOCKER_HOST +\(reserved\)' "$W/out"
+t "config shows PRESSTEST_ENV_BASH_ENV as reserved" grep -qE 'PRESSTEST_ENV_BASH_ENV +\(reserved\)' "$W/out"
+t "config shows PRESSTEST_ENV_bad-name as invalid" grep -qE 'PRESSTEST_ENV_bad-name +\(invalid name\)' "$W/out"
+t "config shows PRESSTEST_ENV_FOO.BAR as invalid" grep -qE 'PRESSTEST_ENV_FOO\.BAR +\(invalid name\)' "$W/out"
+t "config shows PRESSTEST_ENV_FOO BAR (a space) as invalid" grep -qE 'PRESSTEST_ENV_FOO BAR +\(invalid name\)' "$W/out"
+for n in $bash_reserved; do
+  t "config shows PRESSTEST_ENV_$n as reserved" grep -qE "PRESSTEST_ENV_$n +\\(reserved\\)" "$W/out"
+done
+t "config never prints a bad or reserved key's value" not grep -q 'leak-' "$W/out" "$W/err"
+clear
+run "$R13" run --env staging
+t "a staging run with bad and reserved keys exits 0" test "$(rc)" = 0
+t "staging: docker is called" test -e "$W/log/docker"
+t "staging: no project setting reaches the tests" not grep -q -e '^FOO=' -e '^DOCKER_HOST=' -e '^BASH_ENV=' -e '^SHELLOPTS=leak' -e '^UID=leak' "$W/log/env"
+t "staging: no project setting is passed with -e" not grep -qx -e FOO -e DOCKER_HOST -e BASH_ENV -e SHELLOPTS -e UID -e BASH_FOO -e EXECIGNORE <(enames)
+t "staging: no bad or reserved key's value is on a command line, in the tests' environment or printed" not grep -q 'leak-' "$W/log/docker" "$W/log/env" "$W/out" "$W/err"
+t "staging: the site is still the staging site" grep -qx 'URL=https://staging.shop.example.com' "$W/log/env"
+# A name set only in the shell, with no line in local.env, passes nothing.
+printf 'LOCAL_URL=https://shop.local\n' > "$R12/.claude/team/local.env"
+clear
+PRESSTEST_ENV_FOO=shellonly run "$R12" run
+t "a PRESSTEST_ENV_ name in the shell alone doesn't stop the run" test "$(rc)" = 0
+t "a PRESSTEST_ENV_ name in the shell alone is not passed with -e" not grep -qx FOO <(enames)
+t "a PRESSTEST_ENV_ name in the shell alone doesn't reach the tests" not grep -q -e '^FOO=' -e shellonly "$W/log/env"
+t "a PRESSTEST_ENV_ name in the shell alone isn't on docker's command line" not grep -q shellonly "$W/log/docker"
+clear
+PRESSTEST_ENV_URL=leak-shell run "$R12" run
+t "a reserved name in the shell alone is not refused" test "$(rc)" = 0
+t "a reserved name in the shell alone leaves URL as the local site" grep -qx 'URL=https://shop.local' "$W/log/env"
+# Project settings named like the script's own variables (IMAGE, RESULTS, TESTS, P) are passed
+# on to the tests without changing the run: the image, the mounts, the session's URLs and the
+# result line are the real ones (Claudia's Should Fix 2, the export subshell).
+R14=$W/r14; mkrepo "$R14" '`1.0.0`'
+cp "$R/.claude/team/local.env" "$R14/.claude/team/local.env"
+printf 'PRESSTEST_ENV_IMAGE=leak-image\nPRESSTEST_ENV_RESULTS=leak-results\nPRESSTEST_ENV_TESTS=leak-tests\nPRESSTEST_ENV_P=leak-p\n' >> "$R14/.claude/team/local.env"
+clear
+run "$R14" run
+t "script-variable names: the run exits 0" test "$(rc)" = 0
+t "script-variable names: IMAGE, RESULTS, TESTS and P are passed with -e" test "$(enames | grep -x -e IMAGE -e RESULTS -e TESTS -e P | wc -l | tr -d ' ')" = 4
+t "script-variable names: the tests see IMAGE=leak-image" grep -qx 'IMAGE=leak-image' "$W/log/env"
+t "script-variable names: the tests see RESULTS=leak-results, TESTS=leak-tests and P=leak-p" test "$(grep -c -x -e 'RESULTS=leak-results' -e 'TESTS=leak-tests' -e 'P=leak-p' "$W/log/env")" = 3
+t "script-variable names: the tests still run in the pinned image" grep -qx 'ghcr.io/pie/presstest-runner:1.0.0' "$W/log/args"
+t "script-variable names: the project's tests mount is still the real one" grep -qx "$R14/tests/presstest:/all-tests/project:ro" "$W/log/args"
+t "script-variable names: the results mount is still the real one" grep -qx "$R14/.claude/presstest:/app/test-results" "$W/log/args"
+t "script-variable names: the pre-flight check still uses the pinned image" grep -q 'ghcr.io/pie/presstest-runner:1.0.0' "$W/log/preflight"
+t "script-variable names: the session is started on the site" grep -qx 'POST https://shop.local/wp-json/presstest-companion/v1/sessions' "$W/log/curl"
+t "script-variable names: the session is ended at its own URL" grep -qx 'DELETE https://shop.local/wp-json/presstest-companion/v1/sessions/7' "$W/log/curl"
+t "script-variable names: the session still reaches the tests" grep -qx 'PRESSTEST_SESSION_ID=7' "$W/log/env"
+t "script-variable names: the report is read from the real results folder" test "$(tail -1 "$W/out")" = 'presstest: passed 2'
+t "script-variable names: no value is on a command line or printed" not grep -q 'leak-' "$W/log/docker" "$W/log/curl" "$W/log/curl-args" "$W/out" "$W/err"
+# Without PRESSTEST_ENV_ keys, every docker and curl call, and what the tests see, is exactly
+# what the released presstest (BASE_PLUGIN, else exported from BASE_REF, default
+# origin/next-release) does: local, a named file on firefox, and staging.
+BASE_PLUGIN=${BASE_PLUGIN:-}
+if [ -z "$BASE_PLUGIN" ]; then
+  mkdir -p "$W/base"
+  if git -C "$REPO" archive "${BASE_REF:-origin/next-release}" plugins/ada 2>/dev/null | tar -x -C "$W/base" 2>/dev/null; then
+    BASE_PLUGIN=$W/base/plugins/ada
+  fi
+fi
+if [ -f "$BASE_PLUGIN/bin/presstest" ]; then
+  PT_NEW=$PT
+  for args in 'run' 'run -b firefox checkout_test.js' 'run --env staging checkout_test.js'; do
+    for side in new base; do
+      if [ "$side" = base ]; then PT=$BASE_PLUGIN/bin/presstest; else PT=$PT_NEW; fi
+      clear
+      # shellcheck disable=SC2086
+      run "$R" $args
+      rm -rf "$W/log-$side"; cp -R "$W/log" "$W/log-$side"; cp "$W/out" "$W/log-$side/stdout"
+    done
+    PT=$PT_NEW
+    t "no project settings: '$args' calls docker and curl exactly as before" diff -r "$W/log-base" "$W/log-new"
+  done
+else
+  ok 1 "no released presstest to compare with: set BASE_PLUGIN to an export of origin/next-release's plugins/ada"
+fi
+
+# 10. The docs describe PRESSTEST_ENV_<NAME>; API.md's line range for presstest is its header
+#     comment (line 1 to its last comment line, or the blank line after it).
+t "presstest's header comment describes PRESSTEST_ENV_<NAME>" grep -q 'PRESSTEST_ENV_' <(awk 'NR>1 && !/^#/ {exit} {print}' "$REPO/plugins/ada/bin/presstest")
+for f in .claude/team/SYSTEM.md .claude/team/API.md README.md plugins/ada/templates/repo/tests/README.md; do
+  t "$f describes PRESSTEST_ENV_<NAME>" grep -q 'PRESSTEST_ENV_' "$REPO/$f"
+done
+range=$(sed -n 's/^### `presstest` (`bin\/presstest:\([0-9][0-9]*\)-\([0-9][0-9]*\)`).*/\1 \2/p' "$REPO/.claude/team/API.md")
+last=$(awk 'NR>1 && !/^#/ {print NR-1; exit}' "$REPO/plugins/ada/bin/presstest")
+if [ "$range" = "1 $last" ] || [ "$range" = "1 $((last+1))" ]; then ok 0 "API.md's presstest line range is the header comment"; else ok 1 "API.md's presstest line range is the header comment (API.md: ${range:-none}; header: 1 $last)"; fi
+
 echo
 echo "$fails failed"
 rm -rf "$W"
@@ -348,7 +563,8 @@ rm -rf "$W"
 
 Every line `PASS`, `0 failed`, exit 0, under both bashes. Where node isn't installed (the
 `bash:3.2` image), the Basic auth checks print one `SKIP` line instead. With the broken copy, the
-`https://shop.example.com is refused` checks print `FAIL`.
+`https://shop.example.com is refused` checks print `FAIL`. With the released plugin as `PLUGIN`,
+section 9's checks that settings are passed, seen, listed as `(set)` and refused print `FAIL`.
 
 ## Observe at
 
