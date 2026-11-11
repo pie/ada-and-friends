@@ -404,7 +404,7 @@ def implicit_areas(approvers):
 
 # The areas table in PROJECT.md's Brief approval section.
 AREAS_HEADER = '| Area | Slug | Approved by |'
-CATCH_ALL = '(catch-all)'
+CATCH_ALL_SUFFIX = '(catch-all)'
 # Unit C's token for the catch-all area, and the implicit area's slug.
 RESERVED_SLUGS = ('catch-all', 'everything')
 # A slug's label, approved:<slug>, then fits GitHub's 50-character limit on label names.
@@ -463,8 +463,8 @@ def table_areas(section, approvers):
         if len(cells) != 3:
             sys.exit(f'ada-brief: an areas table row has {len(cells)} cells, not 3: {row}')
         area, slug, approved_by = cells
-        catch_all = area.endswith(CATCH_ALL)
-        name = area[:-len(CATCH_ALL)].strip() if catch_all else area
+        catch_all = area.endswith(CATCH_ALL_SUFFIX)
+        name = area[:-len(CATCH_ALL_SUFFIX)].strip() if catch_all else area
         if not name:
             sys.exit(f'ada-brief: an areas table row has no Area: {row}')
         if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', slug) or len(slug) > SLUG_MAX:
@@ -490,7 +490,7 @@ def table_areas(section, approvers):
                       'approvers': list(dict.fromkeys(who)), 'catch_all': catch_all})
     catch_alls = [a for a in areas if a['catch_all']]
     if len(catch_alls) != 1:
-        sys.exit(f'ada-brief: the areas table has {len(catch_alls)} rows whose Area ends {CATCH_ALL}; it needs exactly one')
+        sys.exit(f'ada-brief: the areas table has {len(catch_alls)} rows whose Area ends {CATCH_ALL_SUFFIX}; it needs exactly one')
     return areas
 
 def read_areas(text):
@@ -807,7 +807,7 @@ def warn_no_section():
 if mode == 'areas':
     warn_no_section()
     for area in areas:
-        print(f"{area['slug']}: {listed(area['approvers'])}" + (' ' + CATCH_ALL if area['catch_all'] else ''))
+        print(f"{area['slug']}: {listed(area['approvers'])}" + (' ' + CATCH_ALL_SUFFIX if area['catch_all'] else ''))
     print('trusted: ' + listed(trusted))
     sys.exit()
 
