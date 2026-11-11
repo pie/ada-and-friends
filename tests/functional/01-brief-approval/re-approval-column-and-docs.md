@@ -4,7 +4,7 @@
   onboard `PROJECT.md`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219937425454517
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-10, 0 failed (59 PASS) under bash 5.3 and Docker bash 3.2; the header-field check passes; see the PR
+- Last run: 2026-11-11, 0 failed (59 PASS) on the host (bash 5.3); Docker and the breaks not run; see the PR
 
 ## Precondition
 

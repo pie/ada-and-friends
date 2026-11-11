@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief compare`, `brief_py()`); 12 Platforms (bash 3.2, Python 3.8, CRLF)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198325356405
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-10, 0 failed (267 PASS) on bash 5.3 on the host; 266 PASS on Docker bash 3.2 and Python 3.8; the three breaks print FAIL where Step 4 says; see the PR
+- Last run: 2026-11-11, 0 failed (267 PASS) on the host (bash 5.3, Python 3.14); Docker and the breaks not run; see the PR
 
 Offline. Every pair of briefs is compared twice, by this checkout's `ada-brief` and by the base
 branch's (`origin/add/brief-approval-by-area`). The first line must be the base's, word for word
@@ -334,9 +334,10 @@ t "bash -n plugins/ada/bin/ada-brief" "$BASH_BIN" -n "$AB"
 if git -C "$REPO" rev-parse --verify -q "$BASE" >/dev/null 2>&1; then
   git -C "$REPO" diff --name-only "$BASE" -- tests/functional/01-brief-approval/ > "$W/d01"
   git -C "$REPO" ls-files --others --exclude-standard -- tests/functional/01-brief-approval/ >> "$W/d01"
-  # compare-areas.md is new; re-approval-column-and-docs.md's header check changed (Amendment, 10 Nov 2026)
-  grep -vxE 'tests/functional/01-brief-approval/(compare-areas|re-approval-column-and-docs)\.md' "$W/d01" > "$W/d01.other"
-  t "tests/functional/01-brief-approval/: no script but compare-areas.md and re-approval-column-and-docs.md differs from $BASE (got: $(tr '\n' ' ' < "$W/d01.other"))" test ! -s "$W/d01.other"
+  # compare-areas.md is new; re-approval-column-and-docs.md's header check changed (Amendment, 10 Nov 2026);
+  # area-status.md is new (Unit D1, DoD 1 as amended 2026-11-11)
+  grep -vxE 'tests/functional/01-brief-approval/(compare-areas|re-approval-column-and-docs|area-status)\.md' "$W/d01" > "$W/d01.other"
+  t "tests/functional/01-brief-approval/: no script but compare-areas.md, re-approval-column-and-docs.md and area-status.md differs from $BASE (got: $(tr '\n' ' ' < "$W/d01.other"))" test ! -s "$W/d01.other"
 else
   echo "info: the tests/functional/01-brief-approval/ unedited check skipped: no $BASE in $REPO's git"
 fi
@@ -417,8 +418,8 @@ The pairs outside the table:
   `header_value(text, 'Areas')` gives `None` with no line and for the prompt.
 - The usage header (the comment block at the top of `ada-brief`) contains `areas:`; the
   CHANGELOG's Unreleased has a `- **Brief approval by area.**` bullet mentioning `Areas:` and
-  `Author:`; `bash -n` is clean; no file in `tests/functional/01-brief-approval/` but this one
-  and `re-approval-column-and-docs.md` (the Amendment of 10 Nov 2026) differs from the base; no traceback; `gh` never called.
+  `Author:`; `bash -n` is clean; no file in `tests/functional/01-brief-approval/` but this one,
+  `re-approval-column-and-docs.md` (the Amendment of 10 Nov 2026) and `area-status.md` (Unit D1) differs from the base; no traceback; `gh` never called.
 
 Step 4's breaks print `FAIL` where it says.
 

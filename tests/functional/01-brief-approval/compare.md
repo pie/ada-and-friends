@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief compare`); 12 Platforms (bash 3.2, Python 3.8, CRLF)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219937425454517
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-10-27, offline run passed 0 failed on bash 5.2, bash 3.2, Python 3.8; see the PR
+- Last run: 2026-11-11, 0 failed (82 PASS) on the host (bash 5.3, Python 3.14); Docker not run; see the PR
 
 ## Precondition
 

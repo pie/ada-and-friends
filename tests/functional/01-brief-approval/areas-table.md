@@ -10,7 +10,7 @@ needs approval. `who` with no arguments is unchanged. Nothing calls the new path
   Python 3.8, CRLF, a path with a space)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198285873178
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-11, 638 passed, 0 failed on bash 5.3 / Python 3.14, Docker bash 3.2 and Python 3.8, and REAL_GH=1 (one run in four; the other three had only network timeouts from the real gh); both breaks print FAIL; Steps 5 not run; see the PR
+- Last run: 2026-11-11, 0 failed (638 PASS) on the host (bash 5.3, Python 3.14); Docker, REAL_GH and the breaks not run; see the PR
 
 ## Precondition
 

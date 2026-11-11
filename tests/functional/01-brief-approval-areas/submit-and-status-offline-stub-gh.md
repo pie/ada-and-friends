@@ -9,7 +9,7 @@ Bob's build (it ran it against the base and this branch, both before and after t
   Python 3.8)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198400793919
 - Automate as: none (a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-11, 0 failed (66 PASS) with BASE=febfd7b on bash 5.3 and Docker bash 3.2; see the PR
+- Last run: 2026-11-11, 0 failed (66 PASS) on the host (bash 5.3); Docker not run; see the PR
 
 It runs one 14-step sequence of `submit` and `status` twice, once with the base branch's
 `ada-brief` and once with this checkout's (or `PLUGIN`), each on a fresh scratch git repo with a
@@ -359,7 +359,14 @@ c=$(grep -c '^gh label create brief-approved --color 0E8A16 --description An app
 echo "--- the same as the base, step by step"
 for f in "$W"/b/s_*; do
   k=${f##*/s_}
-  if cmp -s "$f" "$W/n/s_$k"; then ok 0 "same as base: $k"; else ok 1 "same as base: $k"; diff "$f" "$W/n/s_$k" | head -10; fi
+  # The brief's Constraints add `author` to status's `gh pr view --json` (Unit D1, DoD 1 as amended 2026-11-11):
+  # the gh record is the base's with `,author` on those calls; every other record is the base's exactly.
+  want=$f
+  if [ "$k" = gh ]; then
+    sed 's/^\(gh pr view .*--json number,url,body,labels\)$/\1,author/' "$f" > "$W/b/want_gh"
+    want=$W/b/want_gh
+  fi
+  if cmp -s "$want" "$W/n/s_$k"; then ok 0 "same as base: $k"; else ok 1 "same as base: $k"; diff "$want" "$W/n/s_$k" | head -10; fi
 done
 for f in "$W"/n/s_*; do
   k=${f##*/s_}
