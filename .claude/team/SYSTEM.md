@@ -162,7 +162,9 @@ How it works:
   `strip_comments()`, `split()` and `table_rows()` (what a section and a table data row are),
   `compare()`, `approved_version()`, `since_approval()`, `gh()`/`flat()`, `implicit_areas()`, the
   project readers `read_project()`, `approval_section()`, `logins()`, `table_areas()` and
-  `read_areas()`, and `approval()`.
+  `areas_table()` (the table with comments stripped; `None` without one), `read_areas()`,
+  `approval()`, `parse_time()`, `counts_for()` (an area's Approved by logins
+  plus Trusted: who counts for it) and `area_state()`.
 - `compare <approved> <current>` (`:753-776`, rules in `compare()`, `:268-288`): offline. `same`
   when the files match after each line is right-stripped (a CR too) and blank lines at the end are
   dropped. Otherwise the added rows are the Amendments data rows of `<current>` not in
@@ -183,7 +185,7 @@ How it works:
   brief prints only the first line. `brief_areas()` lowercases the slugs and drops repeats; an
   `Areas:` line holding only commas is none too, and prints only the first line as well.
   `brief_author()` reads `Author: @<login>` (lowercased; `None` unless the value is one
-  `@login`), which nothing reads yet.
+  `@login`), which `status` reads on its area path.
 - The approved version (`approved_version()`, `:290-294`): `git log -1 --until=<label time>
   <ref> -- <brief>`, then `git show`. The label time is the last `labeled` event's `created_at`
   (`approval()`, `:307-317`, which returns nothing unless the label is on the PR).
@@ -215,6 +217,26 @@ How it works:
   <reason>` adds the note `@<login> approved an earlier version; the brief has changed since:
   <reason>` (`:716-730`). Otherwise `changes-requested` if any approver review, line comment or PR
   comment is newer than `since`, else `waiting` (`:732-748`).
+  `gh pr view` also gives the PR's `author` (its opener). `policy()` `missing`, or `none` with
+  no areas table, still prints `not-needed` before any `gh pr view`: which brief is the PR's is
+  known only from the PR body's marker, so no brief can be read first. `none` with a table
+  (`policy()`'s second line `table`, from `areas_table()`) goes on: every answer before the
+  approval is read (no PR, no marker, the brief not pushed, no `Areas:` on the pushed brief) is
+  then `not-needed`. The pushed brief's
+  `Areas:` line (`brief_areas()`) picks the path: without one, the path above, unchanged; with
+  one, the area path (`:1155-1217`). It reads the areas with `read_areas()`, exits 2 on a slug
+  the project doesn't list, and runs `area_state()` (`:568-607`) for each slug in `Areas:`
+  order: `not needed` when the exempt author or no approver; `approved` when the area's
+  `approved:<slug>` label was last added by a login in `counts_for()`, at or after `since`, or
+  before it with the area left out of `reapprove_areas()` (the `catch-all` token mapped to the
+  catch-all's slug); `changes-requested` when a login that counts said something since `since`;
+  else `waiting`. The author is the PR's opener when the brief's `Author:` (`brief_author()`)
+  names them and `ADA_BRIEF_REQUIRE` isn't `1`; the `gh` login running `status` plays no part.
+  When an area's approval was compared and the catch-all came back, the catch-all is evaluated
+  too and its line goes last. Reviews and comments are fetched once (`said_since()`) for
+  everyone; the base path keeps only the approvers'. Labels of areas the brief doesn't touch are
+  never read. `brief-approved` is read on the area path only as the label of `everything`, the
+  one area of a project with no areas table.
 - `ready` (`:787-798`): PATCHes title and body, keeps the Asana block, `gh pr ready`.
 - `render_body` (`:325-496`) parses the brief's headings and bullets and the plan's Units table,
   and calls `gh pr list` once per unit (`:388-393`). The Amendments table keeps its column count:
