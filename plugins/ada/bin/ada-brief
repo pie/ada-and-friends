@@ -3,15 +3,42 @@
 # work in flight a brief could overlap. Ada runs it from /ada:begin and /ada:pickup; a developer
 # can too. Run from inside the project repo.
 #
-#   ada-brief who
+#   ada-brief who [<area>...]
 #       What the brief approval policy means for the developer running this, from the "Brief
-#       approval" section of .claude/team/PROJECT.md and their GitHub login. Prints one line:
+#       approval" section of .claude/team/PROJECT.md and their GitHub login. With no <area>, from
+#       the Approvers and Trusted lines only. Prints one line:
 #         not-needed                      the project needs no approval (Approvers: none)
 #         approver <login>                exempt; can approve others
 #         trusted <login>                 exempt; can't approve others
 #         required <login>                this developer's briefs need an approver's label
+#       With <area>s (slugs that ada-brief areas lists), for a brief touching those areas. The
+#       first line is the first of these that applies:
+#         not-needed                      no named area has an approver (gh isn't needed)
+#         required <login>                with ADA_BRIEF_REQUIRE=1 (below)
+#         approver <login>                <login> approves every named area
+#         trusted <login>                 <login> is on the Trusted line: Trusted approves every area
+#         required <login>                anyone else
+#       After "required", one line for each named area with approvers <login> isn't one of:
+#         needs <slug>: @a, @b
+#       An <area> not in effect stops with "ada-brief: unknown area <x>; ada-brief areas lists
+#       them" and exit 2.
 #       With ADA_BRIEF_REQUIRE=1 in the environment, an approver or trusted developer gets
 #       "required" too: for a dry run of the approval flow. An approver's own label still counts.
+#   ada-brief areas
+#       The areas of concern in effect, each with its approvers, from the Brief approval section.
+#       Offline: no gh. One line for each area in table order, then the Trusted line's logins:
+#         <slug>: @a, @b                  "<slug>: none" when the area needs no approval; the
+#                                         catch-all area's line ends " (catch-all)"
+#         trusted: @x, @y                 or "trusted: none"
+#       The areas come from a table in the section with the header | Area | Slug | Approved by |,
+#       one row an area. Area is a name; exactly one row's name ends "(catch-all)". Slug is
+#       [a-z0-9][a-z0-9-]*, at most 40 characters, unique, not catch-all or everything. Approved
+#       by is @logins, the word Approvers (the Approvers line's logins), both, or none. With no
+#       table there is one area, "everything: <the Approvers line> (catch-all)". With no Brief
+#       approval section it prints "everything: none (catch-all)" and "trusted: none", with who's
+#       warning on stderr. A table inside an HTML comment is ignored. A bad table, or a table
+#       with another header, stops areas, who, status, and submit to an existing PR (after the
+#       push), with an "ada-brief:" message on stderr, nothing on stdout, and exit 2.
 #   ada-brief submit <task-id> <base-branch> [<branch>]
 #       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
 #       opens a draft PR into <base-branch> with the brief as its description (or updates the
@@ -115,36 +142,25 @@ py() { "${PY[@]}" "$@" | tr -d '\r'; }
 
 LABEL='brief-approved'
 MARK='<!-- ada-brief:'
+NO_SECTION='PROJECT.md has no "Brief approval" section; treating as not needed'
 
 # Prints "approvers" then "trusted" lines (space-separated lowercase logins), or "none" when the
-# project needs no approval, or "missing" when PROJECT.md has no Brief approval section.
+# project needs no approval, or "missing" when PROJECT.md has no Brief approval section. A bad
+# areas table stops it, as it stops areas and who <area>.
 policy() {
-	py - "$root/.claude/team/PROJECT.md" <<'PY'
-import re, sys
-try:
-    text = open(sys.argv[1], encoding='utf-8').read()
-except FileNotFoundError:
-    sys.exit('ada-brief: no .claude/team/PROJECT.md; onboard the repo first')
-m = re.search(r'^## Brief approval\s*$(.*?)(?=^## |\Z)', text, re.M | re.S)
-if not m:
+	{ brief_py; cat <<'PY'
+text = read_project(sys.argv[1])
+section = approval_section(text)
+if section is None:
     print('missing'); sys.exit()
-def field(name):
-    f = re.search(r'^\s*-\s*\*\*' + name + r':\*\*(.*)$', m.group(1), re.M)
-    if not f:
-        sys.exit(f'ada-brief: the Brief approval section has no **{name}:** line')
-    value = f.group(1).strip()
-    if value.lower().startswith('none'):
-        return []
-    logins = re.findall(r'@([A-Za-z0-9-]+)', value)
-    if not logins:
-        sys.exit(f'ada-brief: **{name}:** must be "none" or a list of @logins: {value}')
-    return [l.lower() for l in logins]
-approvers, trusted = field('Approvers'), field('Trusted')
+_, trusted = read_areas(text)
+approvers = logins(section, 'Approvers')
 if not approvers:
     print('none')
 else:
     print(' '.join(approvers)); print(' '.join(trusted))
 PY
+	} | LABEL="$LABEL" py - "$root/.claude/team/PROJECT.md"
 }
 
 # Prints the "Branch from" then the "PR into" branch named in PROJECT.md, read as ada-plan reads
@@ -175,8 +191,9 @@ repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
 # The PR for a branch (the current one when none is given).
 pr_number() { gh pr view ${1:+"$1"} --json number -q .number 2>/dev/null; }
 
-# The Python that reads briefs, shared by every block that needs it: each such block runs as
-# { brief_py; cat <<'PY' ... } | py -, so there is one copy of each rule.
+# The Python that reads briefs and PROJECT.md's Brief approval section, shared by every block that
+# needs it: each such block runs as { brief_py; cat <<'PY' ... } | py -, so there is one copy of
+# each rule.
 brief_py() {
 	cat <<'PY'
 import json, os, re, subprocess, sys
@@ -189,8 +206,8 @@ def git_show(rev, path):
     r = subprocess.run(['git', 'show', f'{rev}:{path}'], capture_output=True, encoding='utf-8')
     return r.stdout if r.returncode == 0 else None
 
-def strip_comments(text):
-    return re.sub(r'<!--.*?-->\n?', '', text, flags=re.S)
+def strip_comments(text, keep_newline=False):
+    return re.sub(r'<!--.*?-->(\n?)', r'\1' if keep_newline else '', text, flags=re.S)
 
 def split(text):
     head, secs, cur = [], {}, None
@@ -308,6 +325,110 @@ def implicit_areas(approvers):
     """The areas a brief's approval is split into, each with its label and approvers: one area,
     covering everything, approved with the LABEL label by any of the approvers."""
     return [{'slug': 'everything', 'name': 'Everything', 'label': os.environ['LABEL'], 'approvers': approvers, 'catch_all': True}]
+
+# The areas table in PROJECT.md's Brief approval section.
+AREAS_HEADER = '| Area | Slug | Approved by |'
+CATCH_ALL = '(catch-all)'
+# Unit C's token for the catch-all area, and the implicit area's slug.
+RESERVED_SLUGS = ('catch-all', 'everything')
+# A slug's label, approved:<slug>, then fits GitHub's 50-character limit on label names.
+SLUG_MAX = 40
+LOGIN = r'@([A-Za-z0-9-]+)'
+
+def read_project(path):
+    """PROJECT.md's text. Text mode reads CRLF line ends as LF."""
+    try:
+        with open(path, encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        sys.exit('ada-brief: no .claude/team/PROJECT.md; onboard the repo first')
+
+def approval_section(text):
+    """The body of PROJECT.md's Brief approval section, or None when it has none."""
+    m = re.search(r'^## Brief approval\s*$(.*?)(?=^## |\Z)', text, re.M | re.S)
+    return m.group(1) if m else None
+
+def logins(section, name):
+    """The lowercase logins on the section's **<name>:** line; [] for a value starting "none"."""
+    f = re.search(r'^\s*-\s*\*\*' + name + r':\*\*(.*)$', section, re.M)
+    if not f:
+        sys.exit(f'ada-brief: the Brief approval section has no **{name}:** line')
+    value = f.group(1).strip()
+    if value.lower().startswith('none'):
+        return []
+    found = re.findall(LOGIN, value)
+    if not found:
+        sys.exit(f'ada-brief: **{name}:** must be "none" or a list of @logins: {value}')
+    return [l.lower() for l in found]
+
+def table_areas(section, approvers):
+    """The areas in the section's areas table, each checked, or None when the section has no
+    table. Stops with an ada-brief: message at the first problem."""
+    blocks, block = [], None
+    for line in section.splitlines():
+        if not line.strip().startswith('|'):
+            block = None
+        elif block is None:
+            block = [line.strip()]
+            blocks.append(block)
+        else:
+            block.append(line.strip())
+    if not blocks:
+        return None
+    if len(blocks) > 1:
+        sys.exit('ada-brief: the Brief approval section has more than one table; it holds only the areas table')
+    if blocks[0][0] != AREAS_HEADER:
+        sys.exit(f"ada-brief: the Brief approval section's table must have the header {AREAS_HEADER}")
+    if len(blocks[0]) < 2 or not re.fullmatch(r'\|(\s*:?-+:?\s*\|){3}', blocks[0][1]):
+        sys.exit("ada-brief: the areas table's second line must be |---|---|---|")
+    areas = []
+    for cells in table_rows('\n'.join(blocks[0])):
+        row = row_text(cells)
+        if len(cells) != 3:
+            sys.exit(f'ada-brief: an areas table row has {len(cells)} cells, not 3: {row}')
+        area, slug, approved_by = cells
+        catch_all = area.endswith(CATCH_ALL)
+        name = area[:-len(CATCH_ALL)].strip() if catch_all else area
+        if not name:
+            sys.exit(f'ada-brief: an areas table row has no Area: {row}')
+        if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', slug) or len(slug) > SLUG_MAX:
+            sys.exit(f'ada-brief: an area slug is lowercase letters, digits and hyphens, starting with a letter or digit, at most {SLUG_MAX} characters: {row}')
+        if slug in RESERVED_SLUGS:
+            sys.exit(f'ada-brief: the area slug {slug} is reserved: {row}')
+        if any(a['slug'] == slug for a in areas):
+            sys.exit(f'ada-brief: the area slug {slug} is used twice: {row}')
+        tokens = [t for t in re.split(r'[,\s]+', approved_by) if t]
+        if not tokens:
+            sys.exit(f'ada-brief: an areas table row has no Approved by: {row}')
+        who = []
+        if tokens != ['none']:
+            for t in tokens:
+                login = re.fullmatch(LOGIN, t)
+                if t == 'Approvers':
+                    who += approvers
+                elif login:
+                    who.append(login.group(1).lower())
+                else:
+                    sys.exit(f'ada-brief: Approved by is @logins, Approvers, both, or none: {row}')
+        areas.append({'slug': slug, 'name': name, 'label': 'approved:' + slug,
+                      'approvers': list(dict.fromkeys(who)), 'catch_all': catch_all})
+    catch_alls = [a for a in areas if a['catch_all']]
+    if len(catch_alls) != 1:
+        sys.exit(f'ada-brief: the areas table has {len(catch_alls)} rows whose Area ends {CATCH_ALL}; it needs exactly one')
+    return areas
+
+def read_areas(text):
+    """(areas, trusted): the areas in effect, as implicit_areas() gives them, and the Trusted
+    line's logins. The Approvers and Trusted lines are read first, so their errors come first.
+    No Brief approval section: the implicit area with no approvers. No table: the implicit area
+    with the Approvers line's logins. HTML comments are stripped, keeping the newline after each:
+    a table inside a comment is ignored, and a line ending in one doesn't join the table below."""
+    section = approval_section(text)
+    if section is None:
+        return implicit_areas([]), []
+    approvers, trusted = logins(section, 'Approvers'), logins(section, 'Trusted')
+    areas = table_areas(strip_comments(section, keep_newline=True), approvers)
+    return (implicit_areas(approvers) if areas is None else areas), trusted
 
 def approval(repo, n, area, labels):
     """While the area's label is on the PR: who added it last, when, and whether they are one of
@@ -585,6 +706,66 @@ PY
 	} | LABEL="$LABEL" py -
 }
 
+# The areas in effect, or what they mean for a brief touching some of them, as the header
+# describes for areas and who <area>:
+#   area_report areas ''
+#   area_report who <login> <area>...
+# With an empty <login>, who prints not-needed when no named area has an approver and nothing
+# otherwise: the answer that needs no gh.
+area_report() {
+	local mode="$1" login="$2"
+	shift 2
+	{ brief_py; cat <<'PY'
+mode, login = os.environ['MODE'], os.environ['LOGIN']
+text = read_project(sys.argv[1])
+areas, trusted = read_areas(text)
+no_section = approval_section(text) is None
+
+def listed(names):
+    return ', '.join('@' + n for n in names) if names else 'none'
+
+def warn_no_section():
+    if no_section:
+        print('ada-brief: ' + os.environ['NO_SECTION'], file=sys.stderr)
+
+if mode == 'areas':
+    warn_no_section()
+    for area in areas:
+        print(f"{area['slug']}: {listed(area['approvers'])}" + (' ' + CATCH_ALL if area['catch_all'] else ''))
+    print('trusted: ' + listed(trusted))
+    sys.exit()
+
+by_slug = {area['slug']: area for area in areas}
+named = list(dict.fromkeys(sys.argv[2:]))
+for slug in named:
+    if slug not in by_slug:
+        sys.exit(f'ada-brief: unknown area {slug}; ada-brief areas lists them')
+# The named areas that need an approver, in the order named.
+gated = [by_slug[slug] for slug in named if by_slug[slug]['approvers']]
+if not gated:
+    print('not-needed')
+    warn_no_section()
+    sys.exit()
+if not login:
+    sys.exit()
+if os.environ['REQUIRE'] == '1':
+    verdict = 'required'
+elif all(login in area['approvers'] for area in gated):
+    verdict = 'approver'
+elif login in trusted:
+    verdict = 'trusted'
+else:
+    verdict = 'required'
+print(f'{verdict} {login}')
+if verdict == 'required':
+    for area in gated:
+        if login not in area['approvers']:
+            print(f"needs {area['slug']}: {listed(area['approvers'])}")
+PY
+	} | MODE="$mode" LOGIN="$login" REQUIRE="${ADA_BRIEF_REQUIRE:-}" LABEL="$LABEL" NO_SECTION="$NO_SECTION" \
+		py - "$root/.claude/team/PROJECT.md" ${1+"$@"}
+}
+
 # Commits one or more files to a branch that isn't checked out, without touching the working
 # tree: commit_to <branch> <message> <path-in-repo>=<source-file>...
 commit_to() {
@@ -609,10 +790,19 @@ cmd="${1:-}"; shift || true
 
 case "$cmd" in
 who)
+	if [ $# -gt 0 ]; then
+		# Offline first, so a brief that needs no approval needs no gh.
+		first="$(area_report who '' "$@")" || exit 2
+		if [ -n "$first" ]; then echo "$first"; exit 0; fi
+		need_gh
+		login="$(me)"
+		area_report who "$login" "$@" || exit 2
+		exit 0
+	fi
 	pol="$(policy)" || exit 2
 	p=(); while IFS= read -r line; do p+=("$line"); done <<<"$pol"   # no mapfile: macOS has bash 3.2
 	case "${p[0]}" in
-	missing) echo 'not-needed'; echo 'ada-brief: PROJECT.md has no "Brief approval" section; treating as not needed' >&2; exit 0 ;;
+	missing) echo 'not-needed'; echo "ada-brief: $NO_SECTION" >&2; exit 0 ;;
 	none) echo 'not-needed'; exit 0 ;;
 	esac
 	need_gh
@@ -623,6 +813,11 @@ who)
 	elif [ ${#trusted[@]} -gt 0 ] && in_list "$login" "${trusted[@]}"; then echo "trusted $login"
 	else echo "required $login"
 	fi
+	;;
+
+areas)
+	[ $# -eq 0 ] || die 'usage: ada-brief areas'
+	area_report areas '' || exit 2
 	;;
 
 submit)
@@ -975,6 +1170,6 @@ PY
 	;;
 
 *)
-	die 'usage: ada-brief who | submit <task-id> <base-branch> [<branch>] | status [<branch>] | compare <approved-brief> <current-brief> | body <task-id> [<branch>] | ready <title> <file> | overlap [<file>... | --gate] (see the header of this script)'
+	die 'usage: ada-brief who [<area>...] | areas | submit <task-id> <base-branch> [<branch>] | status [<branch>] | compare <approved-brief> <current-brief> | body <task-id> [<branch>] | ready <title> <file> | overlap [<file>... | --gate] (see the header of this script)'
 	;;
 esac
