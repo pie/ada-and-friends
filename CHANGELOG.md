@@ -11,6 +11,10 @@ Releasing in DEVELOPING.md).
   `ada-clock: real`. She hands the steps to the developer under the `manual` setup, records the
   fake time in `FINDINGS.md`, and reports a clock that couldn't be reset. Projects onboarded before
   `ada-clock` no longer depend on their `TEST-AREAS.md` for the commands.
+- **`ada-plan` and `ada-brief overlap` stop when PROJECT.md has no `**Branch from:**` line.**
+  They used to assume a branch called `production` and fail later with "couldn't fetch
+  production". Now they say PROJECT.md has no `**Branch from:**` line and to add one under Code and
+  branches. Only `ada-plan init` runs without it. With the line present nothing changes.
 
 ## 0.13.0, 9 Nov 2026
 
