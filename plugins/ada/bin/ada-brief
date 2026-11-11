@@ -1161,8 +1161,8 @@ if touched is not None:
             print(f"ada-brief: the brief names area {slug}, which PROJECT.md doesn't list", file=sys.stderr)
             sys.exit(2)
     catch_all = next(area['slug'] for area in areas if area['catch_all'])
-    # The author is the PR's opener, exempt only when the brief's Author: line names them.
-    opener = pr['author']['login'].lower()
+    # The opener (None when gh gives "author": null, a deleted account) is exempt when Author: names them.
+    opener = None if pr['author'] is None else pr['author']['login'].lower()
     named = brief_author(current)
     require = os.environ['REQUIRE'] == '1'
     author = opener if named == opener and not require else None
