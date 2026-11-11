@@ -9,7 +9,7 @@ Trusted), or needs none because the PR's opener is its `Author:` and approves it
   status`); 12 Platforms (bash 3.2, Python 3.8, CRLF, a path with a space)
 - Asana: task 1220198285902650
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-11, 263 passed, 0 failed on the host (bash 5.3, Python 3.14); both breaks print FAIL where Step 4 says; Docker and On GitHub not run; see the PR
+- Last run: 2026-11-11, 285 passed, 0 failed on the host (bash 5.3, Python 3.14); the 5h and 5i author-null checks print FAIL against the pre-fix ada-brief; Docker and On GitHub not run; see the PR
 
 ## Precondition
 
@@ -223,7 +223,8 @@ def url(pr):
 
 def view(pr):
     return {'number': pr['number'], 'url': url(pr), 'title': pr['title'], 'body': pr['body'],
-            'labels': [{'name': l} for l in pr['labels']], 'author': {'login': pr['opener']},
+            'labels': [{'name': l} for l in pr['labels']],
+            'author': None if os.environ.get('GH_AUTHOR_NULL') == '1' else {'login': pr['opener']},
             'headRefName': pr['head'], 'baseRefName': pr['base'], 'state': 'OPEN',
             'isDraft': pr['draft'], 'mergeCommit': None}
 
@@ -486,6 +487,9 @@ BEFORE() { local i j; i=$(awk -v p="$1" 'index($0, p) == 1 { print NR; exit }' "
 LAST() { if [ "$(tail -1 "$W/o")" = "$URL1" ]; then ok 0 "$CASE: the PR URL is the last line"; else ok 1 "$CASE: the PR URL is the last line"; show; fi; }
 EXIT() { if [ "$(cat "$W/c")" = "$1" ]; then ok 0 "$CASE: exit $1"; else ok 1 "$CASE: exit $1"; show; fi; }
 ERRIS() { if [ "$(cat "$W/e")" = "$1" ]; then ok 0 "$CASE: stderr is '$1'"; else ok 1 "$CASE: stderr is '$1'"; show; fi; }
+# LACKS <text>: stdout has no line containing <text>.
+LACKS() { if ! grep -Fq -- "$1" "$W/o"; then ok 0 "$CASE: stdout has no '$1'"; else ok 1 "$CASE: stdout has no '$1'"; show; fi; }
+NOTRACE() { if ! grep -q Traceback "$W/e" && [ ! -s "$W/e" ]; then ok 0 "$CASE: no traceback, nothing on stderr"; else ok 1 "$CASE: no traceback, nothing on stderr"; show; fi; }
 NOOUT() { if [ ! -s "$W/o" ]; then ok 0 "$CASE: nothing on stdout"; else ok 1 "$CASE: nothing on stdout"; show; fi; }
 # BLOCKS <n>: exactly <n> lines start '--- ' (the approvers' words, one block per distinct comment).
 BLOCKS() { local cnt; cnt=$(starts '--- ' | wc -l | tr -d ' ')
@@ -621,6 +625,22 @@ st; L 1 waiting; L 2 'area content: waiting (@tester); no Author: line'; L 3 'ar
 newcase "5g Author: @other, opened by opener, who is Trusted" @neil @opener "$T_STD"
 HL=$(printf 'Areas: design\nAuthor: @other'); brief; at $T10; sub opener
 st; L 1 waiting; L 2 "area design: waiting (@tester); Author: @other is not the PR's opener @opener, so it isn't exempt"
+
+# 5h. `gh pr view` gives "author": null (the opener's account was deleted): no traceback, exit 0, no
+# area is exempt, and no line names the opener (no '@None', no 'Author:' ending).
+newcase "5h gh pr view gives author null, Author: @tester" @neil none "$T_STD"
+HL=$(printf 'Areas: content, design\nAuthor: @tester'); brief; at $T10; sub tester
+GH_AUTHOR_NULL=1; export GH_AUTHOR_NULL; st; unset GH_AUTHOR_NULL
+EXIT 0; NOTRACE; L 1 waiting; L 2 'area content: waiting (@tester)'; L 3 'area design: waiting (@tester)'
+LACKS 'None'; LACKS 'not needed'; LACKS 'Author:'; LAST
+label approved:content tester 2026-01-01T11:00:00Z
+GH_AUTHOR_NULL=1; export GH_AUTHOR_NULL; st; unset GH_AUTHOR_NULL
+EXIT 0; NOTRACE; L 1 waiting; L 2 'area content: approved @tester 2026-01-01T11:00:00Z'; L 3 'area design: waiting (@tester)'; LACKS 'None'
+
+newcase "5i gh pr view gives author null, no Author: line" @neil none "$T_STD"
+HL='Areas: content, design'; brief; at $T10; sub tester
+GH_AUTHOR_NULL=1; export GH_AUTHOR_NULL; st; unset GH_AUTHOR_NULL
+EXIT 0; NOTRACE; L 1 waiting; L 2 'area content: waiting (@tester)'; L 3 'area design: waiting (@tester)'; LACKS 'None'; LACKS 'Author:'
 
 # 6. DoD 6: a needed: content amendment pushed with approved:content left on.
 newcase "6 needed: content amendment" @neil none "$T_STD"

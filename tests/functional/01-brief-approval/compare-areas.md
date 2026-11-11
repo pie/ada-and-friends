@@ -336,8 +336,17 @@ if git -C "$REPO" rev-parse --verify -q "$BASE" >/dev/null 2>&1; then
   git -C "$REPO" ls-files --others --exclude-standard -- tests/functional/01-brief-approval/ >> "$W/d01"
   # compare-areas.md is new; re-approval-column-and-docs.md's header check changed (Amendment, 10 Nov 2026);
   # area-status.md is new (Unit D1, DoD 1 as amended 2026-11-11)
-  grep -vxE 'tests/functional/01-brief-approval/(compare-areas|re-approval-column-and-docs|area-status)\.md' "$W/d01" > "$W/d01.other"
-  t "tests/functional/01-brief-approval/: no script but compare-areas.md, re-approval-column-and-docs.md and area-status.md differs from $BASE (got: $(tr '\n' ' ' < "$W/d01.other"))" test ! -s "$W/d01.other"
+  grep -vxE 'tests/functional/01-brief-approval/(compare-areas|re-approval-column-and-docs|area-status)\.md' "$W/d01" > "$W/d01.cand"
+  # A script whose only change is its 'Last run' line (a re-run records itself) is unedited: compare
+  # each other file with $BASE's copy, both with their '- Last run:' lines removed. A real edit still
+  # differs; a new file (not in $BASE) still counts as a change.
+  : > "$W/d01.other"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if git -C "$REPO" show "$BASE:$f" 2>/dev/null | grep -v '^- Last run:' > "$W/d01.base" \
+       && grep -v '^- Last run:' "$REPO/$f" > "$W/d01.now" 2>/dev/null && cmp -s "$W/d01.base" "$W/d01.now"; then :; else echo "$f" >> "$W/d01.other"; fi
+  done < "$W/d01.cand"
+  t "tests/functional/01-brief-approval/: no script but compare-areas.md, re-approval-column-and-docs.md and area-status.md differs from $BASE beyond its Last run line (got: $(tr '\n' ' ' < "$W/d01.other"))" test ! -s "$W/d01.other"
 else
   echo "info: the tests/functional/01-brief-approval/ unedited check skipped: no $BASE in $REPO's git"
 fi
