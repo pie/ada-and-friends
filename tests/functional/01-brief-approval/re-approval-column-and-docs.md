@@ -4,7 +4,7 @@
   onboard `PROJECT.md`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219937425454517
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 28 Oct 2026 (after the test fix), 0 failed (59 PASS) under bash 5 and bash 3.2; breaks FAIL; see the PR
+- Last run: 2026-11-11, 0 failed (59 PASS) on the host (bash 5.3); Docker and the breaks not run; see the PR
 
 ## Precondition
 
@@ -69,9 +69,14 @@ grep '^#' "$NT" > "$W/h.new"; grep '^#' "$OT" > "$W/h.old"
 t "template: headings unchanged from the released template" cmp -s "$W/h.old" "$W/h.new"
 fields() { awk '/^## /{exit} /^[A-Z][A-Za-z ]*:/{sub(/:.*/,""); print}' "$1"; }
 fields "$NT" > "$W/f.new"; fields "$OT" > "$W/f.old"
-# Step 1 of 25 Oct 2026 ("One worktree per step", DoD 9) added a Worktree: header field; allow it, and no other.
-grep -vx 'Worktree' "$W/f.new" > "$W/f.new.nowt"
-t "template: header field names unchanged" cmp -s "$W/f.old" "$W/f.new.nowt"
+# Header fields added since: Worktree (Step 1 of 25 Oct 2026, "One worktree per step", DoD 9), and Plan,
+# Ships and Overlaps (Unit C brief, Amendment of 10 Nov 2026). Those four may be new; nothing else may be
+# added, and no field the released template has may go.
+cp "$W/f.new" "$W/f.new.rest"
+for fld in Worktree Plan Ships Overlaps; do
+  grep -qx "$fld" "$W/f.old" || { grep -vx "$fld" "$W/f.new.rest" > "$W/f.tmp"; mv "$W/f.tmp" "$W/f.new.rest"; }
+done
+t "template: header field names unchanged (Worktree, Plan, Ships and Overlaps may be new)" cmp -s "$W/f.old" "$W/f.new.rest"
 sect '## Constraints' "$NT" > "$W/con.new"
 t "template: Constraints still has '- Out of scope:'" grep -q '^- Out of scope:' "$W/con.new"
 t "template: Constraints still has '- Expected review:'" grep -q '^- Expected review:' "$W/con.new"

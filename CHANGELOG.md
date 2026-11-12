@@ -5,7 +5,26 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Brief approval by area.** A project can list its areas of concern, each with its approvers,
+  in a table in `PROJECT.md`'s Brief approval section (`| Area | Slug | Approved by |`, one row
+  marked `(catch-all)`). `ada-brief areas` prints the areas in effect with their approvers, and the
+  Trusted logins, without `gh`. `ada-brief who <area>...` says whether a brief touching those areas
+  needs approval for you, and after `required` lists the areas you can't approve and who can. A
+  bad table stops `ada-brief` with a message saying what is wrong. `ada-brief who` with no areas
+  is unchanged, and nothing calls the new commands yet.
+  `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
+  ...` (the approval areas the brief touches) and `Author: @<login>`, and an amendment's
+  Re-approval `needed: <area>, ...`. When an amended brief needs approving again,
+  `ada-brief compare` adds a second line, `areas: <slug>, ...`, naming the areas it goes back to
+  (`catch-all` for a change to an approved section with no Amendments row). A brief without an
+  `Areas:` line gets exactly the output it got before.
+  A brief with an `Areas:` line is approved area by area: an approver of an area approves it by
+  adding the `approved:<slug>` label to the draft PR (a Trusted login's label counts too).
+  `ada-brief status` then prints one `area <slug>: …` line per area, and its first line is
+  `approved` only when every area is approved or needs no approval. An area needs none when it
+  has no approvers, or when the PR's opener approves it and the brief's `Author:` line names
+  them. A change to an approved section with no Amendments row sends the brief back to the
+  catch-all area's approvers.
 
 ## 0.13.0, 9 Nov 2026
 

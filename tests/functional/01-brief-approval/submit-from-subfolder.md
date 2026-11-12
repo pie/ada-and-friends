@@ -10,7 +10,7 @@ itself (`"$0" status <base>`), which has the same fault.
 - Area: 01 Brief approval (`ada-brief submit`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/100438094841951/task/1219769422658693
 - Automate as: none (the Steps block is a self-checking shell script with a stand-in `gh`)
-- Last run: 28 Oct 2026, 0 failed (20 PASS) under bash 5, bash --posix and Docker bash 3.2; the pre-fix break prints 16 FAIL, the half-fixed break 3 FAIL (see the PR)
+- Last run: 2026-11-11, 0 failed (20 PASS) on the host (bash 5.3); Docker and the breaks not run; see the PR
 
 ## Precondition
 

@@ -44,7 +44,7 @@ State the scripts read and write, in an onboarded project:
 
 | State | Written by | Read by |
 |---|---|---|
-| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:121-148`) reads Approvers and Trusted only; Ada reads the triggers (`skills/begin/approval.md`, Amending an approved brief) |
+| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:147-164`) reads Approvers and Trusted, and checks the optional areas table (`\| Area \| Slug \| Approved by \|`) through `read_areas()`, which `areas` and `who <area>` read; Ada reads the triggers (`skills/begin/approval.md`, Amending an approved brief) |
 | `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:68-74`, `93-96`); `ada-brief overlap` (`branches()`) |
 | `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*), one set per checkout: the main checkout and each step's worktree | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
 | `CHECKPOINT.md` `- Branch:` (the branch alone) and `- Worktree:` | Ada, at session end | `ada-worktree check` (`Branch:`), `ada-worktree list` (`Step:`); `/ada:begin` and `/ada:pickup` run `check` before reading the checkpoint |
@@ -132,16 +132,39 @@ carry on, and `ada-plan status` for the main checkout's plan.
 
 How it works:
 
-- `who` (`bin/ada-brief:583-598`): parses `PROJECT.md` with a regex for `## Brief approval` and the
-  `- **Approvers:**` / `- **Trusted:**` bullets (`policy()`, `:121-148`). A value starting `none`
-  means empty; otherwise every `@login` is taken, lowercased. Other bullets in the section, such as
-  `- **Re-approval triggers:**`, are not read. No section prints `not-needed` plus a warning on
-  stderr (`:587`). Then `gh api user` gives the login (`me()`, `:172`). `ADA_BRIEF_REQUIRE=1` forces
-  `required` (`:593`).
-- `brief_py()` (`:178-319`) prints the Python that reads briefs, shared by `render_body`,
-  `after_submit`, `status` and `compare`: each runs `{ brief_py; cat <<'PY' ... PY; } | py -`. It
-  holds `split()` and `table_rows()` (what a section and a table data row are), `compare()`,
-  `approved_version()`, `since_approval()`, `gh()`/`flat()` and `approval()`.
+- `who` with no arguments (`bin/ada-brief:802-816`): reads `PROJECT.md` through `policy()`
+  (`:147-164`), which runs `brief_py`'s readers: `approval_section()` finds `## Brief approval`
+  with a regex, and `logins()` the `- **Approvers:**` / `- **Trusted:**` bullets. A value starting
+  `none` means empty; otherwise every `@login` is taken, lowercased. Other bullets in the section,
+  such as `- **Re-approval triggers:**`, are not read. `policy()` also runs `read_areas()`, so a bad
+  areas table stops `who`, `status`, and `submit` to an existing PR (after its push), with exit 2.
+  No section prints `not-needed` plus the `NO_SECTION` warning on stderr (`:145`, `:805`). Then
+  `gh api user` gives the login (`me()`). `ADA_BRIEF_REQUIRE=1` forces `required` (`:811`).
+- The areas table (`| Area | Slug | Approved by |`) in the Brief approval section is read by
+  `read_areas()` (`:420-431`) and checked by `table_areas()` (`:364-418`). `read_areas()` passes
+  the section through `strip_comments(..., keep_newline=True)` first, so a table inside an HTML
+  comment is ignored and a line ending in a comment stays its own line rather than joining the
+  table's header (`approved_sections()`, `amendments()` and `show()` call it without
+  `keep_newline`, which removes the newline after `-->`). The Approvers and Trusted lines are
+  read from the section as it is. The rules: the section's one table, that header, a
+  `|---|---|---|` line, three cells a row, one row whose Area ends
+  `(catch-all)`, slugs `[a-z0-9][a-z0-9-]*` of at most 40 characters, unique, not `catch-all` or
+  `everything`, Approved by `@login`s, `Approvers`, both, or `none`. Each area is a dict like
+  `implicit_areas()`'s, label `approved:<slug>`. No table gives `implicit_areas()` with the
+  Approvers line; no section, with no approvers. The first problem stops with `ada-brief: <message>`
+  (exit 2 through the caller's `|| exit 2`).
+- `areas` (`:818-821`) and `who <area>...` (`:793-801`) run `area_report` (`:709-767`). `areas`
+  needs no `gh`. `who <area>...` runs it twice: first with no login, which prints `not-needed`
+  when no named area has an approver (no `gh` needed); otherwise again with `me()`'s login.
+- `brief_py()` (`:197-446`) prints the Python that reads briefs and PROJECT.md's Brief approval
+  section, shared by `policy()`, `render_body`, `after_submit`, `area_labels`, `area_report`,
+  `status` and `compare`: each runs `{ brief_py; cat <<'PY' ... PY; } | py -`. It holds
+  `strip_comments()`, `split()` and `table_rows()` (what a section and a table data row are),
+  `compare()`, `approved_version()`, `since_approval()`, `gh()`/`flat()`, `implicit_areas()`, the
+  project readers `read_project()`, `approval_section()`, `logins()`, `table_areas()` and
+  `areas_table()` (the table with comments stripped; `None` without one), `read_areas()`,
+  `approval()`, `parse_time()`, `counts_for()` (an area's Approved by logins
+  plus Trusted: who counts for it) and `area_state()`.
 - `compare <approved> <current>` (`:753-776`, rules in `compare()`, `:268-288`): offline. `same`
   when the files match after each line is right-stripped (a CR too) and blank lines at the end are
   dropped. Otherwise the added rows are the Amendments data rows of `<current>` not in
@@ -151,7 +174,18 @@ How it works:
   added row, a change to Decisions or Constraints less its `- Out of scope:` bullet and that
   bullet's indented lines (`approved_sections()`, `:236-250`, comments stripped) gives
   `reapprove approved section changed with no amendment recorded`. Else `allowed`, followed by
-  the added rows. Exit 0 for all three; 2 on usage or an unreadable file.
+  the added rows. Exit 0 for all three; 2 on usage or an unreadable file. After `reapprove`, when
+  `<current>` has an `Areas:` header line, a second line `areas: <slug>, ...`
+  (`reapprove_areas()`, in `brief_py()` after `compare()`): from each added row
+  (`row_areas()`, which classifies it with `row_problem()`), the slugs of its `needed: <slug>,
+  ...` when all are on `Areas:` and the row has an `Agreed by`, none for `not needed`, else all
+  of them; `catch-all` for an approved section changed with no added row; listed in `Areas:`
+  order. `header_value()` reads a header line (before the first `##`, comments stripped): a
+  missing line, an empty value or one starting `<` (the template's prompt) is none, so such a
+  brief prints only the first line. `brief_areas()` lowercases the slugs and drops repeats; an
+  `Areas:` line holding only commas is none too, and prints only the first line as well.
+  `brief_author()` reads `Author: @<login>` (lowercased; `None` unless the value is one
+  `@login`), which `status` reads on its area path.
 - The approved version (`approved_version()`, `:290-294`): `git log -1 --until=<label time>
   <ref> -- <brief>`, then `git show`. The label time is the last `labeled` event's `created_at`
   (`approval()`, `:307-317`, which returns nothing unless the label is on the PR).
@@ -183,6 +217,26 @@ How it works:
   <reason>` adds the note `@<login> approved an earlier version; the brief has changed since:
   <reason>` (`:716-730`). Otherwise `changes-requested` if any approver review, line comment or PR
   comment is newer than `since`, else `waiting` (`:732-748`).
+  `gh pr view` also gives the PR's `author` (its opener). `policy()` `missing`, or `none` with
+  no areas table, still prints `not-needed` before any `gh pr view`: which brief is the PR's is
+  known only from the PR body's marker, so no brief can be read first. `none` with a table
+  (`policy()`'s second line `table`, from `areas_table()`) goes on: every answer before the
+  approval is read (no PR, no marker, the brief not pushed, no `Areas:` on the pushed brief) is
+  then `not-needed`. The pushed brief's
+  `Areas:` line (`brief_areas()`) picks the path: without one, the path above, unchanged; with
+  one, the area path (`:1155-1217`). It reads the areas with `read_areas()`, exits 2 on a slug
+  the project doesn't list, and runs `area_state()` (`:568-607`) for each slug in `Areas:`
+  order: `not needed` when the exempt author or no approver; `approved` when the area's
+  `approved:<slug>` label was last added by a login in `counts_for()`, at or after `since`, or
+  before it with the area left out of `reapprove_areas()` (the `catch-all` token mapped to the
+  catch-all's slug); `changes-requested` when a login that counts said something since `since`;
+  else `waiting`. The author is the PR's opener when the brief's `Author:` (`brief_author()`)
+  names them and `ADA_BRIEF_REQUIRE` isn't `1`; the `gh` login running `status` plays no part.
+  When an area's approval was compared and the catch-all came back, the catch-all is evaluated
+  too and its line goes last. Reviews and comments are fetched once (`said_since()`) for
+  everyone; the base path keeps only the approvers'. Labels of areas the brief doesn't touch are
+  never read. `brief-approved` is read on the area path only as the label of `everything`, the
+  one area of a project with no areas table.
 - `ready` (`:787-798`): PATCHes title and body, keeps the Asana block, `gh pr ready`.
 - `render_body` (`:325-496`) parses the brief's headings and bullets and the plan's Units table,
   and calls `gh pr list` once per unit (`:388-393`). The Amendments table keeps its column count:
