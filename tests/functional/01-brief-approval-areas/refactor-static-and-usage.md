@@ -1,5 +1,7 @@
 # The approval refactor keeps the usage, the subcommands and the file list
 
+Unit A's scope check; run only against Unit A's PR (#51). Later units skip it.
+
 - Area: 01 Brief approval (`ada-brief`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198400793919
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
