@@ -63,7 +63,7 @@ State the scripts read and write, in an onboarded project:
 | `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:185-252`) | Claude Code |
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:186-189`) |
 | `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
-| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:281-350`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
+| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:281-350`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
 
@@ -416,7 +416,8 @@ Traps:
   `:595`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
   (`bin/prod-wp:19-30`). No production server exists for this repo, so `prod-wp` is never used here.
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
-  overridable, and `PRESSTEST_IMAGE_VERSION`, `PRESSTEST_SHARED_SUITES` and `PRESSTEST_STAGING_URL`
+  overridable, passes each `PRESSTEST_ENV_<NAME>` line to a local run as `<NAME>` (not to staging; the project's tests mustn't print the values;
+  bad and reserved names refused, including any name bash won't export; `ada-clock` and `ada-onboard` ignore them), and `PRESSTEST_IMAGE_VERSION`, `PRESSTEST_SHARED_SUITES` and `PRESSTEST_STAGING_URL`
   override `PROJECT.md`. This repo's image is `none`. `ada-clock` reads `LOCAL_URL`, `LOCAL_WP_PATH` (the site's WordPress root),
   `ADA_CLOCK_ADAPTER` (`manual` or `local-linux`; unset means `manual`), `ADA_CLOCK_LOCAL_SITE` (the
   Local site ID, local-linux only; unset means the site whose `app/public` is `LOCAL_WP_PATH`) and

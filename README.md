@@ -207,8 +207,19 @@ printf 'PRESSTEST_SECRET=%s\n' "$(wp option get presstest_companion_report_secre
 
 On the same settings page, switch on "Allow Presstest to create test data".
 
-**3. Check it.** In the repo, `presstest config` shows the image, the tests and `secret: (set)`.
-Then `presstest run` should end with `presstest: passed <n>`.
+**3. Add the project's own settings, if its tests need any.** A line
+`PRESSTEST_ENV_<NAME>=value` in `local.env` reaches the tests of a local run as `<NAME>` in the
+container's environment (for example `PRESSTEST_ENV_TEST_HELPER_SECRET=...` is read as
+`process.env.TEST_HELPER_SECRET`). The name is capitals, digits and underscores, starting with a
+capital; any other key starting `PRESSTEST_ENV_`, and names `presstest run` or bash uses itself
+(`URL`, `USERNAME`, `PASSWORD`, `HOME`, `PATH`, anything starting `PRESSTEST_`, `DOCKER_` or
+`BASH`, names bash won't export such as `SHELLOPTS` or `UID`, and so on) are refused. They go to local runs only, never to
+staging, and never on a command line or in presstest's output. The project's tests must not print
+them either, or they land in the report.
+
+**4. Check it.** In the repo, `presstest config` shows the image, the tests, `secret: (set)` and
+each project setting's name with `(set)`. Then `presstest run` should end with
+`presstest: passed <n>`.
 
 ## Brief approval
 

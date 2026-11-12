@@ -19,6 +19,15 @@ Releasing in DEVELOPING.md).
   They used to assume a branch called `production` and fail later with "couldn't fetch
   production". Now they say PROJECT.md has no `**Branch from:**` line and to add one under Code and
   branches. Only `ada-plan init` runs without it. With the line present nothing changes.
+- **`presstest run` passes a project's own settings into the tests, locally.** Each
+  `PRESSTEST_ENV_<NAME>=value` line in `.claude/team/local.env` reaches a local run as `<NAME>` in the
+  container's environment (for a project's test helper secret, say). The value goes in through the
+  environment, never on a command line or in output; `presstest config` shows the name with
+  `(set)`. Not passed to staging. A key starting `PRESSTEST_ENV_` whose name isn't capitals, digits and
+  underscores, or a name that presstest or bash uses itself (`URL`, `HOME`, `PATH`, anything
+  starting `PRESSTEST_`, `DOCKER_` or `BASH`, `EXECIGNORE`, or any name bash won't export, such as
+  `SHELLOPTS` or `UID`), stops a local run with exit 2, before Docker runs; `config` shows it as
+  `(invalid name)` or `(reserved)`. The project's tests must not print the values.
 
 ## 0.13.0, 9 Nov 2026
 

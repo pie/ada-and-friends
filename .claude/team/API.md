@@ -93,7 +93,7 @@ EXPLAIN, and stops `wp_mail` and outgoing HTTP, printing `prod-wp: blocked …` 
 each. With `PROD_FORBIDDEN` set, a `sql` query on `posts` or `postmeta` must name its post type
 or IDs.
 
-### `presstest` (`bin/presstest:1-54`)
+### `presstest` (`bin/presstest:1-74`)
 
 Runs the project's PressTest tests (`tests/presstest/`) and its shared suites in the runner image
 on the developer's local site or the project's staging site: `config`, `list`,
@@ -102,6 +102,18 @@ session when there's a report token and always ends it (`presstest: ended test s
 <summary>`), prints `presstest: <env>, <url>, <targets>` before the tests and ends with `presstest: passed <n>` or
 `presstest: failed <n> of <total>` (exit 1), or `presstest: failed, no report written` (exit 1);
 settings, usage and Docker errors exit 2. Tess reads the last line (`agents/tess.md`, Run mode).
+Each `PRESSTEST_ENV_<NAME>=value` line in `local.env` is the project's own setting, passed to a
+local `run` as `<NAME>` in the container's environment (`-e NAME`, the value exported only into
+the `docker run`; never on a command line, never printed; `config` shows `NAME (set)`). Local only:
+`--env staging` and the pre-flight check pass none. Any other key starting `PRESSTEST_ENV_` (the
+name isn't `[A-Z][A-Z0-9_]*`: a dot, a space, lowercase), or a reserved name, exits 2 naming the key,
+before Docker runs; `config` shows them `(invalid name)` and `(reserved)`, never a value. Reserved:
+a name `run` or the container uses (`RESERVED` in the script, `EXECIGNORE` among them), anything
+starting `PRESSTEST_`, `DOCKER_` or `BASH`, and any name the running bash won't export, tested in a
+throwaway subshell before Docker runs (`SHELLOPTS`, `UID`, `EUID`, `PPID`, `GROUPS`, ...). The
+environment variable `PRESSTEST_ENV_<NAME>`
+overrides a listed name's value. The project's tests must not print the values (they would land in
+the report).
 Not used in this repo (no suite).
 
 ### `ada-clock` (`bin/ada-clock:1-106`)
