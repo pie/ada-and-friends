@@ -43,6 +43,24 @@
 #   PRESSTEST_STAGING_CUSTOMER_USERNAME=  PRESSTEST_STAGING_CUSTOMER_PASSWORD=
 #                                           the same, for staging. Local values are never sent
 #                                           to staging.
+#   PRESSTEST_ENV_<NAME>=...                the project's own settings, such as a test helper
+#                                           secret: each reaches the tests of a local run as
+#                                           <NAME> in the container's environment (-e NAME, never
+#                                           the value on a command line). Not passed to staging.
+#                                           NAME is capitals, digits and underscores, starting with
+#                                           a capital. A local `run` stops, before Docker, on any
+#                                           other key starting PRESSTEST_ENV_ (a dot, a space, a
+#                                           lowercase letter), and on a reserved NAME: one
+#                                           presstest or the container uses (URL, USERNAME,
+#                                           PASSWORD, HOME, PATH, EXECIGNORE, ... : RESERVED
+#                                           below), anything starting PRESSTEST_, DOCKER_ or BASH,
+#                                           and any name the running bash won't export (SHELLOPTS,
+#                                           UID, PPID, GROUPS, ...). The file lists the names; an
+#                                           environment variable PRESSTEST_ENV_<NAME> overrides a
+#                                           listed name's value. `config` shows each as (set), or
+#                                           (invalid name) or (reserved). presstest never prints
+#                                           the values; the project's tests must not either, as
+#                                           they'd land in the report.
 #
 # Needs Docker, and curl and jq when there's a report token. Each `run` starts a new container
 # from the image, removed when it ends; Docker pulls the image the first time a version is used.
@@ -96,20 +114,35 @@ VERSION_FILE="$(project_line 'PressTest image')"
 SHARED_FILE="$(project_list 'PressTest shared suites' | paste -sd ' ' -)"
 STAGING_URL_FILE="$(project_line 'PressTest staging')"
 
-# The developer's settings, from local.env. Each known KEY is held as KEY_FILE.
+# The developer's settings, from local.env. Each known KEY is held as KEY_FILE. Each
+# PRESSTEST_ENV_ line is the project's own setting: a valid NAME goes in ENV_NAMES and its
+# value is held as ENVFILE_<NAME>; any other key starting PRESSTEST_ENV_ goes in ENV_BAD, one per line.
 KEYS='LOCAL_URL PRESSTEST_SECRET PRESSTEST_USERNAME PRESSTEST_PASSWORD
 	PRESSTEST_CUSTOMER_USERNAME PRESSTEST_CUSTOMER_PASSWORD PRESSTEST_STAGING_SECRET
 	PRESSTEST_STAGING_USERNAME PRESSTEST_STAGING_PASSWORD PRESSTEST_STAGING_CUSTOMER_USERNAME
 	PRESSTEST_STAGING_CUSTOMER_PASSWORD'
 KEYLIST=" $(echo $KEYS) "
 for key in $KEYS; do printf -v "${key}_FILE" '%s' ''; done
+ENV_NAMES=' ' ENV_BAD=$'\n'
 if [ -f "$conf" ]; then
 	while IFS= read -r line || [ -n "$line" ]; do
 		line="${line%$'\r'}"
 		[[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
-		[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+		[[ "$line" =~ ^[[:space:]]*([^=]+)=[[:space:]]*(.*)$ ]] || continue
 		key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
-		[[ "$KEYLIST" == *" $key "* ]] || continue
+		key="${key%"${key##*[![:space:]]}"}"
+		if [[ "$key" == PRESSTEST_ENV_* ]]; then
+			name="${key#PRESSTEST_ENV_}"
+			if [[ ! "$name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+				[[ "$ENV_BAD" == *$'\n'"$key"$'\n'* ]] || ENV_BAD="$ENV_BAD$key"$'\n'
+				continue
+			fi
+			[[ "$ENV_NAMES" == *" $name "* ]] || ENV_NAMES="$ENV_NAMES$name "
+			var="ENVFILE_$name"
+		else
+			[[ "$KEYLIST" == *" $key "* ]] || continue
+			var="${key}_FILE"
+		fi
 		if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?[[:space:]]*$ || "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?[[:space:]]*$ ]]; then
 			val="${BASH_REMATCH[1]}"
 		else
@@ -117,11 +150,25 @@ if [ -f "$conf" ]; then
 			val="${val%"${val##*[![:space:]]}"}"
 		fi
 		[[ "$val" == '<'*'>' ]] && val=''
-		printf -v "${key}_FILE" '%s' "$val"
+		printf -v "$var" '%s' "$val"
 	done < "$conf"
 fi
 # The environment's value, else the file's.
 setting() { local file="${1}_FILE"; local env="${!1:-}"; echo "${env:-${!file}}"; }
+# The same for a project setting NAME: PRESSTEST_ENV_<NAME> in the environment, else the file's.
+env_value() { local file="ENVFILE_$1"; local full="PRESSTEST_ENV_$1"; local env="${!full:-}"; printf '%s' "${env:-${!file}}"; }
+# Names a project setting can't take, because presstest or the container uses them (anything
+# starting PRESSTEST_, DOCKER_ or BASH is refused too, and any name the running bash won't
+# export). A new -e name in `run` goes in this list.
+RESERVED=' URL USERNAME PASSWORD CUSTOMER_USERNAME CUSTOMER_PASSWORD HOME IGNORE_HTTPS_ERRORS'
+RESERVED+=' REPORT_FILE OUTPUT_DIR NODE_NO_WARNINGS NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED'
+RESERVED+=' PATH BASH_ENV ENV IFS LD_PRELOAD LD_LIBRARY_PATH EXECIGNORE '
+# Whether the running bash exports NAME with the value it is given, tested in a throwaway
+# subshell: read-only and special variables (SHELLOPTS, UID, PPID, GROUPS, ...) are not.
+exports_as_given() { [[ "$( declare -x "$1=x" 2>/dev/null; export -p )" == *"declare -x $1=\"x\""* ]]; }
+is_reserved() {
+	[[ "$RESERVED" == *" $1 "* || "$1" == PRESSTEST_* || "$1" == DOCKER_* || "$1" == BASH* ]] || ! exports_as_given "$1"
+}
 VERSION="${PRESSTEST_IMAGE_VERSION:-$VERSION_FILE}"
 SHARED="${PRESSTEST_SHARED_SUITES-$SHARED_FILE}"
 STAGING_URL="${PRESSTEST_STAGING_URL:-$STAGING_URL_FILE}"
@@ -171,6 +218,16 @@ config)
 	echo "  secret:   $(shown "$(setting PRESSTEST_SECRET)")"
 	echo "  login:    $(shown "$(setting PRESSTEST_USERNAME)$(setting PRESSTEST_PASSWORD)")"
 	echo "  customer: $(shown "$(setting PRESSTEST_CUSTOMER_USERNAME)$(setting PRESSTEST_CUSTOMER_PASSWORD)")"
+	while IFS= read -r key; do
+		[ -z "$key" ] || echo "  env:      $key (invalid name)"
+	done <<< "$ENV_BAD"
+	for name in $ENV_NAMES; do
+		if is_reserved "$name"; then
+			echo "  env:      PRESSTEST_ENV_$name (reserved)"
+		else
+			echo "  env:      $name $(shown "$(env_value "$name")")"
+		fi
+	done
 	echo "staging:    ${STAGING_URL:-(none)}$([ -z "$STAGING_URL" ] || [ -n "$STAGING_OK" ] || echo ' (not a staging URL)')"
 	echo "  secret:   $(shown "$(setting PRESSTEST_STAGING_SECRET)")"
 	echo "  login:    $(shown "$(setting PRESSTEST_STAGING_USERNAME)$(setting PRESSTEST_STAGING_PASSWORD)")"
@@ -195,6 +252,14 @@ run)
 	local)
 		[ -n "$LOCAL_SITE" ] || die 'no LOCAL_URL: add your local site to .claude/team/local.env'
 		[ -n "$DOMAIN" ] || die "LOCAL_URL must be a local site, on a .local or .test domain: $LOCAL_SITE"
+		# The project's own settings (PRESSTEST_ENV_<NAME>) are passed to local runs only, so a bad
+		# or reserved name is refused here, before anything runs.
+		while IFS= read -r key; do
+			[ -z "$key" ] || die "$key in local.env: the name after PRESSTEST_ENV_ must be capitals, digits and underscores, starting with a capital"
+		done <<< "$ENV_BAD"
+		for name in $ENV_NAMES; do
+			! is_reserved "$name" || die "PRESSTEST_ENV_$name in local.env: $name is reserved (used by presstest run or bash), so it can't be a project setting"
+		done
 		URL="$LOCAL_SITE"; P='PRESSTEST' ;;
 	staging)
 		[ -n "$STAGING_URL" ] || die 'this project has no staging site for PressTest (PROJECT.md, Tests: PressTest staging)'
@@ -320,9 +385,26 @@ run)
 		-e REPORT_FILE=test-results/run/results.json -e OUTPUT_DIR=test-results/run/artifacts
 		-v "$RESULTS:/app/test-results")
 	[ ! -d "$TESTS" ] || docker_args+=(-v "$TESTS:/all-tests/project:ro")
+	# The project's own settings (local only): -e NAME, with NAME=value exported only inside the
+	# subshell that starts docker, after the command is fully expanded, so a name like IMAGE or
+	# RESULTS can't change this script's variables. Settings without a value (an unfilled
+	# <example>) aren't passed.
+	project_env=()
+	if [ "$env" = local ]; then
+		for name in $ENV_NAMES; do
+			value="$(env_value "$name")"
+			[ -z "$value" ] || { project_env+=("$name=$value"); docker_args+=(-e "$name"); }
+		done
+	fi
+	run_command=(docker run "${docker_args[@]}" "$IMAGE" playwright test "${targets[@]}" --project="$browser")
 	echo "presstest: $env, $URL, ${targets[*]}"
 	ran=0
-	docker run "${docker_args[@]}" "$IMAGE" playwright test "${targets[@]}" --project="$browser" || ran=$?
+	(
+		for pair in ${project_env[@]+"${project_env[@]}"}; do
+			declare -x "$pair" || { echo "presstest: ${pair%%=*} can't be exported" >&2; exit 2; }
+		done
+		"${run_command[@]}"
+	) || ran=$?
 	session_end
 
 	report="$RESULTS/run/results.json"
