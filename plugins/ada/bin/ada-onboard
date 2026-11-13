@@ -10,14 +10,13 @@
 #       Keys: PROJECT_NAME PACKAGE NAMESPACE TEXT_DOMAIN TIMEZONE CODE_DIR PROD_SSH PROD_PREFIX
 #       PROD_LOGS
 #   ada-onboard kb [<path>]
-#       Creates a product's knowledge-base folder at <path> (default knowledge-base), for
-#       /ada:kb-sync to fill: copies the plugin's templates/knowledge-base/ into it, never
-#       overwriting a file that exists. Prints "created  <path>/<file>" or "kept     <path>/<file>"
-#       per file. Records no hashes: refresh doesn't touch the folder. <path> is a folder inside
-#       the repo, relative to its root: letters, digits, ., _ and -, separated by /, with no part
-#       starting with a dot (so no . or ..). Anything else, more than one argument, a part of
-#       <path> that is a file, or one that is a symlink to a folder outside the repo exits 2
-#       with nothing written.
+#       Creates a product's knowledge-base folder at <path> (default knowledge-base): copies
+#       the plugin's templates/knowledge-base/ into it, never overwriting a file that exists.
+#       Prints "created  <path>/<file>" or "kept     <path>/<file>" per file. Records no
+#       hashes: refresh doesn't touch the folder. <path> is a folder inside the repo, relative to
+#       its root: letters, digits, ., _ and -, separated by /, with no part starting with a dot
+#       (so no . or ..). Anything else, more than one argument, a part of <path> that is a file,
+#       or one that is a symlink to a folder outside the repo exits 2 with nothing written.
 #   ada-onboard refresh [--force | --decline]
 #       Brings the project's PR template up to the plugin's. /ada:begin runs it, so a project
 #       picks up a new template on its first session after a plugin update. Prints one line per
