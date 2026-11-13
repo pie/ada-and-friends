@@ -7,12 +7,16 @@ Releasing in DEVELOPING.md).
 
 - **Onboarding sets up a product's knowledge base.** `PROJECT.md` takes a `- **Kind:**` line,
   `product` (a plugin or theme PIE sells and supports) or `site`, and a `- **Knowledge base:**`
-  line. For a product, `/ada:onboard` asks for the support mailbox, its Gmail search and the Asana
-  project for support tickets, then runs the new `ada-onboard kb [<path>]`, which creates the
-  folder (default `knowledge-base/`) from the plugin's template, never overwriting a file.
+  line. For a product, `/ada:onboard` asks for the Asana project for support tickets, then
+  runs the new `ada-onboard kb [<path>]`, which creates the folder (default `knowledge-base/`)
+  from the plugin's template, never overwriting a file.
   `ada-onboard check` reports the folder if it's missing, or if its `config.json` isn't filled
   in. A site, or a project onboarded before this, works as before. To set one up by hand, add the
   two lines and run `ada-onboard kb`.
+- **The knowledge base says when to write an entry.** Its README has a "When to write an entry"
+  section: only when an investigation produces technical information that could help resolve a
+  future issue, updating an existing entry rather than duplicating it, and skipping the entry
+  when nothing reusable was learned.
 
 ## 0.13.0, 9 Nov 2026
 

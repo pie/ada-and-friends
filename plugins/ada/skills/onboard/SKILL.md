@@ -42,7 +42,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Timezone | ask (WordPress's own setting is in the database) |
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
-| Kind | ask: "Is this a plugin or theme PIE sells and supports, or a client's website?" The first is `product`, the second `site`. For a product, also ask for the Gmail mailbox its support emails arrive in, the Gmail search query that finds them, and the Asana project for its support tickets (its name and GID). Step 5 puts them in the knowledge base's `config.json` |
+| Kind | ask: "Is this a plugin or theme PIE sells and supports, or a client's website?" The first is `product`, the second `site`. For a product, also ask for the Asana project for its support tickets (its name and GID). Step 5 puts them in the knowledge base's `config.json` |
 | Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin` (its `approval.md`); list them on `Re-approval triggers:`, else leave `none` |
 | Budget | ask: "Is this a project where a slip costs little (a brochure site, no payments or subscriptions)?" Yes → `lean`; otherwise `standard`. Say they can change it at any time, and that a step in a fragile area should run on `standard` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
@@ -123,17 +123,15 @@ shallow line about the area that breaks is not.
 Only when `PROJECT.md`'s Kind line says `product`. When it says `site`, skip this step: don't run
 `ada-onboard kb`, and leave `Knowledge base:` as `` `none` ``.
 
-A product's knowledge base holds its past support issues, for `/ada:kb-sync` to fill from the
-support emails and tickets and for Grace to search when she investigates a bug.
+A product's knowledge base holds its past support issues. Ada and Grace add to it as they work
+support cards, and Grace searches it when she investigates a bug.
 
 1. **Create the folder.** Run `ada-onboard kb`. It copies the plugin's knowledge-base template
    into `knowledge-base/`, never overwriting a file that exists, and prints `created` or `kept`
    per file. If the developer wants the folder somewhere else in the repo, give its path:
    `ada-onboard kb docs/kb`.
-2. **Fill `config.json`** in the folder from the step 2 answers: `{{GMAIL_MAILBOX}}` with the
-   Gmail mailbox, `{{GMAIL_QUERY}}` with the search query, and `{{ASANA_PROJECT_NAME}}` and
-   `{{ASANA_PROJECT_GID}}` with the Asana project for support tickets. Leave `sync-state.json` as
-   it is: `/ada:kb-sync` keeps it.
+2. **Fill `config.json`** in the folder from the step 2 answers: `{{ASANA_PROJECT_NAME}}` and
+   `{{ASANA_PROJECT_GID}}` with the Asana project for support tickets.
 3. **Set the `Knowledge base:` line** in `PROJECT.md` to the folder's path in a code span
    (`` `knowledge-base/` ``). `ada-onboard check` reads it, and reports the folder if it's
    missing or `config.json` still holds a `{{KEY}}`.
@@ -212,8 +210,8 @@ the lines of `local.env` named here; the file also holds the developer's secrets
      the ada README's PressTest tests section has the steps), and runs `presstest run` once against their local site;
    - if pie/presstest.io has tests for this project, that moving them into `tests/presstest/` is
      its own step;
-   - if the project is a product, where its knowledge base is, and that it starts empty:
-     `/ada:kb-sync` fills it from the mailbox and the Asana project in its `config.json`;
+   - if the project is a product, where its knowledge base is, that it starts empty, and
+     that Ada and Grace add entries as they work support cards;
    - if the project is clock-sensitive, the clock setup `ada-onboard clock` chose, and what is
      still to do for it (`LOCAL_URL`, `sudo apt install faketime`, `ada-clock install`, the
      restart in Local). Each other developer runs `ada-onboard clock` and `ada-clock install`

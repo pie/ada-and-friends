@@ -1,9 +1,8 @@
 # Support knowledge base
 
 Past support issues for this product: what caused them and how they were resolved. They come from
-the support emails and the support tickets in Asana. Use it to answer new tickets faster, to spot
-problems that keep coming back, and, when investigating a bug, to check whether it has been seen
-before.
+the support cards in Asana. Use it to answer new tickets faster, to spot problems that keep
+coming back, and, when investigating a bug, to check whether it has been seen before.
 
 This folder is for the team and is never part of a release, like everything else Ada adds to a
 repo (`.claude/`, `tests/`). Keeping it out of the release is the job of the project's build.
@@ -13,8 +12,7 @@ repo (`.claude/`, `tests/`). Keeping it out of the release is the job of the pro
 ```
 README.md          This file
 INDEX.md           One line per entry, grouped by area
-config.json        The Gmail search and the Asana project the sync reads
-sync-state.json    Sync progress: last sync times and which threads and tasks are done (IDs only)
+config.json        The Asana project the support cards are in
 issues/            One Markdown file per issue
 ```
 
@@ -44,7 +42,6 @@ fixed_in:                  # a version in the product's changelog, when status i
 first_seen: 2026-09-13
 last_seen: 2026-09-25
 sources:
-  - gmail:1a09985d426e92a7
   - asana:1218435735798081
 ---
 
@@ -74,8 +71,8 @@ Optional: related entries, environment details that mattered, reply wording that
   `workaround` (a way round it, no fix in the product); `fixed-in-release` (fixed in the product,
   with `fixed_in`); `open-bug` (a confirmed bug, not fixed yet); `unresolved` (no confirmed cause
   or fix).
-- **Sources** are `gmail:<thread id>` and `asana:<task id>`: IDs only, never links or content
-  from the thread.
+- **Sources** are `asana:<task id>`: IDs only, never links or content from the ticket. Entries
+  written before this folder stopped using Gmail may also have `gmail:<thread id>`.
 - **Code references:** a file in this repo is cited in backticks by its full repo path, with the
   function or method named beside it and no line numbers (they move with every release). A link
   to code is relative to the entry. Paths on a customer's site (`wp-content/themes/...`,
@@ -87,15 +84,24 @@ Entries are read by the whole team and by Claude. They hold no customer data: no
 addresses (other than `@pie.co.de` or `example.com`), phone numbers, order numbers, site URLs or
 licence keys. Describe the setup instead ("site using Super Page Cache", "Woodmart theme").
 
-Customer emails and tickets stay in Gmail and Asana. `/ada:kb-sync`'s subagent reads them there,
-through the Gmail and Asana connectors, so Claude sees what they say while it writes the entries.
-Nothing from them is saved in this repo except the anonymised entry and the thread and task IDs
-in `sync-state.json`. An entry is written from what the ticket showed, in our own words.
+Customer tickets stay in Asana. Nothing from them is saved in this repo except the anonymised
+entry and the task ID in its `sources`. An entry is written from what the ticket showed, in our
+own words.
 
-## Adding or updating an entry by hand
+## When to write an entry
 
-1. Search `issues/` first. If an entry covers the same problem, update it: add the source, widen
-   `plugin_versions` and `last_seen`, refine the cause or solution. Otherwise create
+- Only create or update an entry when the investigation produces technical information that
+  could help resolve a future issue.
+- Before creating an entry, check whether the knowledge already exists. If it does, update the
+  existing entry rather than creating a duplicate.
+- Capture the problem, root cause (if known), investigation steps, resolution or workaround,
+  and any relevant technical context.
+- If no reusable technical knowledge was gained, skip creating an entry.
+
+To write one:
+
+1. Search `issues/` for an entry on the same problem. To update it, add the source, widen
+   `plugin_versions` and `last_seen`, and refine the cause or solution. Otherwise create
    `issues/<short-kebab-case-summary>.md` in the format above.
 2. Check the code and the changelog on the development branch: is the bug still there, or fixed
    (set `status: fixed-in-release` and `fixed_in`)? Name the file and function.
@@ -108,19 +114,5 @@ in `sync-state.json`. An entry is written from what the ticket showed, in our ow
 What doesn't get an entry: routine work (compatibility updates, review checks, coding-standards
 chores), auto-replies and spam. Feature requests go into one `issues/feature-support-faq.md`
 rather than an entry each. Old bugs already fixed are covered by the changelog; add an entry only
-if the ticket has diagnostic value. A ticket often exists as both an email thread and an Asana
-task with the same subject: that's one entry with both sources.
-
-## Syncing from Gmail and Asana
-
-`/ada:kb-sync` keeps this folder up to date through the Gmail and Asana connectors.
-
-- `config.json` holds what it reads: the Gmail mailbox and search query (`gmail.mailbox`,
-  `gmail.query`), and the Asana project for support tickets (`asana.projectName`,
-  `asana.projectGid`).
-- `sync-state.json` holds its progress: the last sync time for each source (`gmail.lastSync`,
-  `asana.lastSync`) and the threads and tasks already done (`items`, IDs only). A `lastSync` of
-  `0` or `null` means that source has never been synced. Each sync starts from these times, so
-  tickets after them aren't in the knowledge base yet.
-
-Leave both files as they are when adding entries by hand.
+if the ticket has diagnostic value. A problem that reached us in more than one place is one
+entry with every source.

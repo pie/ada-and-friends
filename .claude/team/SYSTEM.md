@@ -64,7 +64,7 @@ State the scripts read and write, in an onboarded project:
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:237-240`) |
 | `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
 | `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:331-360`) |
-| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `gmail.mailbox`, `gmail.query`, `asana.projectName`, `asana.projectGid`, `sync-state.json`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:145-182`); `/ada:onboard` fills `config.json` | `ada-onboard check` (`config.json`'s `{{KEY}}`s); people |
+| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:145-182`); `/ada:onboard` fills `config.json` | `ada-onboard check` (`config.json`'s `{{KEY}}`s); people |
 | `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:362-431`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
@@ -265,7 +265,7 @@ Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
   next to `templates/repo/`, so `files` never copies it) in sorted order and, per file, prints
   `kept` when it exists, else writes it with LF and prints `created` (`:173`, `:178`). It records
   no hashes and fills no placeholders, so `refresh` never touches the folder, and
-  `config.json`'s four `{{KEY}}`s are left for the onboarding to fill by hand.
+  `config.json`'s two `{{KEY}}`s are left for the onboarding to fill by hand.
 - `refresh` (`:181-216`): only `.github/pull_request_template.md` (`:189`), because only
   placeholder-free templates can be refreshed (`:188`). Order of the decision (`:197-212`): same
   text → `current`; `--force`, file missing, or an untouched `copied` copy → `refreshed` (and

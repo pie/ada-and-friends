@@ -1,8 +1,4 @@
 {
-    "gmail": {
-        "mailbox": "{{GMAIL_MAILBOX}}",
-        "query": "{{GMAIL_QUERY}}"
-    },
     "asana": {
         "projectName": "{{ASANA_PROJECT_NAME}}",
         "projectGid": "{{ASANA_PROJECT_GID}}"
