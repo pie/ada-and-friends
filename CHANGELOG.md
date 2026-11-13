@@ -5,7 +5,9 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **A `PROJECT.md` line whose first word is `none` means none**, even if an explanation after it
+  names a suite or a site in a code span. `presstest` used to read V&Me's shared suites line as
+  `wordpress-core` and its staging line as `vmestg`.
 
 ## 0.14.0, 12 Nov 2026
 
