@@ -1,21 +1,24 @@
-# `/ada:onboard` asks whether the project is a product or a site; for a product it creates and fills the knowledge-base folder, for a site it does nothing new
+# `/ada:onboard` asks whether the project is a product or a site; for a product it asks for the Asana support project (no mailbox, no Gmail) and creates and fills the knowledge-base folder, for a site it does nothing new
 
-Unit B1 of the knowledge-base plan (Asana 1219987986280083). The script side (`ada-onboard kb`,
-`check`, the template bullets, the skill's text) is `kb-folder-and-check.md`. This script checks
-what only the skill decides: what it asks, whether it runs `ada-onboard kb`, and what it writes.
+Unit B1 of the knowledge-base plan (Asana 1219987986280083), as Unit B2 (Asana 1220058548622782)
+changed it: no mailbox or Gmail question, no `sync-state.json`, a `config.json` with only the
+Asana project. The script side (`ada-onboard kb`, `check`, the template, the skill's text) is
+`kb-folder-and-check.md`. This script checks what only the skill decides: what it asks, whether
+it runs `ada-onboard kb`, and what it writes.
 
 - Area: 02 Onboarding and refresh (the `onboard` skill); 11 Templates (`PROJECT.md`'s Kind and
-  Knowledge base bullets as onboarding fills them)
-- Asana: https://app.asana.com/0/0/1220058587596437/f
+  Knowledge base bullets as onboarding fills them; the knowledge-base template as it is copied)
+- Asana: https://app.asana.com/0/0/1220058587596437/f (B1), https://app.asana.com/0/0/1220058548622782/f (B2)
 - Automate as: none (a dry run for a person; the skill's text is checked by
-  `kb-folder-and-check.md`, section 8)
-- Last run: 2026-11-09, Anna Werno with Ada: passed (product and site).
+  `kb-folder-and-check.md`, section 9)
+- Last run: 2026-11-09, Anna Werno with Ada: passed (product and site), before Unit B2; not yet run for Unit B2.
 
 ## What this checks
 
 When a developer runs `/ada:onboard`, Ada asks whether the project is a product or a site. Only a
-product gets a knowledge base. You play a developer onboarding two made-up projects, one of each,
-then check what onboarding wrote.
+product gets a knowledge base, and for it Ada asks only for the Asana project its support tickets
+go to: no support mailbox, no Gmail search. You play a developer onboarding two made-up projects,
+one of each, then check what onboarding wrote.
 
 ## Who does what
 
@@ -32,8 +35,8 @@ then check what onboarding wrote.
   (`DEVELOPING.md:15-22`).
 - The fake plugin sits under `plugins/scratch-waitlist/`, not at the repo root, because onboarding
   stops when the repo root is the plugin (`plugins/ada/skills/onboard/SKILL.md:25-26`).
-- Made-up support details only: no real mailbox, query or Asana project. The values below are
-  examples; whatever you type, the same values must reach `config.json`.
+- Made-up support details only: no real Asana project. The values below are examples; whatever
+  you type, the same values must reach `config.json`.
 - In this script, `<this checkout>` means the full path of the `ada-and-friends` checkout you
   are testing. The path may have spaces, so quote it.
 
@@ -66,18 +69,20 @@ Set up the two scratch repos for the onboard dry run in tests/functional/02-onbo
 4. Type `/ada:onboard`. If onboarding says the repo root is the plugin and stops, the setup is
    out of date: stop and tell Ada.
 5. When it asks the kind of project, answer `product`.
-6. Only after that should it ask for the Gmail mailbox, the search query and the Asana support
-   project. Answer with the made-up values:
-   - mailbox: `support@example.com`
-   - search query: `label:scratch-support`
+6. Only after that, or marked as for a product only, should it ask for the Asana project for
+   support tickets. Answer with the made-up values:
    - Asana support project: `Scratch support`, GID `1200000000000001`
-7. For any other question, give a sensible answer, or `none`.
-8. Say **no** to anything that pushes, opens a PR or installs anything.
-9. Near the end it should run `ada-onboard kb` and print five `created` lines. If it says
-   something like unknown command `kb`, the installed Ada ran instead of this checkout's. Stop
-   and note it.
-10. Type `/exit`.
-11. Note down the questions it asked, in order.
+7. If it asks for a support mailbox, a Gmail address or a Gmail search, that is a failure: note
+   the question word for word, answer `none`, and carry on.
+8. For any other question, give a sensible answer, or `none`.
+9. Say **no** to anything that pushes, opens a PR or installs anything.
+10. Near the end it should run `ada-onboard kb` and print four `created` lines. If it says
+    something like unknown command `kb`, the installed Ada ran instead of this checkout's. Stop
+    and note it.
+11. Read its hand-over message: note anything it says about the knowledge base (where it is, how
+    it gets filled).
+12. Type `/exit`.
+13. Note down the questions it asked, in order.
 
 ### B2. A site (you)
 
@@ -85,7 +90,8 @@ Set up the two scratch repos for the onboard dry run in tests/functional/02-onbo
 2. `claude --plugin-dir "<this checkout>/plugins/ada"`
 3. Type `/ada:onboard`.
 4. When it asks the kind of project, answer `site`.
-5. It should not ask about Gmail or Asana support, and should not run `ada-onboard kb`.
+5. It should not ask about Asana support, a mailbox or Gmail, and should not run
+   `ada-onboard kb`.
 6. If it asks whether the project is clock-sensitive, say no. Answer any other question as in B1
    (sensible answer or `none`), and say no to anything that pushes, opens a PR or installs.
 7. Type `/exit`.
@@ -96,7 +102,7 @@ Set up the two scratch repos for the onboard dry run in tests/functional/02-onbo
 Paste this to Ada, in a session in this checkout, with the questions filled in:
 
 ```text
-The onboard dry run is done. Product run asked: <questions>. Site run asked: <questions>. Run the snapshot in both scratch repos, compare with Expected, record the run in TEST-REPORT.md and this script's Last run, then delete both scratch repos.
+The onboard dry run is done. Product run asked: <questions>. Its hand-over said about the knowledge base: <text>. Site run asked: <questions>. Run the snapshot in both scratch repos, compare with Expected, record the run in TEST-REPORT.md and this script's Last run, then delete both scratch repos.
 ```
 
 By hand, run the snapshot in each scratch repo's root (`cd ~/scratch-onboard-product`, then
@@ -108,8 +114,10 @@ echo "== Kind / Knowledge base lines"; grep -E '^- \*\*(Kind|Knowledge base):\*\
 echo "== folders"; ls -A knowledge-base 2>&1; ls -A knowledge-base/issues 2>&1
 echo "== config.json"; cat knowledge-base/config.json 2>&1
 echo "== placeholders left"; grep -c '{{' knowledge-base/config.json 2>&1
-echo "== sync-state.json"; cat knowledge-base/sync-state.json 2>&1
-echo "== check, knowledge-base lines"; bash "<this checkout>/plugins/ada/bin/ada-onboard" check | grep -Ei 'knowledge|config\.json' || echo "(none)"
+echo "== sync-state.json"; ls knowledge-base/sync-state.json 2>&1
+echo "== Gmail or sync anywhere in the folder"; grep -rniE 'GMAIL_|mailbox|sync-state|kb-sync|lastSync' knowledge-base 2>&1 || echo "(none)"
+echo "== When to write an entry"; grep -n '^## When to write an entry' knowledge-base/README.md 2>&1
+echo "== check, knowledge-base lines"; bash "<this checkout>/plugins/ada/bin/ada-onboard" check | grep -Ei 'knowledge|config\.json|sync|gmail' || echo "(none)"
 ```
 
 Compare each output with Expected below. Then clean up:
@@ -120,42 +128,52 @@ rm -rf ~/scratch-onboard-product ~/scratch-onboard-site
 
 ## Expected
 
-From the brief (Outcome; Decisions: the Kind row, the products-only step after step 4; a site
-behaves exactly as today):
+From the Unit B2 brief (Decisions: the mailbox and Gmail-search questions and the `{{GMAIL_*}}`
+fills go, the Asana project questions stay; `sync-state.json` deleted; a site behaves exactly as
+before; Definition of done 2 and 4) and the Unit B1 brief (the Kind row, the products-only step
+after step 4):
 
 **B1, product**
 
 - Step 2 of the skill asks the kind of project (product or site) and, because the answer is
-  product, asks for the Gmail mailbox, the search query and the Asana project for support
-  tickets. It asks them only for a product: either after the kind is known, or in the same list
-  as the kind question but marked as for a product only (the skill asks everything in one batch
-  at step 2).
-- After step 4, it runs `ada-onboard kb` (the transcript shows the `created` lines for
-  `README.md`, `INDEX.md`, `config.json`, `sync-state.json`, `issues/.gitkeep`).
+  product, asks for the Asana project for support tickets (its name and GID). It asks that only
+  for a product: either after the kind is known, or in the same list as the kind question but
+  marked as for a product only (the skill asks everything in one batch at step 2).
+- It asks **no** question about a support mailbox, a Gmail address or a Gmail search, at any
+  point.
+- After step 4, it runs `ada-onboard kb` (the transcript shows four `created` lines, for
+  `README.md`, `INDEX.md`, `config.json` and `issues/.gitkeep`, and none for `sync-state.json`).
+- Nothing in the transcript, the hand-over included, mentions `/ada:kb-sync`, a sync, a mailbox,
+  Gmail or `sync-state.json`.
 - Snapshot: `Kind:` is `product` (in a code span); `Knowledge base:` names the folder it made,
-  e.g. `` `knowledge-base/` ``; `knowledge-base/` holds the four files and `issues/` holds
-  `.gitkeep`; `config.json` has `gmail.mailbox` `support@example.com`, `gmail.query`
-  `label:scratch-support`, `asana.projectName` `Scratch support`, `asana.projectGid`
-  `1200000000000001`, and `0` placeholders left; `sync-state.json` is untouched
-  (`lastSync` 0 and null, `items` empty); `check` prints no knowledge-base or `config.json` line.
+  e.g. `` `knowledge-base/` ``; `knowledge-base/` holds `README.md`, `INDEX.md`, `config.json` and
+  `issues/`, and `issues/` holds `.gitkeep`; `config.json` is
+  `{"asana": {"projectName": "Scratch support", "projectGid": "1200000000000001"}}` (any
+  formatting), with no `gmail` key, and `0` placeholders left; `ls knowledge-base/sync-state.json`
+  says no such file or directory; the Gmail-or-sync grep prints `(none)`; the README has the
+  `## When to write an entry` line; `check` prints `(none)`.
 
 **B2, site**
 
-- It asks the kind; on **site** it asks nothing about Gmail, a search query or an Asana support
-  project, and never runs `ada-onboard kb`.
+- It asks the kind; on **site** it asks nothing about an Asana support project, a mailbox or
+  Gmail, and never runs `ada-onboard kb`.
 - Snapshot: `Kind:` is `site`; `Knowledge base:` is `` `none` ``; `ls knowledge-base` says no
-  such file or directory; `check` prints `(none)`.
+  such file or directory (so do the `config.json`, `sync-state.json` and README lines); the
+  Gmail-or-sync grep prints its no-such-file message and `(none)`, not a match; `check` prints `(none)`.
 
-Write in the Run record which questions it asked, in order, and paste each snapshot.
+Write in the Run record which questions it asked, in order, what the hand-over said about the
+knowledge base, and paste each snapshot.
 
 ## Observe at
 
-The session transcript (questions and the commands it ran), then the snapshot's output.
-`git status` in each scratch repo shows what onboarding wrote.
+The session transcript (questions, the commands it ran, the hand-over), then the snapshot's
+output. `git status` in each scratch repo shows what onboarding wrote.
 
 ## Regression
 
 - B2 is the regression: a site's onboarding writes exactly what it did before, plus the two
   bullets filled with `site` and `none`.
+- `ada-onboard check` on a product onboarded before Unit B2 (with `sync-state.json` and `gmail`
+  keys) is `kb-folder-and-check.md`, section 6; a repo with no `Kind:` line, section 4.
 - The clock step still behaves as in `onboard-asks-before-clock-install.md` (answer the
   Clock-sensitive question **no** here, so it asks nothing about the clock).
