@@ -93,11 +93,11 @@ EXPLAIN, and stops `wp_mail` and outgoing HTTP, printing `prod-wp: blocked …` 
 each. With `PROD_FORBIDDEN` set, a `sql` query on `posts` or `postmeta` must name its post type
 or IDs.
 
-### `presstest` (`bin/presstest:1-74`)
+### `presstest` (`bin/presstest:1-102`)
 
 Runs the project's PressTest tests (`tests/presstest/`) and its shared suites in the runner image
 on the developer's local site or the project's staging site: `config`, `list`,
-`run [--env local|staging] [-b <browser>] [<file>_test.js ...]`. `run` starts the site's test
+`run [--env local|staging] [--clock] [-b <browser>] [<file>_test.js ...]`. `run` starts the site's test
 session when there's a report token and always ends it (`presstest: ended test session <id>:
 <summary>`), prints `presstest: <env>, <url>, <targets>` before the tests and ends with `presstest: passed <n>` or
 `presstest: failed <n> of <total>` (exit 1), or `presstest: failed, no report written` (exit 1);
@@ -114,6 +114,20 @@ throwaway subshell before Docker runs (`SHELLOPTS`, `UID`, `EUID`, `PPID`, `GROU
 environment variable `PRESSTEST_ENV_<NAME>`
 overrides a listed name's value. The project's tests must not print the values (they would land in
 the report).
+`run --clock` (local only; with `--env staging` exit 2) is a clock run: `ada-clock status`
+(`bin/ada-clock`, beside it) must exit 0 with first line `ada-clock: real` before anything runs,
+else exit 2 with that line. The container gets `PRESSTEST_CLOCK=1` and
+`PRESSTEST_CLOCK_DIR=/app/test-results/run/clock` (`.claude/presstest/run/clock/`) and Playwright
+`--workers=1`. A background loop on the host answers each `request-<n>.json` there,
+`{"action": "set", "when": "YYYY-MM-DD HH:MM"}` or `{"action": "reset"}`, by running `ada-clock`
+with an argument array, writes `response-<n>.json` (`{"exit": <code>, "line": "<first line>"}`),
+deletes the request and prints `presstest: clock request <n>: ...`; anything else is refused with
+exit 2 and `ada-clock` isn't run. When the container exits, and in the EXIT trap, it stops the
+loop, runs `ada-clock reset` and `ada-clock status` before ending the test session, and prints
+`presstest: ada-clock reset` and the status's first line; if that isn't `ada-clock: real`, the run
+exits 1 whatever the tests did. The spec side is the project's (V&Me:
+`tests/presstest/shared/clock.js`). With no command or an unknown one, `presstest` prints the
+header's command lines.
 Not used in this repo (no suite).
 
 ### `ada-clock` (`bin/ada-clock:1-106`)
@@ -154,9 +168,10 @@ rename, never emptied, while the wrapper is installed. The wrapper
 
 The mu-plugin (`templates/clock/ada-clock.php`), inert unless `home_url()`'s host passes the same
 local test (`ada_clock_is_local_site()`): `SET timestamp = <time()>` once on load while the state
-file exists; `auth_cookie_expiration` ten years; cookie `ada_clock` (path `/`, session, not
-HttpOnly) set to `time()` on `send_headers` and `admin_init` while the state file exists, expired
-otherwise; `GET ada-clock/v1/time` (permission: the local test, no login), answering
+file exists; `auth_cookie_expiration` ten years; `presstest_companion_session_ttl` plus ten years
+(the Companion reads it once, at session creation; clock real or fake); cookie `ada_clock` (path
+`/`, session, not HttpOnly) set to `time()` on `send_headers` and `admin_init` while the state
+file exists, expired otherwise; `GET ada-clock/v1/time` (permission: the local test, no login), answering
 `{"now": <time()>, "fake": <bool>, "timezone": "<wp_timezone_string()>"}`. `status` calls it as
 `<LOCAL_URL>/?rest_route=/ada-clock/v1/time`, which answers whatever the permalink setting.
 
