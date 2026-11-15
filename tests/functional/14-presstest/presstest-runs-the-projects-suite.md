@@ -3,7 +3,7 @@
 - Area: 14 PressTest runs (`presstest`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220130039368040
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 13 Nov 2026, 347 PASS 0 failed under bash 5, 334 PASS 1 SKIP 0 failed under bash 3.2; the released plugin fails the two "none first" checks (see #57)
+- Last run: 2026-11-15, 347 PASS 0 failed under bash 5.3, 334 PASS 1 SKIP 0 failed under bash 3.2 (no node in the image); see the PR
 
 ## Precondition
 

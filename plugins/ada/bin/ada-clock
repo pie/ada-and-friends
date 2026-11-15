@@ -81,8 +81,9 @@
 #   {"timestamp": <UTC Unix time>, "local": "<YYYY-MM-DD HH:MM[:SS]>", "timezone": "<zone>",
 #    "setup": "manual" or "local-linux", "set_at": <the computer's Unix time when set ran>}
 # The mu-plugin, on a local site only, makes the database's NOW() follow PHP's clock while the
-# state file exists, keeps logins for ten years, sets an `ada_clock` cookie to PHP's time() (and
-# expires it when there is no state file), and answers GET /wp-json/ada-clock/v1/time with
+# state file exists, keeps logins for ten years, adds ten years to each PressTest Companion test
+# session's lifetime, sets an `ada_clock` cookie to PHP's time() (and expires it when there is
+# no state file), and answers GET /wp-json/ada-clock/v1/time with
 # {"now": <PHP time()>, "fake": <state file exists>, "timezone": "<wp_timezone_string()>"}.
 #
 # local-linux keeps, outside the repo: the clock file ~/.config/ada-clock/<site ID>, holding the

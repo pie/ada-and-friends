@@ -221,6 +221,16 @@ them either, or they land in the report.
 each project setting's name with `(set)`. Then `presstest run` should end with
 `presstest: passed <n>`.
 
+**Clock runs.** A test that needs the site at another time runs with
+`presstest run --clock <file>`, on your local site only, once `ada-clock` is set up (above). The
+container can't move the clock, so `presstest` runs `ada-clock set` and `ada-clock reset` on your
+computer when the test asks, one request at a time, with one test worker. It starts only when
+`ada-clock status` says `ada-clock: real`, and when the run ends, however it ends, it resets the
+clock and prints `presstest: ada-clock reset` and `presstest: ada-clock: real`. If the clock
+isn't back at real time, the run fails: run `ada-clock reset` yourself. Run any other way, the
+project's clock tests skip. The project's own tests say how to write one (V&Me:
+`tests/README.md`, Clock runs).
+
 ## Brief approval
 
 On some projects, PIE approves each brief before the team builds anything. This makes sure that

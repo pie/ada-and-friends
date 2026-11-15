@@ -1,9 +1,9 @@
-# On a Local site, `ada-clock` installs its mu-plugin, and while a fake time is set the site's database, `ada_clock` cookie and time endpoint follow PHP's clock and logins last ten years; on a site that isn't local the mu-plugin does nothing
+# On a Local site, `ada-clock` installs its mu-plugin, and while a fake time is set the site's database, `ada_clock` cookie and time endpoint follow PHP's clock, and logins and the PressTest Companion's test sessions last ten years; on a site that isn't local the mu-plugin does nothing
 
 - Area: 16 Clock (`ada-clock`)
 - Asana: https://app.asana.com/1/100438094841948/project/100438094841951/task/1219974873020681
 - Automate as: none (the Steps block is a self-checking shell script run against a real Local site; the browser steps are for a person)
-- Last run: 2026-10-28, block 32 PASS, 0 FAIL, 0 SKIP on V&Me local; browser steps 4, 5 not verified (see the PR)
+- Last run: 2026-11-15, block 38 PASS, 0 FAIL on V&Me local, run with ADA_CLOCK_ADAPTER=manual (see the PR); browser steps 4, 5 not verified
 
 ## Precondition
 
@@ -17,6 +17,9 @@
 - This checkout (`REPO`); `curl`, `python3` (3.9 or later, for `zoneinfo`: it works out the times,
   so the block runs on Linux and macOS alike). The block never changes the computer's clock (the
   `manual` setup only prints the steps); the optional steps at the end do.
+- The block must run with `ADA_CLOCK_ADAPTER=manual` in the environment (`export` it, or put it
+  before the command). It asserts the `manual` setup's details, and a project's `local.env` may
+  say `local-linux`, which would make it fail.
 
 ## Steps
 
@@ -28,7 +31,8 @@
 #!/usr/bin/env bash
 # ada-clock on a real Local site, manual setup, the computer's clock not changed: install; status,
 # set and reset; the mu-plugin's database timestamp, ada_clock cookie, time endpoint and login
-# lifetime; and none of them when home_url() isn't local. Run from the onboarded project's root.
+# lifetime; the Companion's session TTL (presstest_companion_session_ttl) plus ten years; and none
+# of them when home_url() isn't local. Run from the onboarded project's root.
 # Prints PASS/FAIL/SKIP per check (a FAIL shows what was seen); exits 1 if any FAIL. Leaves the
 # mu-plugin installed and no state file. Env: REPO (this checkout).
 set -u
@@ -148,6 +152,21 @@ expired() {
 }
 LOGIN='echo apply_filters( "auth_cookie_expiration", 2 * DAY_IN_SECONDS, 1, false ), " ", apply_filters( "auth_cookie_expiration", 14 * DAY_IN_SECONDS, 1, true );'
 years() { lo=$1 hi=$2; shift 2; for v in "$@"; do case $v in ''|*[!0-9]*) echo "not a number: $*"; return 1 ;; esac; [ "$v" -ge "$lo" ] && [ "$v" -le "$hi" ] || { echo "$v s"; return 1; }; done; }
+# The Companion's session TTL filter takes the TTL in seconds and no other argument. Two inputs, so
+# "adds ten years" is told apart from "returns ten years" (or any fixed value): on a local site each
+# comes back as the input plus the same ten years; on a site that isn't local, unchanged. The
+# Companion needn't be active: the check calls the filter itself.
+TTL='echo apply_filters( "presstest_companion_session_ttl", 7200 ), " ", apply_filters( "presstest_companion_session_ttl", 12345 );'
+# plus_ten_years <out>: "<a> <b>" from the TTL line: a - 7200 and b - 12345 are the same, and about
+# ten years (299592000 to 331128000 s, as for logins).
+plus_ten_years() {
+  read -r a b <<EOF
+$1
+EOF
+  case "${a:-x}${b:-x}" in *[!0-9]*) echo "not numbers: $1"; return 1 ;; esac
+  [ $((a - 7200)) -eq $((b - 12345)) ] || { echo "7200 -> $a, 12345 -> $b: not the same amount added"; return 1; }
+  years 299592000 331128000 $((a - 7200)) || { echo "(7200 -> $a, 12345 -> $b)"; return 1; }
+}
 ROUTE='echo isset( rest_get_server()->get_routes()["/ada-clock/v1/time"] ) ? "yes" : "no";'
 steps() {
   case "$(uname -s):$1" in
@@ -183,6 +202,7 @@ t "endpoint, no state: fake false" ep false
 t "no state: the mu-plugin runs no SET" is "$(db)" unset
 t "a login lasts about ten years (remember me off and on)" years 299592000 331128000 $(php_last eval "$LOGIN")
 t "the route is registered" is "$(php_last eval "$ROUTE")" yes
+t "no state, local site: presstest_companion_session_ttl returns the input plus ten years (7200 and 12345)" plus_ten_years "$(php_last eval "$TTL")"
 
 # 3. set "2026-11-06 11:55" (the clock not changed).
 ac set "2026-11-06 11:55" > "$O" 2>&1; t "set exits 0" is $? 0
@@ -196,13 +216,16 @@ t "endpoint with state: fake true, now PHP's time()" ep true
 cookie
 t "a page response sets ada_clock to PHP's time(), path /, session, not HttpOnly" live
 t "with state: SET timestamp ran on load (NOW() at the request's start, SYSDATE() moving on)" is "$(db)" set
+t "fake clock, local site: presstest_companion_session_ttl still returns the input plus ten years (7200 and 12345)" plus_ten_years "$(php_last eval "$TTL")"
 
 # 4. The same mu-plugin, home_url() https://example.com, state present: inert.
-EX='--exec=define( "WP_HOME", "https://example.com" );'
+EX='--exec=define( "WP_HOME", "https://example.com" );'; EXOK=0
 if [ "$(php_last "$EX" eval 'echo home_url();')" = https://example.com ]; then
+  EXOK=1
   t "home example.com: no SET" is "$(db "$EX")" unset
   t "home example.com: no ten-year login filter" years 0 31536000 $(php_last "$EX" eval "$LOGIN")
   t "home example.com: no route" is "$(php_last "$EX" eval "$ROUTE")" no
+  t "home example.com: presstest_companion_session_ttl unchanged (7200 and 12345 come back as they went in)" is "$(php_last "$EX" eval "$TTL")" "7200 12345"
 else
   echo "SKIP home example.com: WP_HOME through --exec didn't change home_url(); see Escalate"
 fi
@@ -218,6 +241,8 @@ cookie
 t "after reset the next response expires ada_clock" expired
 t "endpoint after reset: fake false" ep false
 t "after reset: no SET" is "$(db)" unset
+t "after reset, local site: presstest_companion_session_ttl returns the input plus ten years (7200 and 12345)" plus_ten_years "$(php_last eval "$TTL")"
+[ "$EXOK" = 0 ] || t "after reset, home example.com: presstest_companion_session_ttl unchanged" is "$(php_last "$EX" eval "$TTL")" "7200 12345"
 [ "$inside" = 0 ] || t "site outside the project: .git/info/exclude still unchanged" is "$(cat "$X" 2>/dev/null | cksum)" "$x_before"
 
 echo
@@ -249,7 +274,12 @@ Then in the browser (a person, logged in to the local admin as themselves; nobod
 
 Every block line `PASS` (or the `SKIP` for `WP_HOME`, recorded with the reason), `0 failed`, exit
 0; the browser steps as written. The source is the brief: Decisions (`status`, `install`, the
-mu-plugin's database, logins, cookie and endpoint items) and its Definition of done.
+mu-plugin's database, logins, cookie and endpoint items) and its Definition of done; and, for the
+`presstest_companion_session_ttl` lines, the vandme PressTest-clock brief (Amendments, the "Session
+fix" row of 15 Nov 2026, and its amended Out of scope bullet): on a local site the filter returns
+its input plus ten years, clock real or fake (the Companion reads the TTL once, when a session is
+created, and a `--clock` run's clock is real then); on a site that isn't local it returns its input
+unchanged. The mu-plugin must add to the input, not replace it.
 
 ## Observe at
 

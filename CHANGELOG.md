@@ -8,6 +8,20 @@ Releasing in DEVELOPING.md).
 - **A `PROJECT.md` line whose first word is `none` means none**, even if an explanation after it
   names a suite or a site in a code span. `presstest` used to read V&Me's shared suites line as
   `wordpress-core` and its staging line as `vmestg`.
+- **`presstest run --clock` lets a project's tests move the local site's clock.** The wrapper
+  runs `ada-clock` on your computer when a test asks (through request files in
+  `.claude/presstest/run/clock/`, with `set "YYYY-MM-DD HH:MM"` and `reset` the only requests it
+  accepts), runs Playwright with one worker, and resets the clock when the run ends, however it
+  ends, before the test session ends. It prints a line for each request, then
+  `presstest: ada-clock reset` and the status, and fails the run if the clock isn't back at real
+  time. Local only: with `--env staging` it stops with exit 2, and it won't start unless
+  `ada-clock status` says `ada-clock: real`. Runs without `--clock` are unchanged. With no command
+  or an unknown one, `presstest` now prints its commands.
+- **`ada-clock`'s mu-plugin keeps PressTest test sessions open across a clock jump.** On a local
+  site it adds ten years to each PressTest Companion test session's lifetime, clock real or fake,
+  as it already does for logins, so a test that moves the clock forward isn't refused by the
+  Companion. Run `ada-clock install` again to get it. A session that a killed run leaves open is
+  no longer cleaned up by the Companion's hourly task; Settings > Test sessions still removes it.
 
 ## 0.14.0, 12 Nov 2026
 
