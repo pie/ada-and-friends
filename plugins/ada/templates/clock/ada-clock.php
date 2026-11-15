@@ -11,6 +11,8 @@
  *   time() once on load, so NOW() and CURDATE() follow PHP's clock for this request;
  * - keeps logins valid for ten years (a login with Remember Me ticked also gets a browser cookie
  *   that lasts as long), so a clock moved forward doesn't log anyone out;
+ * - adds ten years to each PressTest Companion test session's lifetime, so a clock moved forward
+ *   doesn't close a test run's session;
  * - sets the ada_clock cookie to PHP's time() while the state file exists, and expires it while
  *   it doesn't, on every front-end and admin response;
  * - answers GET /wp-json/ada-clock/v1/time with the site's time, whether it is fake, and its
@@ -25,6 +27,11 @@ defined( 'ABSPATH' ) || exit;
  * The name of the cookie that carries PHP's time() to the browser while a fake time is set.
  */
 const ADA_CLOCK_COOKIE = 'ada_clock';
+
+/**
+ * How far the clock can move forward without ending a login or a PressTest test session.
+ */
+const ADA_CLOCK_FORWARD_ALLOWANCE = 10 * YEAR_IN_SECONDS;
 
 /**
  * Whether this site's home URL is a local one.
@@ -60,7 +67,22 @@ function ada_clock_is_fake() {
  * @return int The auth cookie's lifetime in seconds.
  */
 function ada_clock_auth_cookie_expiration() {
-	return 10 * YEAR_IN_SECONDS;
+	return ADA_CLOCK_FORWARD_ALLOWANCE;
+}
+
+/**
+ * A PressTest Companion test session lasts ten years longer, so it survives the clock jumping
+ * forward.
+ *
+ * The Companion reads this filter once, when it creates a session, and stores the expiry. A
+ * `presstest run --clock` run creates its session while the clock is real, so the allowance is
+ * added whether or not a fake time is set.
+ *
+ * @param int $ttl The session's lifetime in seconds, two hours unless another filter changed it.
+ * @return int The lifetime plus ten years.
+ */
+function ada_clock_presstest_session_ttl( $ttl ) {
+	return $ttl + ADA_CLOCK_FORWARD_ALLOWANCE;
 }
 
 /**
@@ -114,7 +136,7 @@ function ada_clock_time() {
 	);
 }
 
-// On any other host the file stops here: no SET, no filter, no cookie, no route.
+// On any other host the file stops here: no SET, no filters, no cookie, no route.
 if ( ! ada_clock_is_local_site() ) {
 	return;
 }
@@ -127,6 +149,7 @@ if ( ada_clock_is_fake() ) {
 }
 
 add_filter( 'auth_cookie_expiration', 'ada_clock_auth_cookie_expiration' );
+add_filter( 'presstest_companion_session_ttl', 'ada_clock_presstest_session_ttl' );
 add_action( 'send_headers', 'ada_clock_send_cookie' );
 add_action( 'admin_init', 'ada_clock_send_cookie' );
 add_action( 'rest_api_init', 'ada_clock_register_route' );
