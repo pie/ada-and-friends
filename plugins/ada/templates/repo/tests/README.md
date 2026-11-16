@@ -62,6 +62,11 @@ presstest run checkout_test.js       # one file
   over, break the behaviour on purpose and check a test fails.
 - The report and the artifacts of failed tests (screenshots, traces) are in `.claude/presstest/`
   (git-ignored), kept until the next run.
+- A secret the tests need (a test helper's, say) goes in `.claude/team/local.env` as
+  `PRESSTEST_ENV_<NAME>=value`; a local run passes it to the tests as `process.env.<NAME>`
+  (capitals, digits and underscores; not a name `presstest` or bash uses, such as `URL`, `PATH`,
+  `BASH*` or `UID`). Not passed to staging. Tests must never print it: it would land in the
+  report.
 
 ## Functional scripts
 

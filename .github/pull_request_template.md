@@ -49,7 +49,7 @@ Rules checked (STANDARDS.md numbers), what was found, how it was resolved.
 
 ## Tested
 
-- Tests supplied (S29), by Definition of Done item: unit / PressTest / functional script, with
+- Tests supplied (P29), by Definition of Done item: unit / PressTest / functional script, with
   paths. Any item without one, and why:
 - Verified (with the clock time for anything date-related):
 - Not verified, and why:

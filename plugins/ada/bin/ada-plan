@@ -23,7 +23,8 @@
 #       units are ready to build, and what the others are waiting for.
 #
 # The production and release branches are the "Branch from" and "PR into" names in
-# .claude/team/PROJECT.md.
+# .claude/team/PROJECT.md. Every command but init needs the **Branch from:** line and stops
+# without it; a missing **PR into:** line means next-release.
 
 set -euo pipefail
 
@@ -64,15 +65,26 @@ check|briefs|branches|status)
 	;;
 esac
 
-if [ "$cmd" = branches ] || [ "$cmd" = status ]; then
-	prod="$("${PY[@]}" - "$root/.claude/team/PROJECT.md" <<'PY'
+# Every command but init shows or uses the "Branch from" branch, so a PROJECT.md without it stops
+# them all here, before anything is fetched. Prints "Branch from", then "PR into" (next-release when
+# the line is missing).
+branches="$("${PY[@]}" - "$root/.claude/team/PROJECT.md" <<'PY'
 import re, sys
-text = open(sys.argv[1], encoding='utf-8').read()
+try:
+    text = open(sys.argv[1], encoding='utf-8').read()
+except FileNotFoundError:
+    sys.exit('ada-plan: no .claude/team/PROJECT.md; onboard the repo first')
 m = re.search(r'\*\*Branch from:\*\*\s*`([^`]+)`', text)
-print(m.group(1) if m else 'production')
+if not m:
+    sys.exit('ada-plan: .claude/team/PROJECT.md has no **Branch from:** line; add one under Code and branches')
+print(m.group(1))
+m = re.search(r'\*\*PR into:\*\*\s*`([^`]+)`', text)
+print(m.group(1) if m else 'next-release')
 PY
-)"
-	prod="$(printf '%s' "$prod" | tr -d '\r')"
+)" || exit 2
+prod="$(printf '%s\n' "$branches" | sed -n 1p | tr -d '\r')"
+release="$(printf '%s\n' "$branches" | sed -n 2p | tr -d '\r')"
+if [ "$cmd" = branches ] || [ "$cmd" = status ]; then
 	git fetch -q origin "$prod" 2>/dev/null || die "couldn't fetch $prod from origin"
 fi
 if [ "$cmd" = status ]; then
@@ -80,7 +92,7 @@ if [ "$cmd" = status ]; then
 	gh auth status >/dev/null 2>&1 || die 'gh is not logged in: run gh auth login'
 fi
 
-CMD="$cmd" DIR="$dir" PROD="${prod:-}" TEMPLATE="$templates/handoff/BRIEF.md" BRIEF_BIN="$here/ada-brief" \
+CMD="$cmd" DIR="$dir" PROD="$prod" RELEASE="$release" TEMPLATE="$templates/handoff/BRIEF.md" BRIEF_BIN="$here/ada-brief" \
 	"${PY[@]}" - <<'PY' | tr -d '\r'
 import json, os, re, subprocess, sys
 
@@ -89,11 +101,7 @@ def die(msg):
     print(f'ada-plan: {msg}', file=sys.stderr); sys.exit(2)
 
 text = open(os.path.join(d, 'PLAN.md'), encoding='utf-8').read()
-project = open('.claude/team/PROJECT.md', encoding='utf-8').read() if os.path.exists('.claude/team/PROJECT.md') else ''
-def named(label, default):
-    m = re.search(r'\*\*' + label + r':\*\*\s*`([^`]+)`', project)
-    return m.group(1) if m else default
-prod, release = named('Branch from', 'production'), named('PR into', 'next-release')
+prod, release = os.environ['PROD'], os.environ['RELEASE']
 
 m = re.search(r'^Epic:\s*(\S+)', text, re.M)
 epic_url = m.group(1) if m else ''

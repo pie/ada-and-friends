@@ -24,7 +24,7 @@ you keep its conclusion and the evidence.
 | Where | How | Allowed |
 |---|---|---|
 | **Production** | `prod-wp`, or a Chrome tab on the live admin | **Read only.** Look, query, read logs and notes. Nothing that saves, sends, runs or changes. |
-| **Local site** | The developer's WP-CLI (Local → Open site shell) and browser | Anything: replicate, set the clock, try a fix. |
+| **Local site** | The developer's WP-CLI (Local → Open site shell) and browser | Anything: replicate, move the clock with `ada-clock`, try a fix. |
 | **Repo** | git, Grep, Read | Read history and code. Experimental changes on a local `bughunt/<slug>` branch, never pushed. |
 
 **Production rules, without exception:**
@@ -88,11 +88,41 @@ disprove it. If two fit, keep both until something separates them.
 
 ### 4. Replicate locally
 
-On the local site, recreate the record's starting state and the sequence of events. If the
-behaviour depends on the time of day or day of week, use the same clock: `TEST-AREAS.md` says how
-to set it safely. Check first that the local copy is safe to run things on (`PROJECT.md`, Local
-copies). A bug you
-can reproduce is a bug you understand. If it won't reproduce, say what differed.
+On the local site, recreate the record's starting state and the sequence of events. Check first
+that the local copy is safe to run things on (`PROJECT.md`, Local copies).
+
+If the behaviour depends on the time of day or day of week, move the local site's clock to the
+time the record had, with `ada-clock`. Never change the computer's clock yourself.
+
+`TEST-AREAS.md`, Dates and the clock, has the project's clock positions and rules (which background
+runners to freeze, payments on real time). An older project's copy may not mention `ada-clock`.
+Follow these steps and keep its rules:
+
+1. Freeze the background runners (the project's `TEST-AREAS.md` names them) before the clock
+   moves, so nothing runs at the fake time.
+2. `ada-clock set "YYYY-MM-DD HH:MM"`, in the site's timezone. Under the `manual` setup (`set`'s
+   first line has `(manual)` in it), it prints steps to change the computer's clock: give them to the
+   developer and wait until they say it is done. Don't run them.
+3. `ada-clock status`. Go on only when it exits 0. Under `manual`, `status` passes for just two
+   minutes after the clock is changed, because the clock runs on.
+4. Run every WP-CLI command through `ada-clock wp`, so it sees the same time as the site.
+5. When you are done, always `ada-clock reset`. Under `local-linux`, then run `ada-clock status`.
+   Its first line must be `ada-clock: real` and it must exit 0. If either fails, the clock couldn't
+   be reset: tell the developer at once, with what `status` printed, and record it under
+   Reproduced locally in the findings, with the fake time.
+
+   Under `manual`, `reset` prints steps to switch automatic time back on: give them to the
+   developer and wait until they say it is done. Only then run `ada-clock status`. It can't show
+   the computer's clock is real, because the site runs on that clock. `ada-clock: real` with exit 0
+   shows only that the state file is gone and the site answers. Ask the developer to confirm
+   automatic time is back on by comparing the computer's clock with a real source, such as their
+   phone. If `status` fails (exit 1 or 2), or they can't confirm the clock, handle it the same way:
+   tell the developer at once, with what `status` printed, and record it under Reproduced locally
+   in the findings, with the fake time.
+
+Put each fake time you used in the findings (Reproduced locally, clock time used).
+
+A bug you can reproduce is a bug you understand. If it won't reproduce, say what differed.
 
 You may try a fix locally to confirm the cause: a scratch change on a `bughunt/<slug>` branch,
 never pushed, never merged. Its job is proof. Record it in the findings as a sketch; the real fix

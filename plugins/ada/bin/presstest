@@ -4,12 +4,38 @@
 #
 #   presstest config                     show the settings in use; secrets show as (set). Nothing runs.
 #   presstest list                       the project's test files, in tests/presstest/
-#   presstest run [--env local|staging] [-b <browser>] [<test file> ...]
+#   presstest run [--env local|staging] [--clock] [-b <browser>] [<test file> ...]
 #                                        run the project's tests and its shared suites, or only the
 #                                        named files of the project's, and print the summary.
 #                                        --env: local (the default) or staging.
+#                                        --clock: a clock run, in which the tests move the
+#                                        local site's clock (A clock run, in the header).
+#                                        Local only.
 #                                        Browser: chromium (default), firefox, webkit,
 #                                        mobile-chrome or mobile-safari.
+#
+# A clock run (`run --clock`) lets the tests move the local site's clock with ada-clock, the
+# script beside this one, which runs on this computer, from the project repo, reading local.env
+# as it always does; the container never runs it. Before anything runs, `ada-clock status` must
+# exit 0 with the first line `ada-clock: real`; otherwise the run stops (exit 2) with that line,
+# because there is no clock setup or someone else holds the clock. --clock with --env staging is
+# a usage error. The tests get PRESSTEST_CLOCK=1 and PRESSTEST_CLOCK_DIR, the folder
+# .claude/presstest/run/clock/ as the container sees it, and Playwright runs one worker, because
+# the clock is the whole site's. While the container runs, a loop on this computer reads each
+# request-<n>.json the tests put in that folder:
+#
+#   {"action": "set", "when": "YYYY-MM-DD HH:MM"}    runs ada-clock set "<when>" (the site's time)
+#   {"action": "reset"}                              runs ada-clock reset
+#
+# Anything else (another action or key, a `when` not exactly in that form, not JSON) is refused
+# with exit 2 and ada-clock isn't run. The loop moves each request out of the folder, answers it,
+# and removes it: it writes response-<n>.json, {"exit": <code>, "line": "<first line of
+# ada-clock's output>"}, and prints one line,
+# `presstest: clock request <n>: <what it ran, or refused>, exit <code>: <line>`. When the
+# container exits, and on any other way out once the loop has started (an error, Ctrl-C), the loop
+# is stopped, then `ada-clock reset` and `ada-clock status` run, before the test session is ended,
+# so its cleanup runs at real time. presstest prints `presstest: ada-clock reset` and the status's
+# first line; if that isn't `ada-clock: real`, the run fails, whatever the tests did.
 #
 # The tests are the project's own, in tests/presstest/, run in the PressTest runner image,
 # ghcr.io/pie/presstest-runner. The image version, the shared suites and the staging site are the
@@ -20,8 +46,8 @@
 #   - **PressTest staging:** `https://staging.example.com`    the staging site's URL
 #
 # The image and staging lines are read from their first `code` span, or else their first word; the
-# shared suites line from all its `code` spans, or else its words. "none", or the template's
-# unfilled <prompt>, means there is none. PRESSTEST_IMAGE_VERSION, PRESSTEST_SHARED_SUITES and
+# shared suites line from all its `code` spans, or else its words. "none" as the first word,
+# whatever follows it, or the template's unfilled <prompt>, means there is none. PRESSTEST_IMAGE_VERSION, PRESSTEST_SHARED_SUITES and
 # PRESSTEST_STAGING_URL in the environment override them. There is no production: the suites
 # place orders.
 #
@@ -43,6 +69,24 @@
 #   PRESSTEST_STAGING_CUSTOMER_USERNAME=  PRESSTEST_STAGING_CUSTOMER_PASSWORD=
 #                                           the same, for staging. Local values are never sent
 #                                           to staging.
+#   PRESSTEST_ENV_<NAME>=...                the project's own settings, such as a test helper
+#                                           secret: each reaches the tests of a local run as
+#                                           <NAME> in the container's environment (-e NAME, never
+#                                           the value on a command line). Not passed to staging.
+#                                           NAME is capitals, digits and underscores, starting with
+#                                           a capital. A local `run` stops, before Docker, on any
+#                                           other key starting PRESSTEST_ENV_ (a dot, a space, a
+#                                           lowercase letter), and on a reserved NAME: one
+#                                           presstest or the container uses (URL, USERNAME,
+#                                           PASSWORD, HOME, PATH, EXECIGNORE, ... : RESERVED
+#                                           below), anything starting PRESSTEST_, DOCKER_ or BASH,
+#                                           and any name the running bash won't export (SHELLOPTS,
+#                                           UID, PPID, GROUPS, ...). The file lists the names; an
+#                                           environment variable PRESSTEST_ENV_<NAME> overrides a
+#                                           listed name's value. `config` shows each as (set), or
+#                                           (invalid name) or (reserved). presstest never prints
+#                                           the values; the project's tests must not either, as
+#                                           they'd land in the report.
 #
 # Needs Docker, and curl and jq when there's a report token. Each `run` starts a new container
 # from the image, removed when it ends; Docker pulls the image the first time a version is used.
@@ -52,24 +96,41 @@
 # failed tests go to .claude/presstest/ (git-ignored), kept until the next run.
 #
 # `run` ends with one line: `presstest: passed <n>` or `presstest: failed <n> of <total>`.
-# Exit status: 0 everything passed; 1 a test failed or no report was written; 2 a usage or
-# settings error, or the site doesn't answer or is password-protected, so nothing ran.
+# Exit status: 0 everything passed; 1 a test failed or no report was written, or after a clock
+# run the site's clock isn't back at real time; 2 a usage or settings error, the site doesn't
+# answer or is password-protected, or for --clock the site's clock isn't at real time, so nothing
+# ran.
 
 set -euo pipefail
 
 die() { echo "presstest: $*" >&2; exit 2; }
 
+# This script's folder, worked out before the cd below so a relative $0 still resolves. The
+# ada-clock beside it is the one a clock run uses, so its version is the plugin's.
+here="$(cd "$(dirname "$0")" && pwd)"
+ADA_CLOCK="$here/ada-clock"
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run me from inside the project repo'
 cd "$root"
 project="$root/.claude/team/PROJECT.md"
 conf="$root/.claude/team/local.env"
 
 # A `- **<label>:** value` line from PROJECT.md: its first code span, or else its first word.
+# Whether a line's value is "none": its first word, plain or in a code span, whatever follows, so an
+# explanation after it that names a suite or a site in a code span can't switch it back on.
+is_none() {
+	local first="${1#\`}"
+	first="${first%%[^A-Za-z]*}"
+	shopt -s nocasematch
+	[[ "$first" == none ]]
+	local rc=$?
+	shopt -u nocasematch
+	return $rc
+}
 project_line() {
 	local line
 	[ -f "$project" ] || return 0
 	line="$(sed -n "s/^[[:space:]]*-[[:space:]]*\*\*$1:\*\*[[:space:]]*//p" "$project" | head -1)"
-	if [[ "$line" == '<'* ]]; then
+	if [[ "$line" == '<'* ]] || is_none "$line"; then
 		return 0
 	elif [[ "$line" =~ \`([^\`]*)\` ]]; then
 		echo "${BASH_REMATCH[1]}"
@@ -82,7 +143,7 @@ project_list() {
 	local line
 	[ -f "$project" ] || return 0
 	line="$(sed -n "s/^[[:space:]]*-[[:space:]]*\*\*$1:\*\*[[:space:]]*//p" "$project" | head -1)"
-	[[ "$line" == '<'* ]] && return 0
+	{ [[ "$line" == '<'* ]] || is_none "$line"; } && return 0
 	if [[ "$line" == *\`* ]]; then
 		while [[ "$line" =~ \`([^\`]*)\` ]]; do
 			echo "${BASH_REMATCH[1]}"
@@ -96,20 +157,35 @@ VERSION_FILE="$(project_line 'PressTest image')"
 SHARED_FILE="$(project_list 'PressTest shared suites' | paste -sd ' ' -)"
 STAGING_URL_FILE="$(project_line 'PressTest staging')"
 
-# The developer's settings, from local.env. Each known KEY is held as KEY_FILE.
+# The developer's settings, from local.env. Each known KEY is held as KEY_FILE. Each
+# PRESSTEST_ENV_ line is the project's own setting: a valid NAME goes in ENV_NAMES and its
+# value is held as ENVFILE_<NAME>; any other key starting PRESSTEST_ENV_ goes in ENV_BAD, one per line.
 KEYS='LOCAL_URL PRESSTEST_SECRET PRESSTEST_USERNAME PRESSTEST_PASSWORD
 	PRESSTEST_CUSTOMER_USERNAME PRESSTEST_CUSTOMER_PASSWORD PRESSTEST_STAGING_SECRET
 	PRESSTEST_STAGING_USERNAME PRESSTEST_STAGING_PASSWORD PRESSTEST_STAGING_CUSTOMER_USERNAME
 	PRESSTEST_STAGING_CUSTOMER_PASSWORD'
 KEYLIST=" $(echo $KEYS) "
 for key in $KEYS; do printf -v "${key}_FILE" '%s' ''; done
+ENV_NAMES=' ' ENV_BAD=$'\n'
 if [ -f "$conf" ]; then
 	while IFS= read -r line || [ -n "$line" ]; do
 		line="${line%$'\r'}"
 		[[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
-		[[ "$line" =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+		[[ "$line" =~ ^[[:space:]]*([^=]+)=[[:space:]]*(.*)$ ]] || continue
 		key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
-		[[ "$KEYLIST" == *" $key "* ]] || continue
+		key="${key%"${key##*[![:space:]]}"}"
+		if [[ "$key" == PRESSTEST_ENV_* ]]; then
+			name="${key#PRESSTEST_ENV_}"
+			if [[ ! "$name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+				[[ "$ENV_BAD" == *$'\n'"$key"$'\n'* ]] || ENV_BAD="$ENV_BAD$key"$'\n'
+				continue
+			fi
+			[[ "$ENV_NAMES" == *" $name "* ]] || ENV_NAMES="$ENV_NAMES$name "
+			var="ENVFILE_$name"
+		else
+			[[ "$KEYLIST" == *" $key "* ]] || continue
+			var="${key}_FILE"
+		fi
 		if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?[[:space:]]*$ || "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?[[:space:]]*$ ]]; then
 			val="${BASH_REMATCH[1]}"
 		else
@@ -117,11 +193,25 @@ if [ -f "$conf" ]; then
 			val="${val%"${val##*[![:space:]]}"}"
 		fi
 		[[ "$val" == '<'*'>' ]] && val=''
-		printf -v "${key}_FILE" '%s' "$val"
+		printf -v "$var" '%s' "$val"
 	done < "$conf"
 fi
 # The environment's value, else the file's.
 setting() { local file="${1}_FILE"; local env="${!1:-}"; echo "${env:-${!file}}"; }
+# The same for a project setting NAME: PRESSTEST_ENV_<NAME> in the environment, else the file's.
+env_value() { local file="ENVFILE_$1"; local full="PRESSTEST_ENV_$1"; local env="${!full:-}"; printf '%s' "${env:-${!file}}"; }
+# Names a project setting can't take, because presstest or the container uses them (anything
+# starting PRESSTEST_, DOCKER_ or BASH is refused too, and any name the running bash won't
+# export). A new -e name in `run` goes in this list.
+RESERVED=' URL USERNAME PASSWORD CUSTOMER_USERNAME CUSTOMER_PASSWORD HOME IGNORE_HTTPS_ERRORS'
+RESERVED+=' REPORT_FILE OUTPUT_DIR NODE_NO_WARNINGS NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED'
+RESERVED+=' PATH BASH_ENV ENV IFS LD_PRELOAD LD_LIBRARY_PATH EXECIGNORE '
+# Whether the running bash exports NAME with the value it is given, tested in a throwaway
+# subshell: read-only and special variables (SHELLOPTS, UID, PPID, GROUPS, ...) are not.
+exports_as_given() { [[ "$( declare -x "$1=x" 2>/dev/null; export -p )" == *"declare -x $1=\"x\""* ]]; }
+is_reserved() {
+	[[ "$RESERVED" == *" $1 "* || "$1" == PRESSTEST_* || "$1" == DOCKER_* || "$1" == BASH* ]] || ! exports_as_given "$1"
+}
 VERSION="${PRESSTEST_IMAGE_VERSION:-$VERSION_FILE}"
 SHARED="${PRESSTEST_SHARED_SUITES-$SHARED_FILE}"
 STAGING_URL="${PRESSTEST_STAGING_URL:-$STAGING_URL_FILE}"
@@ -156,8 +246,10 @@ fi
 need_version() { [ -n "$VERSION" ] || die 'this project has no PressTest image version (PROJECT.md, Tests: PressTest image)'; }
 project_tests() { [ -d "$TESTS" ] && (cd "$TESTS" && find . -name '*_test.js' -not -path '*/node_modules/*' | sed 's|^\./||' | sort); }
 shown() { [ -n "$1" ] && echo '(set)' || echo '(not set)'; }
+# The commands, as the header lists them, for a missing or unknown command.
+usage() { sed -n '/^#   presstest config/,/^#$/{/^#$/d;s/^#   /  /;p;}' "$here/${0##*/}"; }
 
-[ $# -ge 1 ] || die "no command. See the header of $0."
+[ $# -ge 1 ] || die "no command. See the header of $0."$'\n'"$(usage)"
 cmd="$1"; shift
 
 case "$cmd" in
@@ -171,6 +263,16 @@ config)
 	echo "  secret:   $(shown "$(setting PRESSTEST_SECRET)")"
 	echo "  login:    $(shown "$(setting PRESSTEST_USERNAME)$(setting PRESSTEST_PASSWORD)")"
 	echo "  customer: $(shown "$(setting PRESSTEST_CUSTOMER_USERNAME)$(setting PRESSTEST_CUSTOMER_PASSWORD)")"
+	while IFS= read -r key; do
+		[ -z "$key" ] || echo "  env:      $key (invalid name)"
+	done <<< "$ENV_BAD"
+	for name in $ENV_NAMES; do
+		if is_reserved "$name"; then
+			echo "  env:      PRESSTEST_ENV_$name (reserved)"
+		else
+			echo "  env:      $name $(shown "$(env_value "$name")")"
+		fi
+	done
 	echo "staging:    ${STAGING_URL:-(none)}$([ -z "$STAGING_URL" ] || [ -n "$STAGING_OK" ] || echo ' (not a staging URL)')"
 	echo "  secret:   $(shown "$(setting PRESSTEST_STAGING_SECRET)")"
 	echo "  login:    $(shown "$(setting PRESSTEST_STAGING_USERNAME)$(setting PRESSTEST_STAGING_PASSWORD)")"
@@ -180,21 +282,31 @@ list)
 	project_tests
 	;;
 run)
-	browser='chromium' env='local'
+	browser='chromium' env='local' clock=''
 	while [ $# -gt 0 ]; do
 		case "$1" in
 			-b) [ $# -ge 2 ] || die '-b needs a browser'; browser="$2"; shift 2 ;;
 			--env) [ $# -ge 2 ] || die '--env needs local or staging'; env="$2"; shift 2 ;;
+			--clock) clock=1; shift ;;
 			-*) die "unknown option: $1" ;;
 			*) break ;;
 		esac
 	done
+	[ -z "$clock" ] || [ "$env" = local ] || die "--clock is for the local site only (ada-clock runs on this computer): --env $env"
 	[[ "$browser" =~ ^(chromium|firefox|webkit|mobile-chrome|mobile-safari)$ ]] || die "unknown browser: $browser"
 	need_version
 	case "$env" in
 	local)
 		[ -n "$LOCAL_SITE" ] || die 'no LOCAL_URL: add your local site to .claude/team/local.env'
 		[ -n "$DOMAIN" ] || die "LOCAL_URL must be a local site, on a .local or .test domain: $LOCAL_SITE"
+		# The project's own settings (PRESSTEST_ENV_<NAME>) are passed to local runs only, so a bad
+		# or reserved name is refused here, before anything runs.
+		while IFS= read -r key; do
+			[ -z "$key" ] || die "$key in local.env: the name after PRESSTEST_ENV_ must be capitals, digits and underscores, starting with a capital"
+		done <<< "$ENV_BAD"
+		for name in $ENV_NAMES; do
+			! is_reserved "$name" || die "PRESSTEST_ENV_$name in local.env: $name is reserved (used by presstest run or bash), so it can't be a project setting"
+		done
 		URL="$LOCAL_SITE"; P='PRESSTEST' ;;
 	staging)
 		[ -n "$STAGING_URL" ] || die 'this project has no staging site for PressTest (PROJECT.md, Tests: PressTest staging)'
@@ -214,6 +326,18 @@ run)
 		targets+=(${shared[@]+"${shared[@]}"})
 	fi
 	[ ${#targets[@]} -gt 0 ] || die 'nothing to run: no tests in tests/presstest, and no shared suites (PROJECT.md, Tests: PressTest shared suites)'
+
+	# A clock run starts only with the site's clock at real time, so the reset at the end can't
+	# undo a time someone else set before the run. Nothing is armed yet, so a stop here leaves the
+	# clock alone.
+	if [ -n "$clock" ]; then
+		[ -x "$ADA_CLOCK" ] || die "--clock needs ada-clock, which isn't beside this script: $ADA_CLOCK"
+		command -v jq >/dev/null 2>&1 || die 'needs jq, to read the clock requests (--clock)'
+		clock_code=0
+		clock_out="$("$ADA_CLOCK" status 2>&1 </dev/null)" || clock_code=$?
+		[ "$clock_code" -eq 0 ] && [ "${clock_out%%$'\n'*}" = 'ada-clock: real' ] \
+			|| die "--clock needs the site's clock at real time, and ada-clock status says (exit $clock_code): ${clock_out%%$'\n'*}"
+	fi
 
 	command -v docker >/dev/null 2>&1 || die 'needs Docker, which is not installed'
 	docker info >/dev/null 2>&1 || die 'needs Docker running'
@@ -260,6 +384,8 @@ run)
 	# create it as root.
 	rm -rf "$RESULTS/run"
 	mkdir -p "$RESULTS/run"
+	clock_dir="$RESULTS/run/clock"
+	[ -z "$clock" ] || mkdir "$clock_dir"
 
 	# A test session lets the tests create users, orders and so on: the Presstest Companion plugin
 	# records what the run creates, removes it when the session ends, and captures emails instead
@@ -289,7 +415,111 @@ run)
 		fi
 		session_id=''
 	}
-	trap session_end EXIT
+
+	# The clock run's bridge (header, A clock run). A `when` is exactly YYYY-MM-DD HH:MM, in ASCII
+	# digits: the digits are listed, because a range like 0-9 can match other characters in some
+	# locales.
+	CLOCK_WHEN='[0123456789]{4}-[0123456789]{2}-[0123456789]{2} [0123456789]{2}:[0123456789]{2}'
+	# mv's option that makes the target a file even when it's a symlink to a directory, so mv
+	# replaces the symlink instead of moving into the directory: -h on macOS, -T in GNU coreutils.
+	if [ "$(uname -s)" = Darwin ]; then CLOCK_MV_TARGET=-h; else CLOCK_MV_TARGET=-T; fi
+	# Answers one request file: runs ada-clock set or reset with the values as arguments, never
+	# through a shell string, or refuses the request without running ada-clock. jq classifies the
+	# file: `reset` for exactly {"action": "reset"}; `set "<when>"` (the string as JSON, so a
+	# newline, a NUL or a quote in it shows as an escape and fails the match) for an object with
+	# exactly the keys action and when, action set and when a string; anything else (another
+	# action or key, not JSON, several values) prints something no match below accepts. The `.`
+	# at the end stops command substitution dropping a trailing newline.
+	clock_request() {
+		local file="$1" number kind ran='' code=0 out line temp
+		[[ "${file##*/}" =~ ^request-([0123456789]+)\.json$ ]] || return 0
+		number="${BASH_REMATCH[1]}"
+		# The request is first moved into the private folder, where the container can't reach it,
+		# so test code can't swap it for something else between the check below and jq reading
+		# it. mv on one file system is a rename, which opens nothing, so a FIFO is moved without
+		# blocking. A request the tests deleted before the move has nothing to answer.
+		mv -f "$file" "$clock_private/request" 2>/dev/null || return 0
+		file="$clock_private/request"
+		# A request that is a symlink or not a regular file is refused before jq opens it. jq waits
+		# for ever on a FIFO, and then the bridge never stops and the clock is never reset at the
+		# end; a symlink could point anywhere on this computer. rm -rf below also removes a
+		# directory of that name, which rm -f can't, and that failure would stop the bridge.
+		if [ -L "$file" ] || [ ! -f "$file" ]; then
+			kind='refused.'
+		else
+			kind="$(jq -j 'if type == "object" and keys == ["action"] and .action == "reset" then "reset."
+				elif type == "object" and keys == ["action", "when"] and .action == "set" and (.when | type) == "string"
+				then "set \(.when | tojson)."
+				else "refused." end' "$file" 2>/dev/null)" || kind='refused.'
+		fi
+		if [ "$kind" = 'reset.' ]; then
+			ran='ada-clock reset'
+			out="$("$ADA_CLOCK" reset 2>&1 </dev/null)" || code=$?
+		elif [[ "$kind" =~ ^set\ \"($CLOCK_WHEN)\"\.$ ]]; then
+			ran="ada-clock set ${BASH_REMATCH[1]}"
+			out="$("$ADA_CLOCK" set "${BASH_REMATCH[1]}" 2>&1 </dev/null)" || code=$?
+		else
+			ran='refused' code=2
+			out="presstest: refused clock request $number: the action must be set (with when YYYY-MM-DD HH:MM) or reset"
+		fi
+		line="${out%%$'\n'*}"
+		# The container can write to this folder, so the response isn't written through a name it
+		# could have planted a symlink at. It goes to a new file with a random name, created
+		# exclusively (noclobber), so the write fails rather than follow anything already there.
+		# The file is then renamed onto response-N.json, so the tests never read half a response:
+		# the rename replaces a symlink at that name rather than writing through it.
+		temp="$(mktemp -u "$clock_dir/.response-XXXXXXXXXX")"
+		(set -C; jq -cn --argjson exit "$code" --arg line "$line" '{exit: $exit, line: $line}' > "$temp")
+		mv -f "$CLOCK_MV_TARGET" "$temp" "$clock_dir/response-$number.json"
+		rm -rf "$file"
+		echo "presstest: clock request $number: $ran, exit $code: $line"
+	}
+	# Polls the folder every 0.2 s, in the background, until it's sent TERM. The TERM trap only sets
+	# a flag, checked between requests, so a stop never lands while ada-clock set is running:
+	# bash runs the trap after the foreground ada-clock returns, and the response is written first.
+	clock_bridge() {
+		local file
+		clock_stop=''
+		trap 'clock_stop=1' TERM
+		shopt -s nullglob
+		while [ -z "$clock_stop" ]; do
+			for file in "$clock_dir"/request-*.json; do
+				[ -z "$clock_stop" ] || break
+				clock_request "$file"
+			done
+			sleep 0.2
+		done
+	}
+	# Stops the bridge, removes its private folder, resets the clock and prints the status's first
+	# line. Returns 1 when that isn't `ada-clock: real`. Does nothing unless the bridge was started,
+	# and only once, so the EXIT trap's call after the normal one does nothing.
+	clock_armed='' clock_pid='' clock_private=''
+	clock_end() {
+		local code=0 out
+		[ -n "$clock_armed" ] || return 0
+		clock_armed=''
+		[ -z "$clock_pid" ] || { kill -TERM "$clock_pid" 2>/dev/null || true; wait "$clock_pid" 2>/dev/null || true; }
+		[ -z "$clock_private" ] || rm -rf "$clock_private" || true
+		out="$("$ADA_CLOCK" reset 2>&1 </dev/null)" || code=$?
+		if [ "$code" -eq 0 ]; then
+			echo 'presstest: ada-clock reset'
+		else
+			echo "presstest: ada-clock reset failed (exit $code): ${out%%$'\n'*}"
+		fi
+		code=0
+		out="$("$ADA_CLOCK" status 2>&1 </dev/null)" || code=$?
+		echo "presstest: ${out%%$'\n'*}"
+		[ "${out%%$'\n'*}" = 'ada-clock: real' ]
+	}
+	clock_failed() { echo "presstest: failed, the site's clock isn't back at real time (ada-clock status above): run ada-clock reset"; }
+	# The clock is reset before the test session ends, so the session's cleanup runs at real time.
+	on_exit() {
+		local real=1
+		clock_end || real=''
+		session_end
+		[ -n "$real" ] || { clock_failed; exit 1; }
+	}
+	trap on_exit EXIT
 	if [ -n "$secret" ]; then
 		status=0
 		response="$(curl --silent --show-error --max-time 30 ${insecure:+--insecure} --write-out '\n%{http_code}' \
@@ -320,10 +550,50 @@ run)
 		-e REPORT_FILE=test-results/run/results.json -e OUTPUT_DIR=test-results/run/artifacts
 		-v "$RESULTS:/app/test-results")
 	[ ! -d "$TESTS" ] || docker_args+=(-v "$TESTS:/all-tests/project:ro")
+	# The project's own settings (local only): -e NAME, with NAME=value exported only inside the
+	# subshell that starts docker, after the command is fully expanded, so a name like IMAGE or
+	# RESULTS can't change this script's variables. Settings without a value (an unfilled
+	# <example>) aren't passed.
+	project_env=()
+	if [ "$env" = local ]; then
+		for name in $ENV_NAMES; do
+			value="$(env_value "$name")"
+			[ -z "$value" ] || { project_env+=("$name=$value"); docker_args+=(-e "$name"); }
+		done
+	fi
+	# A clock run: the tests find the bridge's folder through these, and one worker runs them,
+	# because the clock is the whole site's. Both stay empty without --clock.
+	clock_playwright=()
+	if [ -n "$clock" ]; then
+		docker_args+=(-e PRESSTEST_CLOCK=1 -e PRESSTEST_CLOCK_DIR=/app/test-results/run/clock)
+		clock_playwright=(--workers=1)
+	fi
+	run_command=(docker run "${docker_args[@]}" "$IMAGE" playwright test "${targets[@]}" --project="$browser"
+		${clock_playwright[@]+"${clock_playwright[@]}"})
 	echo "presstest: $env, $URL, ${targets[*]}"
+	# Armed before the bridge starts, so a stop at any point after this resets the clock.
+	# The bridge's private folder is beside .claude/presstest, not in it, so it isn't in the
+	# container's mount, and on the same file system, so moving a request into it is a rename.
+	if [ -n "$clock" ]; then
+		clock_armed=1
+		clock_private="$(mktemp -d "$root/.claude/presstest-clock.XXXXXXXXXX")"
+		clock_bridge &
+		clock_pid=$!
+	fi
 	ran=0
-	docker run "${docker_args[@]}" "$IMAGE" playwright test "${targets[@]}" --project="$browser" || ran=$?
+	(
+		for pair in ${project_env[@]+"${project_env[@]}"}; do
+			declare -x "$pair" || { echo "presstest: ${pair%%=*} can't be exported" >&2; exit 2; }
+		done
+		"${run_command[@]}"
+	) || ran=$?
+	clock_real=1
+	clock_end || clock_real=''
 	session_end
+	if [ -z "$clock_real" ]; then
+		clock_failed
+		exit 1
+	fi
 
 	report="$RESULTS/run/results.json"
 	if [ ! -f "$report" ]; then
@@ -352,6 +622,6 @@ run)
 	echo "presstest: passed $passed"
 	;;
 *)
-	die "unknown command: $cmd. See the header of $0."
+	die "unknown command: $cmd. See the header of $0."$'\n'"$(usage)"
 	;;
 esac

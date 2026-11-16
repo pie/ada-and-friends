@@ -18,6 +18,52 @@ Releasing in DEVELOPING.md).
   future issue, updating an existing entry rather than duplicating it, and skipping the entry
   when nothing reusable was learned.
 
+## 0.14.1, 15 Nov 2026
+
+- **A `PROJECT.md` line whose first word is `none` means none**, even if an explanation after it
+  names a suite or a site in a code span. `presstest` used to read V&Me's shared suites line as
+  `wordpress-core` and its staging line as `vmestg`.
+- **`presstest run --clock` lets a project's tests move the local site's clock.** The wrapper
+  runs `ada-clock` on your computer when a test asks (through request files in
+  `.claude/presstest/run/clock/`, with `set "YYYY-MM-DD HH:MM"` and `reset` the only requests it
+  accepts), runs Playwright with one worker, and resets the clock when the run ends, however it
+  ends, before the test session ends. It prints a line for each request, then
+  `presstest: ada-clock reset` and the status, and fails the run if the clock isn't back at real
+  time. Local only: with `--env staging` it stops with exit 2, and it won't start unless
+  `ada-clock status` says `ada-clock: real`. Runs without `--clock` are unchanged. With no command
+  or an unknown one, `presstest` now prints its commands.
+- **`ada-clock`'s mu-plugin keeps PressTest test sessions open across a clock jump.** On a local
+  site it adds ten years to each PressTest Companion test session's lifetime, clock real or fake,
+  as it already does for logins, so a test that moves the clock forward isn't refused by the
+  Companion. Run `ada-clock install` again to get it. A session that a killed run leaves open is
+  no longer cleaned up by the Companion's hourly task; Settings > Test sessions still removes it.
+
+## 0.14.0, 12 Nov 2026
+
+- **Onboarding allows `ada-clock status`, `ada-clock set` and `ada-clock reset`**, so Tess can
+  read and move the clock without a permission prompt. `ada-clock install`, `uninstall`, `wp` and
+  `extension` still ask. A repo that is already onboarded gets the rules the next time
+  `ada-onboard settings` runs.
+- **`/ada:bughunt` names the `ada-clock` commands.** When a bug depends on the time, Grace moves
+  the local site's clock with `ada-clock set`, checks it with `ada-clock status`, runs WP-CLI
+  through `ada-clock wp` and finishes with `ada-clock reset` and a `status` that says
+  `ada-clock: real`. She hands the steps to the developer under the `manual` setup, records the
+  fake time in `FINDINGS.md`, and reports a clock that couldn't be reset. Projects onboarded before
+  `ada-clock` no longer depend on their `TEST-AREAS.md` for the commands.
+- **`ada-plan` and `ada-brief overlap` stop when PROJECT.md has no `**Branch from:**` line.**
+  They used to assume a branch called `production` and fail later with "couldn't fetch
+  production". Now they say PROJECT.md has no `**Branch from:**` line and to add one under Code and
+  branches. Only `ada-plan init` runs without it. With the line present nothing changes.
+- **`presstest run` passes a project's own settings into the tests, locally.** Each
+  `PRESSTEST_ENV_<NAME>=value` line in `.claude/team/local.env` reaches a local run as `<NAME>` in the
+  container's environment (for a project's test helper secret, say). The value goes in through the
+  environment, never on a command line or in output; `presstest config` shows the name with
+  `(set)`. Not passed to staging. A key starting `PRESSTEST_ENV_` whose name isn't capitals, digits and
+  underscores, or a name that presstest or bash uses itself (`URL`, `HOME`, `PATH`, anything
+  starting `PRESSTEST_`, `DOCKER_` or `BASH`, `EXECIGNORE`, or any name bash won't export, such as
+  `SHELLOPTS` or `UID`), stops a local run with exit 2, before Docker runs; `config` shows it as
+  `(invalid name)` or `(reserved)`. The project's tests must not print the values.
+
 ## 0.13.0, 9 Nov 2026
 
 - **PressTest tests live in the project, and run without a presstest.io clone.** `presstest run`
