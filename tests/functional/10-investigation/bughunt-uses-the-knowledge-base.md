@@ -6,7 +6,7 @@
 - Asana: https://app.asana.com/0/0/1220058513997551/f
 - Automate as: none (part A is a self-checking shell script; parts B to F are dry runs with
   `claude --plugin-dir` in scratch repos, each with a self-checking after-script)
-- Last run: 2026-11-16, part A passes (0 failed; 24 failed on 3260617, as listed); parts B to F not run (see the PR)
+- Last run: 2026-11-16, part A passes (0 failed; 24 failed on 3260617, as listed); dry runs B, D, E1, E2 and F pass, 0 failed each (see the PR)
 
 ## Precondition
 
@@ -599,7 +599,7 @@ if mode == 'fix':
     t('fix: no code changed in the main checkout', run_git(['status', '--porcelain', '--', 'src']) == '')
     t('fix: EnterWorktree, then ExitWorktree, were called (in that order)',
       enter_i is not None and exit_i is not None and enter_i < exit_i, 'EnterWorktree #%s, ExitWorktree #%s' % (enter_i, exit_i))
-    kbw = [i for i, c in enumerate(calls) if c[1] in ('Write', 'Edit', 'MultiEdit') and KBRE.search(c[2])]
+    kbw = [i for i, c in enumerate(calls) if c[1] in ('Write', 'Edit', 'MultiEdit') and KBRE.search(json.loads(c[2]).get('file_path', ''))]
     print('info: Write/Edit calls on knowledge-base files: %d' % len(kbw))
     t('fix: every Write or Edit of a knowledge-base file came after ExitWorktree',
       exit_i is not None and all(i > exit_i for i in kbw))
