@@ -64,7 +64,7 @@ State the scripts read and write, in an onboarded project:
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:236-239`) |
 | `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
 | `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:333-362`) |
-| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:144-181`); `/ada:onboard` fills `config.json` | `ada-onboard check` (`config.json`'s `{{KEY}}`s); people |
+| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:144-181`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; people |
 | `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:364-433`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
@@ -124,6 +124,17 @@ confirmed with the developer; a finished step is archived on their yes, as in be
 made ready (`ada-brief ready` replaces the PR body, after which `status` says `not-submitted` and the
 PR review is the gate), where a second line `amended since approval; no re-approval needed` means
 carry on, and `ada-plan status` for the main checkout's plan.
+
+**`/ada:bughunt`** (`skills/bughunt/SKILL.md`) is Grace's read-only hunt, from Intake to
+`FINDINGS.md`. Only when `PROJECT.md` says `Kind: product` with a `Knowledge base:` folder (the
+same reading as `ada-onboard check`: no `Kind:` line, `site`, `none` or a `<prompt>` switch nothing
+on), two steps run that a site never sees. Intake checks the folder's `INDEX.md` and `issues/`
+first, and a `resolved`, `workaround` or `fixed-in-release` entry that fits the report, checked
+against the customer's version, ends the hunt; otherwise the hunt goes on as in a site. Step 7
+runs for every bughunt, including one that ended at Intake or found "not a bug": it writes or
+updates an entry (and `INDEX.md` for a new one) in the main checkout's knowledge-base folder,
+never in a `bughunt/<slug>` worktree, left uncommitted for the developer; `FINDINGS.md` "Known
+issue?" names the entry that matched and the file written or updated.
 
 **A release of this plugin** (`.github/workflows/release.yml`), on every push to `main`
 (`:13-16`): see Fragile areas, The release workflow.

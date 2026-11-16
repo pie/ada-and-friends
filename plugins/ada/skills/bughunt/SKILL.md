@@ -25,7 +25,7 @@ you keep its conclusion and the evidence.
 |---|---|---|
 | **Production** | `prod-wp`, or a Chrome tab on the live admin | **Read only.** Look, query, read logs and notes. Nothing that saves, sends, runs or changes. |
 | **Local site** | The developer's WP-CLI (Local → Open site shell) and browser | Anything: replicate, move the clock with `ada-clock`, try a fix. |
-| **Repo** | git, Grep, Read | Read history and code. Experimental changes on a local `bughunt/<slug>` branch, never pushed. |
+| **Repo** | git, Grep, Read | Read history and code. Experimental changes on a local `bughunt/<slug>` branch, never pushed. For a product, the uncommitted knowledge-base entry and `INDEX.md` in the main checkout (7). |
 
 **Production rules, without exception:**
 
@@ -58,6 +58,17 @@ you keep its conclusion and the evidence.
 
 - Read the Asana task and its comments. Write down the **claim** exactly: what the client says
   happened, to which customer, when, and what they expected instead.
+- **A product only** (`PROJECT.md` says `Kind:` is `product` and `Knowledge base:` gives a
+  folder; with no `Kind:` line, `site`, or `none` skip this and every other knowledge-base step):
+  **check the knowledge base first.** Scan the folder's `INDEX.md`, and `grep -ril` the symptom's
+  words in its `issues/` (error messages as the customer quoted them). Read each entry that
+  matches. Check its fix or workaround against the version the customer runs, as the folder's
+  `README.md` says. An entry with the status `resolved`, `workaround` (a way round it, no fix in
+  the product) or `fixed-in-release` that fits the claim on its "How to diagnose" ends the hunt:
+  link the entry in FINDINGS.md "Known issue?" and say so, then go to step 7: it adds this card's
+  `asana:<task id>` to that entry's `sources` and widens `plugin_versions` and `last_seen`.
+  Otherwise the hunt goes on unchanged, and an `open-bug` or `unresolved` entry
+  gives you its cause and diagnosis to start from.
 - **Search the known-issues project named in `PROJECT.md` for a matching open task** before going
   further. A known bug with a workaround ends the hunt early: link it and say so.
 - Read the `SYSTEM.md` sections for the area, especially if it's one of the fragile areas in
@@ -151,6 +162,31 @@ whether a code fix is needed.
 Customer remedies (a credit, a re-sent order, a refund) are **written up, not done**. The developer
 or the client does them, in the admin, deliberately. A repair across many records is its own PR
 (P2), from the production branch.
+
+### 7. The knowledge-base entry (a product only)
+
+Skip this for a site. For a product, every bughunt ends with an entry written or updated, so the
+knowledge base keeps a record of all of them: when an entry ended the hunt at Intake, when the
+cause is confirmed, when it is not found, and when the result is "not a bug". Search `issues/`
+first: an entry on the same problem is updated, never duplicated.
+
+- **Write or update the entry, and for a new entry its line in `INDEX.md`,** in the folder's
+  format. To update one, add `asana:<task id>` to its `sources`, widen `plugin_versions` and
+  `last_seen`, and refine what you learnt. For a "not a bug" result the status is `resolved` and
+  the category is `configuration` or `how-to`; for any other result a new entry's status is set as
+  the README's "To write one" steps 2 and 3 say. Its `sources` are `asana:<task id>`. It holds no customer data (the README's "No customer
+  data").
+- **Write the entry and `INDEX.md` in the knowledge-base folder of the main checkout, never in a
+  `bughunt/<slug>` worktree.** `ada-worktree main` prints the main checkout's path; the
+  `Knowledge base:` folder is relative to it. Leave both files uncommitted: the developer commits
+  them. If you tried a fix in a `bughunt/<slug>` worktree (step 4), first return to the main
+  checkout with the `ExitWorktree` tool, keeping the worktree and its branch. If `ExitWorktree`
+  isn't available, write nothing outside the worktree: give the developer the entry's text and
+  the path to save it at in the main checkout.
+- Fill in the knowledge-base line of `FINDINGS.md` "Known issue?" before you leave the
+  `bughunt/<slug>` worktree with `ExitWorktree`, while `FINDINGS.md` is still there: the entry
+  that matched (or none), and the entry file you are about to write or update in the main
+  checkout and that the developer commits it. Mention it in the summary to the developer.
 
 ## Never
 

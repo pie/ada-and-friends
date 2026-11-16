@@ -90,13 +90,14 @@ own words.
 
 ## When to write an entry
 
-- Only create or update an entry when the investigation produces technical information that
-  could help resolve a future issue.
+- Every bughunt and every support card worked by the team records its card in an entry, new or
+  updated, so the knowledge base keeps a record of all of them and can be used for reporting.
+  That includes a card that turned out not to be a bug (`configuration` or `how-to`) and one
+  whose cause isn't found yet (`unresolved`).
 - Before creating an entry, check whether the knowledge already exists. If it does, update the
   existing entry rather than creating a duplicate.
 - Capture the problem, root cause (if known), investigation steps, resolution or workaround,
   and any relevant technical context.
-- If no reusable technical knowledge was gained, skip creating an entry.
 
 To write one:
 
@@ -113,6 +114,5 @@ To write one:
 
 What doesn't get an entry: routine work (compatibility updates, review checks, coding-standards
 chores), auto-replies and spam. Feature requests go into one `issues/feature-support-faq.md`
-rather than an entry each. Old bugs already fixed are covered by the changelog; add an entry only
-if the ticket has diagnostic value. A problem that reached us in more than one place is one
-entry with every source.
+rather than an entry each; add each card to that entry's sources. A problem that reached us in
+more than one place is one entry with every source.
