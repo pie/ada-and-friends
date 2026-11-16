@@ -110,7 +110,7 @@ To write one:
    `unresolved` and the entry records what was suggested. Don't present a guess as the fix.
 4. Add one line for a new entry to [INDEX.md](INDEX.md), under its area, with the status icon.
    Each entry is linked from the index exactly once.
-5. Commit the entry and `INDEX.md` together.
+5. Leave the entry and `INDEX.md` uncommitted; the developer commits them together.
 
 What doesn't get an entry: routine work (compatibility updates, review checks, coding-standards
 chores), auto-replies and spam. Feature requests go into one `issues/feature-support-faq.md`

@@ -165,10 +165,11 @@ or the client does them, in the admin, deliberately. A repair across many record
 
 ### 7. The knowledge-base entry (a product only)
 
-Skip this for a site. For a product, every bughunt ends with an entry written or updated, so the
-knowledge base keeps a record of all of them: when an entry ended the hunt at Intake, when the
-cause is confirmed, when it is not found, and when the result is "not a bug". Search `issues/`
-first: an entry on the same problem is updated, never duplicated.
+Skip this unless the project is a product with a knowledge base (step 1). For a product, every
+bughunt ends with an entry written or updated, so the knowledge base keeps a record of all of them:
+when an entry ended the hunt at Intake, when the cause is confirmed, when it is not found, and when
+the result is "not a bug". Search `issues/` first: an entry on the same problem is updated, never
+duplicated.
 
 - **Write or update the entry, and for a new entry its line in `INDEX.md`,** in the folder's
   format. To update one, add `asana:<task id>` to its `sources`, widen `plugin_versions` and

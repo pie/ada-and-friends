@@ -12,8 +12,9 @@ What the client reported, exactly, with the customer as subscription / order IDs
 
 Known-issues project (PROJECT.md) checked: what matched (link), or "none matching".
 
-Knowledge base (a product only; delete this line for a site): the entry that matched (file), or
-"none matching"; the entry file written or updated (uncommitted, the developer commits it).
+Knowledge base (a product with a knowledge base only; otherwise delete this line): the entry that
+matched (file), or "none matching"; the entry file written or updated (uncommitted, the developer
+commits it).
 
 ## Timeline
 
