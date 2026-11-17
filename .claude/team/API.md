@@ -204,7 +204,7 @@ non-zero changing nothing if Unreleased is empty. Run by `release.yml` only.
 |---|---|---|
 | `begin` | `/ada:begin` | Ada's playbook: session start, brief, approval, roles, PR gate |
 | `pickup` | `/ada:pickup` | Resume from `CHECKPOINT.md` |
-| `bughunt` | `/ada:bughunt` | Grace's read-only investigation; writes `FINDINGS.md` |
+| `bughunt` | `/ada:bughunt` | Grace's read-only investigation; writes `FINDINGS.md`, and in a product, for every hunt, a knowledge-base entry (and `INDEX.md` for a new one) in the main checkout, uncommitted |
 | `design` | `/ada:design` | Usually loaded by Ada from `begin` (or `planning`) when the design test passes. Iris designs on a Design artifact (Artifact `quickstart`, intent `design`) in the main session; writes `.claude/handoff/DESIGN.md`, or in a plan only `plan/DESIGN-<task id>.md`, and creates or updates the project's root `DESIGN.md` (linted with the version pinned in the skill) |
 | `onboard` | `/ada:onboard` | Set a repo up; drafts the knowledge files |
 | `planning` | loaded by Ada | Work too big for one PR |

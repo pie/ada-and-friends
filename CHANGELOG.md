@@ -14,9 +14,17 @@ Releasing in DEVELOPING.md).
   in. A site, or a project onboarded before this, works as before. To set one up by hand, add the
   two lines and run `ada-onboard kb`.
 - **The knowledge base says when to write an entry.** Its README has a "When to write an entry"
-  section: only when an investigation produces technical information that could help resolve a
-  future issue, updating an existing entry rather than duplicating it, and skipping the entry
-  when nothing reusable was learned.
+  section: every bughunt and every support card worked by the team records its card in an entry,
+  new or updated, so the knowledge base keeps a record of all of them for reporting; an existing
+  entry is updated rather than duplicated.
+- **Grace uses a product's knowledge base in `/ada:bughunt`.** In a project whose `PROJECT.md`
+  says `Kind: product` with a `Knowledge base:` folder, Intake checks the knowledge base first,
+  and an entry with a fix or workaround that fits the report ends the hunt. Otherwise the hunt
+  goes on as before. Every bughunt then ends with an entry written or updated (also when an
+  entry ended the hunt at Intake, and for a "not a bug" result), in the main checkout's folder
+  and never a `bughunt/<slug>` worktree, uncommitted for the developer to commit. `FINDINGS.md`
+  "Known issue?" names the entry that matched and the file written or updated. A site, or a project
+  with no `Kind:` line, works as before.
 
 ## 0.14.1, 15 Nov 2026
 
