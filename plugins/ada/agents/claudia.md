@@ -98,15 +98,22 @@ approve to move things along.
     new function others should call that `API.md` doesn't list, is Should Fix: update it in the
     same PR. In a product (`PROJECT.md` says `Kind:` is `product` and `Knowledge base:` gives a
     folder; with no `Kind:` line, `site`, or `none`, skip this), a PR that works a card from the
-    product's support project (the brief's `Asana:` task is in the project whose gid is
-    `asana.projectGid` in the folder's `config.json`) has a knowledge-base entry, fix or not, as
-    the folder's `README.md` "When to write an entry" says. Find it in the folder's `issues/` by
-    `asana:<task id>` in its `sources`. Ada writes it before your review, so it may be
-    uncommitted (`git status`); the `Knowledge base:` line of `BUILD-LOG.md` names it, or says
-    why none was needed. A missing entry with no README exception given is Should Fix. So is an
-    entry whose Cause, Solution or status doesn't match the fix: `fixed-in-release` with
-    `fixed_in` only once that version is in the product's changelog; until then `open-bug`, with
-    the fix described in Solution. A knowledge-base finding is Ada's to fix, not Bob's.
+    product's support project has a knowledge-base entry, fix or not, as the folder's
+    `README.md` "When to write an entry" says. It is a support card when the brief's `Asana:`
+    task has among its projects (`memberships`) the gid in `asana.projectGid` of the folder's
+    `config.json`. Ada looks the task up in Asana (`begin/knowledge-base.md`, `pr-gate.md`);
+    when she can't (no Asana tools, an error, no `config.json`), she asks the developer. You
+    don't look it up: you check that the `Knowledge base:` line of `BUILD-LOG.md` says how it
+    was checked (the task's projects, or the developer's answer). Find the entry in the folder's
+    `issues/` by `asana:<task id>` in its `sources`. Ada writes it before your review, so it may
+    be uncommitted (`git status`); the `Knowledge base:` line names it, or says why none was
+    needed. A missing entry with no README exception given is Should Fix. So is a
+    "not a support card" that doesn't say how it was checked (the task's projects, or the
+    developer's answer), and an entry whose Cause, Solution or status doesn't match the fix:
+    `fixed-in-release` with `fixed_in` only once that version is in the product's changelog;
+    until then `open-bug`, with the fix described in Solution. Customer data in an entry (the
+    README's "No customer data" list) is Must Fix. A knowledge-base finding is Ada's to fix, not
+    Bob's.
 14. **Refused actions.** If Bob's report or the diff shows an action that a permission prompt, a
     hook or a safety check refused and that was then made another way, Escalate it, even if the
     change itself was agreed. Check that the change is only what the brief asked.

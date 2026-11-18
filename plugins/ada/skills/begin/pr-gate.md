@@ -32,12 +32,15 @@ both say `Ready for PR: YES`.
    says `Kind:` is `product` and `Knowledge base:` gives a folder; with no `Kind:` line, `site`,
    or `none`, leave this out), add whether the knowledge-base entry was written or updated, and
    its file, or why none was needed. A PR that works a card from the product's support project
-   (the brief's `Asana:` task is in the project whose gid is `asana.projectGid` in the folder's
-   `config.json`) has an entry, fix or not, as the folder's `README.md` "When to write an entry"
-   says. You wrote it in this step's worktree before Claudia's review (`SKILL.md`, Direct Bob,
-   Claudia and Tess), so it goes in the PR (step 5), and the `Knowledge base:` line of
-   `BUILD-LOG.md` names it. Why none was needed names the README exception that applies ("What
-   doesn't get an entry"), or says the task isn't a support card.
+   has an entry, fix or not, as the folder's `README.md` "When to write an entry" says. It is a
+   support card when the brief's `Asana:` task, looked up in Asana, has among its projects
+   (`memberships`) the gid in `asana.projectGid` of the folder's `config.json`. If that can't be
+   checked (no Asana tools, an error, no `config.json`), ask the developer; never write "not a
+   support card" without having checked. You wrote the entry in this step's worktree before
+   Claudia's review (`knowledge-base.md`), so it goes in the PR (step 5), and the
+   `Knowledge base:` line of `BUILD-LOG.md` names it. Why none was needed names the README
+   exception that applies ("What doesn't get an entry"), or says the task isn't a support card and
+   how that was checked (the task's projects, or the developer's answer).
 4. Ask: open the PR?
 5. On yes:
    - Update `BUILD-LOG.md`.
