@@ -1,13 +1,14 @@
 # In a product repo Ada writes or updates the knowledge-base entry (uncommitted) before Claudia reviews, the PR gate says whether it was updated (and deletes the line for a site), and Claudia's Docs still true makes a missing or mismatched entry Should Fix; a site, or a project with no `Kind:` line, sees none of it
 
-- Area: 08 Session flow (`skills/begin/SKILL.md`: Ada writes the entry before spawning Claudia;
+- Area: 08 Session flow (`skills/begin/SKILL.md` points to `skills/begin/knowledge-base.md`, where Ada's
+  entry step is written: Ada writes the entry before spawning Claudia;
   `skills/begin/pr-gate.md`: item 3 and the PR.md step); 09 Roles
   (`agents/claudia.md`: 13. Docs still true); 11 Templates (the PR template line is in
   `02-onboarding/refresh-adds-pr-template-lines.md`)
 - Asana: https://app.asana.com/0/0/1220058523035214/f
 - Automate as: none (part A is a self-checking shell script; parts B and C are dry runs with
   `claude --plugin-dir` in scratch repos, each with a self-checking after-script)
-- Last run: 18 Nov 2026, Part A 0 failed (53 passed), start commit 31 failed; Parts B3 and B6 driven by hand, 0 failed; the rest not run (see the PR)
+- Last run: 18 Nov 2026, Part A 0 failed (67 passed, after fix round 6, claudia.md item 13 re-pointed), start commit not re-run; Parts B3 and B6 driven by hand earlier, 0 failed; the rest not run (see the PR)
 
 ## Precondition
 
@@ -81,6 +82,8 @@ GATE=plugins/ada/skills/begin/pr-gate.md
 CL=plugins/ada/agents/claudia.md
 PRT=plugins/ada/templates/repo/.github/pull_request_template.md
 SK=plugins/ada/skills/begin/SKILL.md
+KBM=plugins/ada/skills/begin/knowledge-base.md   # the entry paragraph, moved out of SKILL.md (fix round 5b)
+KBR=plugins/ada/templates/knowledge-base/README.md   # changed under amendment 7 (fixed-in-release wording)
 for f in "$GATE" "$CL" "$PRT" "$SK" CHANGELOG.md .claude/team/SYSTEM.md; do
   [ -f "$REPO/$f" ] || { echo "SETUP FAIL: no $REPO/$f"; exit 2; }
 done
@@ -108,6 +111,8 @@ flat() { tr '\n' ' ' < "$1" | tr -s ' \t' '  '; }
 # inn <file> <regex>: the file, flattened, matches the regex, any case
 inn() { flat "$1" | grep -Eqi -- "$2"; }
 hasf() { flat "$1" | grep -qF -- "$2"; }
+# innall <file> <regex>...: the file, flattened, matches every regex, any case
+innall() { f=$1; shift; for re in "$@"; do inn "$f" "$re" || return 1; done; }
 # between <file> <start regex> <stop regex>: from the first line matching start to the line
 # before the next line matching stop
 between() { awk -v a="$2" -v z="$3" 'p && $0 ~ z { exit } $0 ~ a { p = 1 } p' "$1"; }
@@ -132,7 +137,7 @@ t "DoD 3: item 3 still names SYSTEM.md / API.md, updated or why none was needed"
 t "DoD 3: the PR.md step fills the PR's Knowledge base: line (items 3 to 5)" has "$W/g35.md" 'Knowledge base:' 'fill|PR\.md|issues/'
 t "DoD 3: for a site, the Knowledge base: line is deleted (items 3 to 5)" has "$W/g35.md" 'Knowledge base' 'site' 'delet|remov|drop'
 # Amendments, numbered in the order of the brief's table: A1 and A2 (2026-11-13), A3 to A5
-# (2026-11-17), all agreed by Anna Werno. A3 replaces A2's "only when reusable" with the README as
+# (2026-11-17), A8 (2026-11-18, the last row), all agreed by Anna Werno. A3 replaces A2's "only when reusable" with the README as
 # merged; A4 puts awaiting-customer and ## Open issues out of scope, so nothing checks them.
 t "A1: item 3 covers a card from the product's support project (config.json asana.projectGid)" inn "$W/g3.md" 'support project|projectGid'
 t "A2, A3: item 3 follows the knowledge-base README's When to write an entry" inn "$W/g3.md" 'When to write an entry'
@@ -151,21 +156,49 @@ t "A3: item 13 doesn't make a missing entry depend on reusable knowledge" not in
 # A5: begin/SKILL.md. For a product, once Bob's build is ready for review, Ada writes or updates
 # the entry in the step's worktree before spawning Claudia, commits it in the PR (her commit),
 # and fixes Claudia's knowledge-base finding herself.
-SKF=$REPO/$SK
-t "A5: SKILL.md has Ada write or update the knowledge-base entry" has "$SKF" "$KB" 'entry' 'writ|updat'
-t "A5: ... for a product" has "$SKF" "$KB" 'product'
-t "A5: ... in the step's worktree" has "$SKF" "$KB" 'worktree'
-t "A5: ... once Bob's build is ready for review" has "$SKF" "$KB" 'Ready for Review|ready for review|REVIEW-REQUEST'
-t "A5: ... before spawning Claudia" has "$SKF" "$KB" 'Claudia' 'before|first|then spawn'
-t "A5: ... and commits it in the PR (Ada's commit)" has "$SKF" "$KB" 'commit'
-t "A5: Ada fixes Claudia's knowledge-base finding herself, not Bob" has "$SKF" "$KB" 'Claudia|finding|Should Fix|REVIEW-FEEDBACK' 'yourself|herself|not Bob|you fix|Ada fixes'
+SKF=$REPO/$SK; KBF=$REPO/$KBM
+# 5b: the paragraph about a product's knowledge-base entry lives in begin/knowledge-base.md, read on
+# demand like design-step.md and approval.md; SKILL.md keeps a short pointer to it.
+t "A5: begin/knowledge-base.md exists" test -s "$KBF"
+t "A5: SKILL.md tells Ada to read knowledge-base.md for a product" has "$SKF" '`knowledge-base\.md`' 'product' 'read'
+t "A5: the entry paragraph left SKILL.md (it no longer names the README's No customer data rule; only the pointer stays)" not has "$SKF" 'No customer data'
+t "A5: knowledge-base.md has Ada write or update the knowledge-base entry" has "$KBF" "$KB" 'entry' 'writ|updat'
+t "A5: ... for a product" has "$KBF" "$KB" 'product'
+t "A5: ... in the step's worktree" has "$KBF" "$KB" 'worktree'
+t "A5: ... once Bob's build is ready for review" has "$KBF" "$KB" 'Ready for Review|ready for review|REVIEW-REQUEST'
+t "A5: ... before spawning Claudia" has "$KBF" "$KB" 'Claudia' 'before|first|then spawn'
+t "A5: ... and commits it in the PR (Ada's commit)" has "$KBF" "$KB" 'commit'
+t "A5: Ada fixes Claudia's knowledge-base finding herself, not Bob" has "$KBF" "$KB" 'Claudia|finding|Should Fix|REVIEW-FEEDBACK' 'yourself|herself|not Bob|you fix|Ada fixes'
 # A5, scoped (the README's "To write one" step 5 says "Leave the entry and INDEX.md uncommitted; the
 # developer commits them", and A4 leaves the README as it is): in a PR Ada commits the entry, because
 # it was written in the step's worktree; the README's rule is for an entry written outside a PR.
-t "A5 scope: SKILL.md says Ada commits the entry, not the developer, because it was written in the step's worktree" has "$SKF" "$KB" 'commit(s)? (it|them),? not the developer' 'because' 'worktree'
-t "A5 scope: SKILL.md says the README's step 5 (leave it uncommitted) is for an entry written outside a PR (Grace's in /ada:bughunt)" has "$SKF" "$KB" 'README' 'step 5' 'uncommitted' 'outside a PR' 'bughunt'
+t "A5 scope: knowledge-base.md says Ada commits the entry, not the developer, because it was written in the step's worktree" has "$KBF" "$KB" 'commit(s)? (it|them),? not the developer' 'because' 'worktree'
+t "A5 scope: knowledge-base.md says the README's step 5 (leave it uncommitted) is for an entry written outside a PR (Grace's in /ada:bughunt)" has "$KBF" "$KB" 'README' 'step 5' 'uncommitted' 'outside a PR' 'bughunt'
 t "A5 scope: pr-gate.md step 5 has Ada commit the entry and INDEX.md in a commit of their own, not the developer, because they were written in the step's worktree" has "$W/g5.md" "$KB" 'INDEX\.md' 'commit' 'not the developer' 'because' 'worktree'
 t "A5 scope: pr-gate.md step 5 says the README's step 5 (leave them uncommitted) is for an entry written outside a PR (Grace's in /ada:bughunt)" has "$W/g5.md" 'README' 'step 5' 'uncommitted' 'outside a PR' 'bughunt'
+# A8 (2026-11-18, agreed by Anna Werno; PR #71 review points 1 to 5). (a) begin/knowledge-base.md, pr-gate.md
+# (item 3) and claudia.md (item 13) each say how the support-project check is made (the brief's
+# Asana: task's projects, from the Asana task lookup, against asana.projectGid) and that when it
+# can't be checked the developer is asked, never "not a support card" assumed. The lookup is Ada's
+# (Claudia has no Asana tools); Claudia checks the BUILD-LOG Knowledge base: line says how it was
+# checked, and treats a "not a support card" that doesn't say how as Should Fix. (b) begin/knowledge-base.md names
+# the README's "No customer data" rule for the entry Ada writes; Claudia's item 13 makes customer
+# data in an entry Must Fix. (c) the PR template's Knowledge base: line says "written or updated".
+SUPP='support project|projectGid'
+HOW='task.s projects|projects? (of|that|the task)|project memberships|memberships|project list|list of projects'
+ASK='ask(s|ed)? (the )?developer'
+t "A8 (a): knowledge-base.md says how the support-project check is made (the Asana task's projects)" has "$KBF" "$SUPP" 'Asana' "$HOW"
+t "A8 (a): pr-gate.md item 3 says how the support-project check is made (the Asana task's projects)" innall "$W/g3.md" "$SUPP" 'Asana' "$HOW"
+# Claudia has no Asana tools (B4 fix round 6): the lookup is Ada's; Claudia checks that the BUILD-LOG line says how it was checked.
+t "A8 (a): claudia.md item 13 says the support-project check is Ada's lookup of the Asana task's projects, not Claudia's, and that Claudia checks the BUILD-LOG Knowledge base: line says how it was checked" innall "$W/c13.md" "$SUPP" 'Asana' "$HOW" 'Ada looks' "(you|Claudia) (don.t|do not|doesn.t|does not) look it up" 'BUILD-LOG' 'Knowledge base:' 'says how it was checked'
+t "A8 (a): knowledge-base.md says that when the check can't be made, Ada asks the developer" has "$KBF" "$SUPP" "$ASK"
+t "A8 (a): pr-gate.md item 3 says that when the check can't be made, Ada asks the developer" innall "$W/g3.md" "$SUPP" "$ASK"
+t "A8 (a): claudia.md item 13 says that when Ada can't make the check, she asks the developer" innall "$W/c13.md" "$SUPP" 'Ada looks' "can.t" "$ASK"
+t "A8 (a): item 13 treats a 'not a support card' that doesn't say how it was checked as Should Fix, never assumed" innall "$W/c13.md" 'not a support card' 'Should Fix' 'assum|how (it|the card|the task)( was|.s been)? checked|says? how|explain'
+t "A8 (b): knowledge-base.md names the README's No customer data rule for the entry Ada writes" has "$KBF" 'No customer data' 'README' 'entry'
+t "A8 (b): item 13 makes customer data in an entry Must Fix" inn "$W/c13.md" 'customer data[^.]*Must Fix|Must Fix[^.]*customer data'
+t "A8 (c): the PR template's Knowledge base: line says the entry written or updated" hasf "$REPO/$PRT" 'Knowledge base: the entry written or updated ('
+t "A8 (c): ... and no longer says only 'the entry updated' (passes on the start commit: no line yet)" not hasf "$REPO/$PRT" 'Knowledge base: the entry updated'
 # DoD 5: CHANGELOG, and the docs (Build order 4)
 awk '/^- /{ if (b != "") print b; b = $0; next } /^[[:space:]]*$/{ if (b != "") print b; b = ""; next } { sub(/^[[:space:]]+/, ""); b = b " " $0 } END { if (b != "") print b }' "$W/unrel.md" > "$W/bullets.txt"
 t "DoD 5: an Unreleased bullet with a bold lead names the PR template and the knowledge base" sh -c "grep '^- \*\*' '$W/bullets.txt' | grep -Ei 'PR template|pull.request template|pull_request_template' | grep -Eqi '$KB'"
@@ -201,16 +234,17 @@ t "regression: every SKILL.md paragraph added or changed since BASE names the kn
 grep -Evi "$KB|entry|issues/" "$W/sk-added" | sed -n '1,6s/^/      /p'
 t "regression: no SKILL.md paragraph removed since BASE, other than ones changed" test "$(grep -c '' "$W/sk-gone")" -le "$(grep -c '' "$W/sk-added")"
 # Out of scope (No change to ada-onboard refresh; Units B2 and B3; P31; A4: no knowledge-base
-# template): nothing else moved. begin/SKILL.md is expected since A5.
+# template): nothing else moved. begin/SKILL.md is expected since A5; the knowledge-base README
+# template is expected since amendment 7 (fixed-in-release only once the fix is released).
 changed=""
 for p in $(git -C "$BASE_REPO" ls-tree -r --name-only "$BASE" -- plugins/ada/bin plugins/ada/.claude-plugin/plugin.json .claude-plugin/marketplace.json plugins/ada/templates plugins/ada/skills plugins/ada/agents .github); do
-  case $p in "$GATE"|"$CL"|"$PRT"|"$SK") continue ;; esac
+  case $p in "$GATE"|"$CL"|"$PRT"|"$SK"|"$KBR") continue ;; esac   # ($KBM is new: see "added")
   git -C "$BASE_REPO" show "$BASE:$p" | cmp -s - "$REPO/$p" || changed="$changed $p"
 done
 t "out of scope: no script, version, other template, skill file or agent changed since BASE" test -z "$changed"
 [ -n "$changed" ] && printf '      changed: %s\n' $changed
-added=$(cd "$REPO" && find plugins/ada/bin plugins/ada/skills plugins/ada/agents plugins/ada/templates -type f | while IFS= read -r f; do git -C "$BASE_REPO" cat-file -e "$BASE:$f" 2>/dev/null || echo "$f"; done)
-t "out of scope: no file added to the plugin's bin, skills, agents or templates" test -z "$added"
+added=$(cd "$REPO" && find plugins/ada/bin plugins/ada/skills plugins/ada/agents plugins/ada/templates -type f | while IFS= read -r f; do git -C "$BASE_REPO" cat-file -e "$BASE:$f" 2>/dev/null || echo "$f"; done | grep -vxF "$KBM")
+t "out of scope: no file added to the plugin's bin, skills, agents or templates, but begin/knowledge-base.md" test -z "$added"
 [ -n "$added" ] && printf '      added: %s\n' $added
 echo "$fails failed"; [ "$fails" = 0 ]
 ```
@@ -692,7 +726,7 @@ if mode in ('gate-product', 'gate-site'):
         t('product: exactly one Knowledge base: line', len(kbl) == 1)
         t('product: it names the entry, %s' % ENTRY, len(kbl) == 1 and ENTRY in kbl[0])
         t('product: it is under ## Built', len(kbl) == 1 and kbl[0] in section(px, 'Built'))
-        t('product: it says the entry was updated (or added)', len(kbl) == 1 and re.search(r'updat|add|wr[io]te|new', kbl[0], re.I) is not None)
+        t('product: it says the entry was written or updated (or added)', len(kbl) == 1 and re.search(r'updat|add|writ|new', kbl[0], re.I) is not None)
         t('product: no <...> left on it', len(kbl) == 1 and not re.search(r'<[^>]*>', re.sub(r'`[^`]*`', '', kbl[0])))
     else:
         t('site: no Knowledge base: line (deleted)', not kbl)
@@ -774,21 +808,34 @@ product's support project, `config.json` `asana.projectGid`, fix or not), A2 and
 knowledge-base README's "When to write an entry" as merged: every card worked gets an entry, bar
 its "What doesn't get an entry" list, which "why none was needed" names; no "only when
 reusable"), A4 (`awaiting-customer` and `INDEX.md` `## Open issues` out of scope: not checked) and
-A5 (`skills/begin/SKILL.md`: for a product, once Bob's build is ready for review, Ada writes or
+A5 (`skills/begin/knowledge-base.md`, which `SKILL.md` points to since fix round 5b: for a product, once Bob's build is ready for review, Ada writes or
 updates the entry in the step's worktree before spawning Claudia, commits it in the PR (Ada's
 commit; the amendment gives no time for it, and the text commits it at the gate, in a commit of its
 own after the build commit), and fixes Claudia's knowledge-base finding herself). The entry's
 format is the README's. The README's step 5 ("Leave the entry and `INDEX.md` uncommitted; the
-developer commits them") stays, because A4 leaves the template alone; it is reconciled with A5 in the text: `begin/SKILL.md` and `pr-gate.md` step 5
+developer commits them") stays, because A4 leaves the template alone; it is reconciled with A5 in the text: `begin/knowledge-base.md` and `pr-gate.md` step 5
 say Ada commits the entry because it was written in the step's worktree, and that the README's
 rule is for an entry written outside a PR, such as Grace's in `/ada:bughunt` ("A5 scope" checks in
 part A).
 
+A8 (the last row, 2026-11-18, from PR #71's review): (a) `begin/knowledge-base.md`, `pr-gate.md` item 3 and
+Claudia's item 13 each say how the support-project check is made (the brief's `Asana:` task's
+projects, from the Asana task lookup, against `asana.projectGid`) and that when it can't be checked
+the developer is asked, never "not a support card" assumed. The lookup is Ada's (Claudia has no
+Asana tools): Claudia checks that the `BUILD-LOG.md` `Knowledge base:` line says how it was checked,
+and treats a "not a support card" that doesn't say how as Should Fix. (b) `begin/knowledge-base.md` names the README's "No
+customer data" rule for the entry Ada writes; Claudia's item 13 makes customer data in an entry
+Must Fix. (c) the PR template's `Knowledge base:` line says "the entry written or updated" (the
+wording is also pinned in `02-onboarding/refresh-adds-pr-template-lines.md`). Part A has eleven
+"A8" checks; Parts B and C stage none of them (a card whose project can't be checked, and customer
+data in an entry, are not staged).
+
 - Part A: every line `PASS`, `0 failed`, exit 0. On the exported start commit every DoD 3, DoD 4,
-  Amendment (A1, A2, A3, A5, including the four "A5 scope" checks), DoD 5 bullet and docs check
-  must FAIL (31 failed in all), including "docs: SYSTEM.md names Claudia's knowledge-base check"
+  Amendment (A1, A2, A3, A5, including the four "A5 scope" checks, and A8's ten, bar its last),
+  DoD 5 bullet and docs check must FAIL (31 failed in all before A8; 41 with A8's ten, unrun), including "docs: SYSTEM.md names Claudia's knowledge-base check"
   (a376b09's `SYSTEM.md` has no item 13 beside the knowledge base), except "item 3 still names
-  SYSTEM.md / API.md", "no 'Nothing yet.'", A3's two "doesn't ... depend on reusable knowledge"
+  SYSTEM.md / API.md", "no 'Nothing yet.'", A8 (c)'s "no longer says only 'the entry updated'" (the
+  start commit has no such line, so it passes), A3's two "doesn't ... depend on reusable knowledge"
   checks and the setup checks; every regression and out-of-scope check PASSES.
 - Part B1 (`missing`): Claudia's `REVIEW-FEEDBACK.md` has a Should Fix naming the missing
   knowledge-base entry for the support card's fix, and no Must Fix about the knowledge base. She
@@ -811,7 +858,7 @@ part A).
   once. Then Claudia's `REVIEW-FEEDBACK.md` has no Must Fix about the knowledge base and no Should
   Fix saying the entry is missing. `after.py`: `0 failed`.
 - Part C1 (`gate-product`): the step 3 summary, in the session, says the knowledge-base entry
-  (`issues/free-shipping-at-threshold.md`) was updated, alongside `SYSTEM.md` / `API.md`. `PR.md`
+  (`issues/free-shipping-at-threshold.md`) was written or updated, alongside `SYSTEM.md` / `API.md`. `PR.md`
   has exactly one `Knowledge base:` line, under `## Built`, naming
   `issues/free-shipping-at-threshold.md`, with no `<…>` and without the template's "Products only;
   delete for a site"; the rest of the PR.md step as before (`Design:` `none`, `Brief:` filled, the
@@ -839,11 +886,13 @@ part A).
 - Claudia's other checks unchanged word for word, and item 13's `SYSTEM.md` / `API.md` and
   `API.md`-listing clauses kept (part A).
 - `skills/begin/SKILL.md`: every paragraph added or changed names the knowledge base or the
-  entry, and none removed except ones changed (part A).
+  entry (the pointer to `knowledge-base.md` does), and none removed except ones changed (part A).
+- `skills/begin/knowledge-base.md` exists, `SKILL.md` tells Ada to read it for a product, and the
+  entry step's text (A5, A5 scope, A8 (a) and (b)) is found there, not in `SKILL.md` (part A).
 - Out of scope, unchanged since the start commit: the scripts (no change to `ada-onboard
   refresh`), the version numbers (P31), every template but the PR template (the knowledge-base
-  templates are Units B2 and B3, and A4 changes none), every skill file but `pr-gate.md` and
-  `begin/SKILL.md`, every agent but Claudia (part A).
+  templates are Units B2 and B3, and A4 changes none), every skill file but `pr-gate.md`,
+  `begin/SKILL.md` and the new `begin/knowledge-base.md`, every agent but Claudia (part A).
 - Not covered by a run: a support card worked with no fix, a card on the README's "What doesn't
   get an entry" list, and Ada fixing Claudia's knowledge-base finding herself (A5). Part A checks
   the text; no part stages them. `awaiting-customer` and `## Open issues` are out of scope (A4).

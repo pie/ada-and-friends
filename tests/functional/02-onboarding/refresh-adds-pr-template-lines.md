@@ -76,9 +76,10 @@ HF=.claude/team/.template-hashes
 for f in "$NEWB" "$NEWT" "$OLD_PLUGIN_D/bin/ada-onboard" "$OLDT_D" "$OLD_PLUGIN_K/bin/ada-onboard" "$OLDT_K"; do
   [ -f "$f" ] || { echo "SETUP FAIL: no $f"; exit 2; }
 done
-# The two lines, as the briefs word them (#30 as amended, Q5; Unit B4, Decisions).
+# The two lines, as the briefs word them (#30 as amended, Q5; Unit B4, Decisions, and its
+# 2026-11-18 amendment: "the entry updated" -> "the entry written or updated").
 DESIGN='Design: <the Design artifact link | text only, in the brief | none>'
-KBL='Knowledge base: the entry updated (`issues/<file>`), or why none was needed. Products only; delete for a site.'
+KBL='Knowledge base: the entry written or updated (`issues/<file>`), or why none was needed. Products only; delete for a site.'
 fails=0
 ok()  { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((fails+1)); fi; }
 t()   { name=$1; shift; if "$@" >/dev/null 2>&1; then ok 0 "$name"; else ok 1 "$name"; fi; }

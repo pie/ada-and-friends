@@ -130,7 +130,12 @@ GT=.github/pull_request_template.md
 t "REVIEW-REQUEST template: one UI not specified: line" test "$(grep -c 'UI not specified:' "$RR")" = 1
 t "plugin PR template: a Design: line" grep -q 'Design:' "$PT"
 t "plugin PR template: the Design: line as amended (Q5)" grep -qF 'Design: <the Design artifact link | text only, in the brief | none>' "$PT"
-t "this repo's PR template is the plugin's, byte for byte" cmp -s "$PT" "$GT"
+# Rescoped for Unit B4 (the Knowledge base: line, added to the plugin's template only; this repo's
+# copy gets it from `ada-onboard refresh` after release): the two are byte for byte the same once
+# any `Knowledge base:` line is set aside, so the Design: line and every other line still match.
+nokb() { grep -v '^Knowledge base:' "$1" | cat -s; }
+t "this repo's PR template is the plugin's, byte for byte, apart from any Knowledge base: line" \
+  eval 'nokb "$PT" > "$W/pt-nokb"; nokb "$GT" > "$W/gt-nokb"; cmp -s "$W/pt-nokb" "$W/gt-nokb"'
 t "plugin PR template: no line removed" not sh -c "git diff '$BASE' -- '$PT' | grep '^-' | grep -v '^---' | grep -q ."
 t "this repo's .template-hashes: PR template is an untouched copy" \
   grep -Fxq "copied $(sha "$GT") $GT" .claude/team/.template-hashes
@@ -257,7 +262,8 @@ t "TEST-AREAS design row: the text-only fallback" rowhas 'text-only|text only'
 t "TEST-AREAS design row: back to design partway through a step" rowhas 'partway|part way'
 n=$(printf '%s\n' "$row" | sed 's/^| *\([0-9]*\).*/\1/')
 t "tests/functional/$n-design/ matches the row's number" test -d "tests/functional/$n-design"
-t "CHANGELOG Unreleased: an entry for /ada:design or Iris" in_section '## Unreleased' CHANGELOG.md '/ada:design|Iris'
+# Whole file, not just Unreleased: the entry moves under a release heading when this step ships.
+t "CHANGELOG: an entry for /ada:design or Iris (Unreleased until released)" grep -Eqi -- '/ada:design|Iris' CHANGELOG.md
 t "CHANGELOG Unreleased: no 'Nothing yet.'" not in_section '## Unreleased' CHANGELOG.md '^Nothing yet\.'
 
 # DoD 12 (P31): no version numbers.

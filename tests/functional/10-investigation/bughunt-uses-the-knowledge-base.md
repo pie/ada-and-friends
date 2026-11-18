@@ -6,7 +6,7 @@
 - Asana: https://app.asana.com/0/0/1220058513997551/f
 - Automate as: none (part A is a self-checking shell script; parts B to F are dry runs with
   `claude --plugin-dir` in scratch repos, each with a self-checking after-script)
-- Last run: 2026-11-16, part A passes (0 failed; 24 failed on 3260617, as listed); dry runs B, D, E1, E2 and F pass, 0 failed each (see the PR)
+- Last run: 18 Nov 2026, part A 0 failed (51 passed; scope checks rescoped to Unit B3's own commit); dry runs not re-run (see the PR)
 
 ## Precondition
 
@@ -68,7 +68,15 @@ W=$(mktemp -d "${TMPDIR:-/tmp}/bughunt-kb.XXXXXX") || exit 2
 trap 'rm -rf "$W"' EXIT
 git -C "$BASE_REPO" show "$BASE:$SK" > "$W/old-bughunt.md" 2>/dev/null \
   || { echo "SETUP FAIL: no $SK at $BASE in $BASE_REPO"; exit 2; }
-echo "info: BASE $BASE"
+# B3 is this unit's own commit on add/knowledge-base (the squash of #70) and B3P its parent. The
+# "unchanged" scope checks (DoD 6, the README outside its section, out of scope) compare B3P with
+# B3, so they still mean "this unit changed none of it" on a later branch, where later units (B4)
+# change begin, the README and so on.
+B3=${B3:-a376b09}
+B3P=$(git -C "$BASE_REPO" rev-parse --verify -q "$B3^") \
+  && git -C "$BASE_REPO" cat-file -e "$B3:$SK" 2>/dev/null \
+  || { echo "SETUP FAIL: no commit $B3 (Unit B3's) with its parent in $BASE_REPO"; exit 2; }
+echo "info: BASE $BASE; Unit B3 $B3 (parent $B3P)"
 fails=0
 t() { tn=$1; shift; if "$@" >/dev/null 2>&1; then echo "PASS $tn"; else echo "FAIL $tn"; fails=$((fails+1)); fi; }
 # items <file>: one line per list item or paragraph (a list item, a heading or a blank line
@@ -141,14 +149,10 @@ t "DoD 4: What doesn't get an entry no longer has the old-bugs-already-fixed exc
 # DoD 5: the FINDINGS template's Known issue? section has the knowledge-base line
 t "DoD 5: Known issue? has a knowledge-base line naming the entry that matched" has "$W/known.md" 'knowledge.base' 'entry' 'match'
 t "DoD 5: the same line names the entry written or updated, uncommitted" has "$W/known.md" 'knowledge.base' 'written|updated|wrote' 'uncommitted|commit'
-# DoD 6: /ada:begin unchanged: every file in skills/begin as at BASE, and none added
-bgchanged=""
-for p in $(git -C "$BASE_REPO" ls-tree -r --name-only "$BASE" -- plugins/ada/skills/begin); do
-  git -C "$BASE_REPO" show "$BASE:$p" | cmp -s - "$REPO/$p" || bgchanged="$bgchanged $p"
-done
-bgnew=$(cd "$REPO" && find plugins/ada/skills/begin -type f | while IFS= read -r f; do git -C "$BASE_REPO" cat-file -e "$BASE:$f" 2>/dev/null || echo "$f"; done)
-t "DoD 6: /ada:begin unchanged since BASE (every file in skills/begin; none added)" test -z "$bgchanged$bgnew"
-[ -n "$bgchanged$bgnew" ] && printf '      changed or added: %s\n' $bgchanged $bgnew
+# DoD 6: /ada:begin unchanged by Unit B3: its commit changes no file in skills/begin and adds none
+bgchanged=$(git -C "$BASE_REPO" diff --name-only "$B3P" "$B3" -- plugins/ada/skills/begin)
+t "DoD 6: /ada:begin unchanged by Unit B3's commit (every file in skills/begin; none added)" test -z "$bgchanged"
+[ -n "$bgchanged" ] && printf '      changed or added: %s\n' $bgchanged
 # DoD 7: every new step in the hunt says products only
 t "DoD 7: the switch is PROJECT.md's Kind: product and Knowledge base: lines" has "$W/hunt.md" 'Kind' 'product' 'Knowledge base'
 python3 - "$W/hunt.md" > "$W/notprod.txt" <<'PY'
@@ -239,20 +243,16 @@ t "regression: FINDINGS Known issue? keeps the known-issues project line" grep -
 # The README outside its When to write an entry section (that section ends the file, and holds
 # What doesn't get an entry) is unchanged.
 outside() { awk 'p && /^## / { p = 0 } /^## When to write an entry/ { p = 1 } !p' "$1"; }
-git -C "$BASE_REPO" show "$BASE:$RM" > "$W/readme-old.md"
-outside "$W/readme-old.md" > "$W/readme-out-old"; outside "$REPO/$RM" > "$W/readme-out-new"
-t "regression: the knowledge-base README unchanged outside its When to write an entry section (which holds What doesn't get an entry)" cmp -s "$W/readme-out-old" "$W/readme-out-new"
+git -C "$BASE_REPO" show "$B3P:$RM" > "$W/readme-old.md"; git -C "$BASE_REPO" show "$B3:$RM" > "$W/readme-b3.md"
+outside "$W/readme-old.md" > "$W/readme-out-old"; outside "$W/readme-b3.md" > "$W/readme-out-new"
+t "regression: Unit B3 left the knowledge-base README unchanged outside its When to write an entry section (which holds What doesn't get an entry)" cmp -s "$W/readme-out-old" "$W/readme-out-new"
 t "regression: FINDINGS template keeps its headings" sh -c "for h in '## The claim' '## Known issue?' '## Timeline' '## Cause' '## Reproduced locally' '## Scope' '## For the customer' '## Code fix' '## Open questions'; do grep -qxF \"\$h\" '$REPO/$FT' || exit 1; done"
-# Out of scope (Unit B2, Unit B4, P31): nothing else moved (the README is checked above)
-changed=""
-for p in $(git -C "$BASE_REPO" ls-tree -r --name-only "$BASE" -- plugins/ada/bin plugins/ada/.claude-plugin/plugin.json .claude-plugin/marketplace.json plugins/ada/templates/knowledge-base plugins/ada/templates/repo plugins/ada/skills/onboard plugins/ada/skills/pickup plugins/ada/agents .github); do
-  [ "$p" = "$RM" ] && continue
-  git -C "$BASE_REPO" show "$BASE:$p" | cmp -s - "$REPO/$p" || changed="$changed $p"
-done
-t "out of scope: no script, version, other knowledge-base template file, other skill or agent changed since BASE" test -z "$changed"
+# Out of scope (Unit B2, Unit B4, P31): Unit B3's commit changed nothing else (the README is checked above)
+changed=$(git -C "$BASE_REPO" diff --name-only "$B3P" "$B3" -- plugins/ada/bin plugins/ada/.claude-plugin/plugin.json .claude-plugin/marketplace.json plugins/ada/templates/knowledge-base plugins/ada/templates/repo plugins/ada/skills/onboard plugins/ada/skills/pickup plugins/ada/agents .github | grep -vxF "$RM")
+t "out of scope: Unit B3's commit changed no script, version, other knowledge-base template file, other skill or agent" test -z "$changed"
 [ -n "$changed" ] && printf '      changed: %s\n' $changed
-newbin=$(ls "$REPO/plugins/ada/bin" | while IFS= read -r f; do git -C "$BASE_REPO" cat-file -e "$BASE:plugins/ada/bin/$f" 2>/dev/null || echo "$f"; done)
-t "out of scope: no script added to plugins/ada/bin" test -z "$newbin"
+newbin=$(git -C "$BASE_REPO" diff --name-only --diff-filter=A "$B3P" "$B3" -- plugins/ada/bin)
+t "out of scope: Unit B3's commit added no script to plugins/ada/bin" test -z "$newbin"
 echo "$fails failed"; [ "$fails" = 0 ]
 ```
 
