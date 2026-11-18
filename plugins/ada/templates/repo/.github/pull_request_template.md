@@ -43,6 +43,8 @@ Reviewed-by: Claudia (Ada and friends, Claude Code) <claudia@ada.pie.co.de>
 
 Files touched, and any decision that wasn't in the brief.
 
+Knowledge base: the entry updated (`issues/<file>`), or why none was needed. Products only; delete for a site.
+
 ## Reviewed
 
 Rules checked (STANDARDS.md numbers), what was found, how it was resolved.

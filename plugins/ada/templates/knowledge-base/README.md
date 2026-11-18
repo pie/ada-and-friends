@@ -68,9 +68,9 @@ Optional: related entries, environment details that mattered, reply wording that
 - **Categories:** `bug`, `conflict` (with another plugin or theme), `configuration`, `how-to`,
   `feature`, `licensing`, `support-process` and `development`.
 - **Statuses:** `resolved` (the customer confirmed the fix, or it's a how-to that works);
-  `workaround` (a way round it, no fix in the product); `fixed-in-release` (fixed in the product,
-  with `fixed_in`); `open-bug` (a confirmed bug, not fixed yet); `unresolved` (no confirmed cause
-  or fix).
+  `workaround` (a way round it, no fix in the product); `fixed-in-release` (fixed in a released
+  version of the product, named in `fixed_in`); `open-bug` (a confirmed bug, not fixed in a
+  released version yet); `unresolved` (no confirmed cause or fix).
 - **Sources** are `asana:<task id>`: IDs only, never links or content from the ticket. Entries
   written before this folder stopped using Gmail may also have `gmail:<thread id>`.
 - **Code references:** a file in this repo is cited in backticks by its full repo path, with the
@@ -104,8 +104,10 @@ To write one:
 1. Search `issues/` for an entry on the same problem. To update it, add the source, widen
    `plugin_versions` and `last_seen`, and refine the cause or solution. Otherwise create
    `issues/<short-kebab-case-summary>.md` in the format above.
-2. Check the code and the changelog on the development branch: is the bug still there, or fixed
-   (set `status: fixed-in-release` and `fixed_in`)? Name the file and function.
+2. Check the code and the changelog on the development branch: is the bug still there, or fixed?
+   Name the file and function. Set `status: fixed-in-release` and `fixed_in` only once the fix's
+   version is in the product's changelog. A fix on the development branch that isn't released
+   yet stays `open-bug`, with the fix described in Solution.
 3. Be honest about the status: if the ticket closed without the customer confirming, it's
    `unresolved` and the entry records what was suggested. Don't present a guess as the fix.
 4. Add one line for a new entry to [INDEX.md](INDEX.md), under its area, with the status icon.

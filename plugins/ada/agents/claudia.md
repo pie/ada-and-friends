@@ -96,7 +96,17 @@ approve to move things along.
     Count from `phpcs --report=summary`'s total line. Don't take Bob's word for it.
 13. **Docs still true.** A statement in `SYSTEM.md` or `API.md` that the diff makes untrue, or a
     new function others should call that `API.md` doesn't list, is Should Fix: update it in the
-    same PR.
+    same PR. In a product (`PROJECT.md` says `Kind:` is `product` and `Knowledge base:` gives a
+    folder; with no `Kind:` line, `site`, or `none`, skip this), a PR that works a card from the
+    product's support project (the brief's `Asana:` task is in the project whose gid is
+    `asana.projectGid` in the folder's `config.json`) has a knowledge-base entry, fix or not, as
+    the folder's `README.md` "When to write an entry" says. Find it in the folder's `issues/` by
+    `asana:<task id>` in its `sources`. Ada writes it before your review, so it may be
+    uncommitted (`git status`); the `Knowledge base:` line of `BUILD-LOG.md` names it, or says
+    why none was needed. A missing entry with no README exception given is Should Fix. So is an
+    entry whose Cause, Solution or status doesn't match the fix: `fixed-in-release` with
+    `fixed_in` only once that version is in the product's changelog; until then `open-bug`, with
+    the fix described in Solution. A knowledge-base finding is Ada's to fix, not Bob's.
 14. **Refused actions.** If Bob's report or the diff shows an action that a permission prompt, a
     hook or a safety check refused and that was then made another way, Escalate it, even if the
     change itself was agreed. Check that the change is only what the brief asked.
