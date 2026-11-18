@@ -122,7 +122,7 @@ them, to keep Ada's context small):
    entry written or updated, or why none was needed); on yes, commit with role trailers
    (Commits and credit; a product's knowledge-base entry in Ada's own commit), push, `PR.md` from
    the PR template including the `## Squash commit` section (`## Built`'s `Knowledge base:` line
-   filled for a product, deleted for a site or no `Kind:` line), then
+   filled for a product with a knowledge base folder, deleted otherwise), then
    `gh pr create` or `ada-brief ready "<title>" .claude/handoff/PR.md` if a draft PR exists.
    Nobody on the team merges.
 

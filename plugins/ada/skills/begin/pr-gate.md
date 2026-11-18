@@ -61,8 +61,8 @@ both say `Ready for PR: YES`.
      reviewer; and "For the reviewer" says where the review is: the changed logic, and any
      fragile area, by file and function. For a product, fill the `## Built` section's
      `Knowledge base:` line from step 3: the entry's file (`issues/<file>`) and whether it was
-     written or updated, or why none was needed. For a site, or a project with no `Kind:` line,
-     delete the line.
+     written or updated, or why none was needed. Unless `PROJECT.md` says `Kind:` is `product`
+     and `Knowledge base:` gives a folder, delete the line.
    - Fill its `## Squash commit` section. It holds two fenced `text` blocks for the merger to
      paste into the squash-merge dialog:
      - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and
