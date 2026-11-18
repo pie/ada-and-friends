@@ -1,4 +1,4 @@
-# In a product repo Ada writes or updates the knowledge-base entry (uncommitted) before Claudia reviews, the PR gate says whether it was updated (and deletes the line for a site), and Claudia's Docs still true makes a missing or mismatched entry Should Fix; a site, or a project with no `Kind:` line, sees none of it
+# In a product repo Ada writes or updates the knowledge-base entry (uncommitted) before Claudia reviews, the PR gate says whether it was updated (and deletes the line unless the project is a product with a knowledge base), and Claudia's Docs still true makes a missing or mismatched entry Should Fix; a site, or a project with no `Kind:` line, sees none of it
 
 - Area: 08 Session flow (`skills/begin/SKILL.md` points to `skills/begin/knowledge-base.md`, where Ada's
   entry step is written: Ada writes the entry before spawning Claudia;
@@ -8,7 +8,7 @@
 - Asana: https://app.asana.com/0/0/1220058523035214/f
 - Automate as: none (part A is a self-checking shell script; parts B and C are dry runs with
   `claude --plugin-dir` in scratch repos, each with a self-checking after-script)
-- Last run: 18 Nov 2026, Part A 0 failed (67 passed, after fix round 6, claudia.md item 13 re-pointed), start commit not re-run; Parts B3 and B6 driven by hand earlier, 0 failed; the rest not run (see the PR)
+- Last run: 18 Nov 2026, Part A 0 failed (74 passed, after amendment 9 and its seven A9 checks); Parts B and C not re-run (see the PR)
 
 ## Precondition
 
@@ -135,7 +135,7 @@ t "DoD 3: ... for a product" has "$W/g3.md" "$KB" 'product'
 t "DoD 3: ... whether it was updated, or why none was needed" has "$W/g3.md" "$KB" 'updat' 'why none|none was needed|why (one|it) (was|is)n.t|why not'
 t "DoD 3: item 3 still names SYSTEM.md / API.md, updated or why none was needed" has "$W/g3.md" 'SYSTEM\.md' 'API\.md' 'why none was needed'
 t "DoD 3: the PR.md step fills the PR's Knowledge base: line (items 3 to 5)" has "$W/g35.md" 'Knowledge base:' 'fill|PR\.md|issues/'
-t "DoD 3: for a site, the Knowledge base: line is deleted (items 3 to 5)" has "$W/g35.md" 'Knowledge base' 'site' 'delet|remov|drop'
+t "DoD 3: for a site, the Knowledge base: line is deleted (items 3 to 5; since A9 worded as 'unless ... product')" has "$W/g35.md" 'Knowledge base' 'site|unless.{0,60}product' 'delet|remov|drop'
 # Amendments, numbered in the order of the brief's table: A1 and A2 (2026-11-13), A3 to A5
 # (2026-11-17), A8 (2026-11-18, the last row), all agreed by Anna Werno. A3 replaces A2's "only when reusable" with the README as
 # merged; A4 puts awaiting-customer and ## Open issues out of scope, so nothing checks them.
@@ -199,6 +199,17 @@ t "A8 (b): knowledge-base.md names the README's No customer data rule for the en
 t "A8 (b): item 13 makes customer data in an entry Must Fix" inn "$W/c13.md" 'customer data[^.]*Must Fix|Must Fix[^.]*customer data'
 t "A8 (c): the PR template's Knowledge base: line says the entry written or updated" hasf "$REPO/$PRT" 'Knowledge base: the entry written or updated ('
 t "A8 (c): ... and no longer says only 'the entry updated' (passes on the start commit: no line yet)" not hasf "$REPO/$PRT" 'Knowledge base: the entry updated'
+# A9 (2026-11-18, agreed by Anna Werno; Copilot's review comment on PR #71): the template line names every
+# case where it doesn't apply, and pr-gate.md step 5 deletes the line unless Kind: is product and
+# Knowledge base: gives a folder (not just "for a site").
+t "A9: the PR template's Knowledge base: line says it is only for a product with a knowledge base" hasf "$REPO/$PRT" 'Only for a product with a knowledge base'
+t "A9: ... names PROJECT.md's Kind: product and Knowledge base: a folder" hasf "$REPO/$PRT" '(`PROJECT.md` `Kind:` `product`, `Knowledge base:` a folder)'
+t "A9: ... and says to delete it otherwise" hasf "$REPO/$PRT" 'delete it otherwise.'
+t "A9: ... and no longer says 'Products only; delete for a site'" not hasf "$REPO/$PRT" 'Products only; delete for a site'
+kbl_in_built() { test "$(between "$REPO/$PRT" '^## Built' '^## ' | grep -c '^Knowledge base: ')" = 1; }
+t "A9: the template's Knowledge base: line is still one line, under ## Built" kbl_in_built
+t "A9: pr-gate.md step 5 says to delete the line unless Kind: is product and Knowledge base: gives a folder" innall "$W/g5.md" 'unless.{0,40}Kind:.{0,3} is .{0,3}product.{0,20} and .{0,3}Knowledge base:.{0,3} gives a folder' 'delete the line'
+t "A9: ... and no longer says only 'For a site, or a project with no Kind: line, delete the line'" not innall "$W/g5.md" 'For a site, or a project with no .{0,3}Kind:.{0,3} line, delete the line'
 # DoD 5: CHANGELOG, and the docs (Build order 4)
 awk '/^- /{ if (b != "") print b; b = $0; next } /^[[:space:]]*$/{ if (b != "") print b; b = ""; next } { sub(/^[[:space:]]+/, ""); b = b " " $0 } END { if (b != "") print b }' "$W/unrel.md" > "$W/bullets.txt"
 t "DoD 5: an Unreleased bullet with a bold lead names the PR template and the knowledge base" sh -c "grep '^- \*\*' '$W/bullets.txt' | grep -Ei 'PR template|pull.request template|pull_request_template' | grep -Eqi '$KB'"
@@ -721,7 +732,7 @@ if mode in ('gate-product', 'gate-site'):
     t('PR.md written', bool(px))
     kbl = [l for l in px.split('\n') if re.match(r'^\W*Knowledge base:', l)]
     print('info: Knowledge base: lines: ' + (' | '.join(kbl) or 'none'))
-    t("the template's own wording is gone", 'Products only; delete for a site' not in px)
+    t("the template's own wording is gone", 'Products only; delete for a site' not in px and 'delete it otherwise' not in px)
     if mode == 'gate-product':
         t('product: exactly one Knowledge base: line', len(kbl) == 1)
         t('product: it names the entry, %s' % ENTRY, len(kbl) == 1 and ENTRY in kbl[0])
@@ -827,12 +838,16 @@ and treats a "not a support card" that doesn't say how as Should Fix. (b) `begin
 customer data" rule for the entry Ada writes; Claudia's item 13 makes customer data in an entry
 Must Fix. (c) the PR template's `Knowledge base:` line says "the entry written or updated" (the
 wording is also pinned in `02-onboarding/refresh-adds-pr-template-lines.md`). Part A has eleven
-"A8" checks; Parts B and C stage none of them (a card whose project can't be checked, and customer
+"A8" checks; A9 (the last row, 2026-11-18, from Copilot's review of PR #71): the template line reads "Only for a
+product with a knowledge base (`PROJECT.md` `Kind:` `product`, `Knowledge base:` a folder); delete it otherwise", and `pr-gate.md` step 5
+deletes the line unless `Kind:` is `product` and `Knowledge base:` gives a folder (so also for a project
+with no `Kind:` line and for `Knowledge base: none`); Part A has seven "A9" checks, and C1's and C2's
+`after.py` checks name the old wording as gone; Parts B and C stage none of them (a card whose project can't be checked, and customer
 data in an entry, are not staged).
 
 - Part A: every line `PASS`, `0 failed`, exit 0. On the exported start commit every DoD 3, DoD 4,
-  Amendment (A1, A2, A3, A5, including the four "A5 scope" checks, and A8's ten, bar its last),
-  DoD 5 bullet and docs check must FAIL (31 failed in all before A8; 41 with A8's ten, unrun), including "docs: SYSTEM.md names Claudia's knowledge-base check"
+  Amendment (A1, A2, A3, A5, including the four "A5 scope" checks, and A8's ten, bar its last, and A9's seven, bar the "no longer says" ones),
+  DoD 5 bullet and docs check must FAIL (31 failed in all before A8; 41 with A8's ten, unrun; A9 adds the same-kind failures, not counted yet), including "docs: SYSTEM.md names Claudia's knowledge-base check"
   (a376b09's `SYSTEM.md` has no item 13 beside the knowledge base), except "item 3 still names
   SYSTEM.md / API.md", "no 'Nothing yet.'", A8 (c)'s "no longer says only 'the entry updated'" (the
   start commit has no such line, so it passes), A3's two "doesn't ... depend on reusable knowledge"
@@ -860,8 +875,8 @@ data in an entry, are not staged).
 - Part C1 (`gate-product`): the step 3 summary, in the session, says the knowledge-base entry
   (`issues/free-shipping-at-threshold.md`) was written or updated, alongside `SYSTEM.md` / `API.md`. `PR.md`
   has exactly one `Knowledge base:` line, under `## Built`, naming
-  `issues/free-shipping-at-threshold.md`, with no `<…>` and without the template's "Products only;
-  delete for a site"; the rest of the PR.md step as before (`Design:` `none`, `Brief:` filled, the
+  `issues/free-shipping-at-threshold.md`, with no `<…>` and without the template's "Only for a product
+  with a knowledge base (...); delete it otherwise"; the rest of the PR.md step as before (`Design:` `none`, `Brief:` filled, the
   squash commit, the branch pushed to `origin`). `after.py`: `0 failed`.
 - Part C2 (`gate-site`): the step 3 summary says nothing about a knowledge base. `PR.md` has no
   `Knowledge base:` line; the rest as in C1. `after.py`: `0 failed`.

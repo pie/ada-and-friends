@@ -5,7 +5,7 @@
   (the `Design:` line); https://app.asana.com/0/0/1220058523035214/f (the `Knowledge base:` line,
   Unit B4)
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 17 Nov 2026, 0 failed (bash 5.2); bash 3.2 (Docker) refused by the worktree hook, break-it step not run (see the PR)
+- Last run: 18 Nov 2026, 0 failed (70 passed, bash 5.2 and bash 3.2 in Docker, after amendment 9's reworded line); break-it step not re-run (see the PR)
 
 ## Precondition
 
@@ -77,9 +77,9 @@ for f in "$NEWB" "$NEWT" "$OLD_PLUGIN_D/bin/ada-onboard" "$OLDT_D" "$OLD_PLUGIN_
   [ -f "$f" ] || { echo "SETUP FAIL: no $f"; exit 2; }
 done
 # The two lines, as the briefs word them (#30 as amended, Q5; Unit B4, Decisions, and its
-# 2026-11-18 amendment: "the entry updated" -> "the entry written or updated").
+# 2026-11-18 amendments: "the entry updated" -> "the entry written or updated"; "Products only; delete for a site" -> "Only for a product with a knowledge base (...); delete it otherwise", amendment 9).
 DESIGN='Design: <the Design artifact link | text only, in the brief | none>'
-KBL='Knowledge base: the entry written or updated (`issues/<file>`), or why none was needed. Products only; delete for a site.'
+KBL='Knowledge base: the entry written or updated (`issues/<file>`), or why none was needed. Only for a product with a knowledge base (`PROJECT.md` `Kind:` `product`, `Knowledge base:` a folder); delete it otherwise.'
 fails=0
 ok()  { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((fails+1)); fi; }
 t()   { name=$1; shift; if "$@" >/dev/null 2>&1; then ok 0 "$name"; else ok 1 "$name"; fi; }
