@@ -224,3 +224,37 @@ evicted under pressure; without one it can be deleted by the expired-transient c
 a repeat of some work (log throttles, cached reads). Idempotency records, locks-by-flag, "already
 sent" markers and anything else that prevents a double charge, double email or double write go in
 durable storage: meta on the owning object through its class (P25), or a table.
+
+**P41. Outbound HTTP goes through the WordPress HTTP API.** PHP that a project writes sends its
+server-side requests with `wp_remote_get()`, `wp_remote_post()`, `wp_remote_request()` and the
+other `wp_remote_*` functions. When the URL, or its host, comes from outside the code (an admin
+setting, customer input, a webhook payload), use the `wp_safe_remote_*` variants, so the request
+can't be pointed at the server's own network. Browser-side `fetch()` and XHR are not covered: the
+rule is about the server's outbound calls.
+
+A reviewer looks for any other client:
+
+- Guzzle (`GuzzleHttp\`).
+- `curl_init()` and `curl_exec()`.
+- `file_get_contents()`, `fopen()`, `simplexml_load_file()` or `new SimpleXMLElement()` on a URL.
+- `fsockopen()` and `stream_socket_client()`.
+- A vendor SDK that brings its own HTTP client.
+
+A third-party SDK that can't be changed is handled in this order:
+
+1. If it accepts an HTTP client or handler (a PSR-18 client, a Guzzle handler), give it one that
+   sends through `wp_remote_request()`.
+2. Otherwise, record it as an exception in the project's `STANDARDS.md`, as an S rule that narrows
+   P41. It says which SDK, what it bypasses (local blocks, `pre_http_request` stubs in tests, HTTP
+   logging) and how it is kept from sending from a local copy (for example, kept inactive locally).
+
+A third-party plugin (code the project doesn't write) isn't rewritten. When it sends around the
+HTTP API, it is recorded in `STANDARDS.md` the same way.
+
+Severity: "Must fix" when the project's own code calls another client directly, and when an SDK has
+neither a handler that sends through `wp_remote_request()` nor a recorded exception.
+
+Why: local safety blocks (a mu-plugin that refuses calls to a live service), `pre_http_request`
+stubs in tests and HTTP logging all hook into the HTTP API. Any other client goes around them, so a
+local copy can send to a live service and a test can reach the network. A marketing plugin that
+sends through Guzzle can't be blocked locally, so it has to stay inactive on local copies.

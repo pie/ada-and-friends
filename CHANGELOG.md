@@ -5,7 +5,14 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **New standard P41: outbound HTTP goes through the WordPress HTTP API.** Bob builds to it and
+  Claudia reviews against it, on every project. A project's own PHP sends server-side requests
+  with `wp_remote_*`, and `wp_safe_remote_*` when the URL or host comes from outside the code. A
+  third-party SDK that can't be changed gets a handler that sends through `wp_remote_request()`,
+  or is recorded in the project's `STANDARDS.md` as an exception that says what it bypasses and
+  how it is kept from sending locally. Third-party plugins that send around the HTTP API are
+  recorded the same way. Guzzle, `curl_init()`, `file_get_contents()` on a URL and sockets are
+  Must fix in the project's own code.
 
 ## 0.14.1, 15 Nov 2026
 
