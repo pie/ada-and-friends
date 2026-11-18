@@ -63,8 +63,8 @@ State the scripts read and write, in an onboarded project:
 | `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:235-302`) | Claude Code |
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:236-239`) |
 | `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
-| `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:333-362`) |
-| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:144-181`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; people |
+| `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:333-362`); Grace (`/ada:bughunt`, Intake and step 7); Ada (`begin/SKILL.md`, Direct Bob, Claudia and Tess, item 3, sends her to `begin/knowledge-base.md`; `pr-gate.md`, steps 3 and 5); Claudia (`agents/claudia.md`, item 13) |
+| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:144-181`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout; Ada (`begin/knowledge-base.md`): a support card's entry and `INDEX.md` in the step's worktree before Claudia's review, committed in the PR | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; Ada and Claudia (`asana.projectGid`, the entry); people |
 | `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:364-433`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
@@ -74,8 +74,8 @@ There are no hooks, cron or webhooks in the plugin: a plugin has no install or u
 it, or (in this repo only) a push to `main` runs the Release workflow.
 
 **A step, from `/ada:begin`** (`skills/begin/SKILL.md`, with `checkpoint.md`, `design-step.md`,
-`approval.md` and `pr-gate.md` beside it, read only when the step needs them, to keep Ada's
-context small):
+`approval.md`, `knowledge-base.md` and `pr-gate.md` beside it, read only when the step needs
+them, to keep Ada's context small):
 
 1. Session start: read `PROJECT.md`; load `ada:efficiency`; `ada-handoff-init` if `.claude/handoff/`
    is missing; `ada-worktree check` before reading a checkpoint (on `other`, `EnterWorktree` to that
@@ -108,12 +108,21 @@ context small):
    (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet. Every Agent call names its model from begin's table; one without `model:`
    falls back to the agent file's Opus. Bob runs on Sonnet for a small step with no fragile area
    (moved up to Opus if the review shows it was harder), and `Budget: lean` in `PROJECT.md` adds
-   `effort: "medium"` to the Opus spawns.
+   `effort: "medium"` to the Opus spawns. In a product (`Kind: product` with a `Knowledge base:`
+   folder), when the brief's Asana task is a card from the support project (`config.json`
+   `asana.projectGid`), Ada (`knowledge-base.md`) writes or updates its knowledge-base entry in
+   the worktree before Claudia's review and records it, or why none was needed, on a
+   `Knowledge base:` line in `BUILD-LOG.md`. Claudia's item 13 (Docs still true) makes a missing
+   entry, or one whose Cause, Solution or status doesn't match the fix, Should Fix; Ada fixes it,
+   not Bob.
 5. Session end at each phase break (Session end): `CHECKPOINT.md`, then `/ada:pickup` in a fresh
    session.
 6. PR gate (`pr-gate.md`): `ada-size <base>`; `ada-brief overlap --gate` (the branch's changed and
-   untracked files), any new overlap to the developer; summary; on yes, commit with role trailers
-   (Commits and credit), push, `PR.md` from the PR template including the `## Squash commit` section, then
+   untracked files), any new overlap to the developer; summary (for a product, the knowledge-base
+   entry written or updated, or why none was needed); on yes, commit with role trailers
+   (Commits and credit; a product's knowledge-base entry in Ada's own commit), push, `PR.md` from
+   the PR template including the `## Squash commit` section (`## Built`'s `Knowledge base:` line
+   filled for a product with a knowledge base folder, deleted otherwise), then
    `gh pr create` or `ada-brief ready "<title>" .claude/handoff/PR.md` if a draft PR exists.
    Nobody on the team merges.
 
