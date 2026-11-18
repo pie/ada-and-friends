@@ -16,7 +16,10 @@ errors or warns on them.
   12 Platforms (bash 3.2, Python 3.8, a CRLF `PROJECT.md`)
 - Asana: https://app.asana.com/0/0/1220058587596437/f (B1), https://app.asana.com/0/0/1220058548622782/f (B2)
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 13 Nov 2026, 0 failed (284 passed) under bash 5.2, bash 3.2 and Python 3.8; the 6f0dd66 break 32 FAIL as expected (see the PR)
+- Last run: 18 Nov 2026, 0 failed (293 passed) under bash 5.2, bash 3.2 and Python 3.8; the 6f0dd66 break (38 failed, 7 of them `B4:`) run on bash 5.2 only (see the PR)
+
+Unit B4's amendment 7 (section 11) adds checks on the template README's text: how it says a fix
+becomes `fixed-in-release`.
 
 The skill's behaviour in a real onboarding (what it asks, what it writes) is the dry run in
 `onboard-asks-kind-and-creates-knowledge-base.md`.
@@ -27,14 +30,20 @@ The skill's behaviour in a real onboarding (what it asks, what it writes) is the
   `ada-onboard` by path, never the one on the PATH.
 - `git`, `tar`, `cmp`, `python3` (3.8+). No network, no GitHub login: every scratch
   `PROJECT.md` says `Approvers: none`, so `ada-brief who` needs no `gh`.
-- Two commits must be in this checkout, and the script exports each one's plugin:
+- Three commits must be in this checkout. The script exports the plugin of `BASE` and of `B1`, and
+  reads two files from `REL`:
   - `BASE` (default `11a2540`, the 0.13.0 release, before Unit B1): what a site, or a repo with no
     `Kind:` line, got before the knowledge base existed. `check`, `files` and `refresh` are
     compared with it.
   - `B1` (default `6f0dd66`, Unit B1 (#58), the tip of `add/knowledge-base` this step branches
     from): the plugin before this step. Its `kb` makes "a product onboarded before" (with
-    `sync-state.json` and `gmail` keys); `check`, `skills/begin/SKILL.md`, `pr-gate.md`, the
-    agents, the skills and the version numbers are compared with it.
+    `sync-state.json` and `gmail` keys); `check`, the agents and the skills are compared with it.
+    (`skills/begin/SKILL.md` and `pr-gate.md` are not: later units change them.)
+  - `REL` (default the merge-base of `HEAD` and `origin/main`, else `92f84a2`, the 0.14.1 release):
+    the latest release this branch holds. The P31 checks compare the version in `plugin.json`, the
+    values in `marketplace.json` and the release headings in `CHANGELOG.md` with it.
+- `MARKETPLACE` (default `.claude-plugin/marketplace.json` in this checkout): the file the P31
+  check compares with `REL`'s. Set it only to point the check at another copy.
 - The scratch repos sit in a folder whose name has a space.
 
 ## Steps
@@ -53,6 +62,9 @@ The skill's behaviour in a real onboarding (what it asks, what it writes) is the
 # removes (Gmail, sync) and must not add. PASS/FAIL per check; exit 1 if any FAIL, 2 if set-up fails.
 # Env: REPO (this checkout), PLUGIN (plugin under test, default $REPO/plugins/ada),
 #      BASE (before Unit B1, default 11a2540), B1 (Unit B1, before this step, default 6f0dd66),
+#      MARKETPLACE (the marketplace.json under test, default $REPO/.claude-plugin/marketplace.json),
+#      REL (the latest release this branch holds: default the merge-base of HEAD and origin/main, else
+#      92f84a2, 0.14.1; the P31 checks compare the version numbers and release headings with it),
 #      OLD_PLUGIN, B1_PLUGIN (BASE's and B1's plugins/ada; exported if unset),
 #      SH (how to run the script under test, default bash).
 set -u
@@ -60,6 +72,8 @@ REPO=${REPO:-$(git rev-parse --show-toplevel)}
 PLUGIN=${PLUGIN:-$REPO/plugins/ada}
 BASE=${BASE:-11a2540}
 B1=${B1:-6f0dd66}
+MARKETPLACE=${MARKETPLACE:-$REPO/.claude-plugin/marketplace.json}
+REL=${REL:-$(git -C "$REPO" merge-base HEAD origin/main 2>/dev/null || echo 92f84a2)}
 SH=${SH:-bash}
 for tool in git python3 tar cmp; do command -v $tool >/dev/null 2>&1 || { echo "SETUP FAIL: $tool not found"; exit 2; }; done
 T=$(mktemp -d) || exit 2
@@ -74,7 +88,8 @@ if [ -z "${B1_PLUGIN:-}" ]; then
   git -C "$REPO" archive "$B1" plugins/ada | tar -x -C "$W/b1" || { echo "SETUP FAIL: cannot export $B1"; exit 2; }
   B1_PLUGIN=$W/b1/plugins/ada
 fi
-git -C "$REPO" show "$B1:.claude-plugin/marketplace.json" > "$W/b1-marketplace.json" 2>/dev/null || { echo "SETUP FAIL: cannot read $B1:.claude-plugin/marketplace.json"; exit 2; }
+git -C "$REPO" show "$REL:.claude-plugin/marketplace.json" > "$W/rel-marketplace.json" 2>/dev/null || { echo "SETUP FAIL: cannot read $REL:.claude-plugin/marketplace.json"; exit 2; }
+git -C "$REPO" show "$REL:plugins/ada/.claude-plugin/plugin.json" > "$W/rel-plugin.json" 2>/dev/null || { echo "SETUP FAIL: cannot read $REL:plugins/ada/.claude-plugin/plugin.json"; exit 2; }
 NEWB=$PLUGIN/bin/ada-onboard; OLDB=$OLD_PLUGIN/bin/ada-onboard; B1B=$B1_PLUGIN/bin/ada-onboard
 KBT=$PLUGIN/templates/knowledge-base
 PJT=$PLUGIN/templates/repo/.claude/team/PROJECT.md
@@ -211,16 +226,16 @@ t "B2: README: one '## When to write an entry' heading" test "$(grep -c '^## Whe
 awk '/^## When to write an entry[[:space:]]*$/{p=1;next} p&&/^##? /{exit} p' "$R" > "$W/when"
 items "$W/when" > "$W/whenitems"
 info "When to write an entry: $(lines "$W/whenitems") list item(s)"
-p1=$(itemn "$W/when" 'only' 'creat' 'updat' 'investigation' 'technical information' 'future issue')
 p2=$(itemn "$W/when" 'already exists' 'update' 'existing entry' 'duplicate')
 p3=$(itemn "$W/when" 'problem' 'root cause' 'investigation steps' 'resolution' 'workaround' 'technical context')
 p4=$(itemn "$W/when" 'no reusable technical knowledge' 'skip')
-info "When to write an entry: the four points are list items ${p1:-none}, ${p2:-none}, ${p3:-none}, ${p4:-none}"
-t "B2: point 1: only create or update an entry when the investigation produces technical information that could help resolve a future issue" test -n "$p1"
+info "When to write an entry: points 2 and 3 are list items ${p2:-none}, ${p3:-none}; a 'skip if no reusable knowledge' item: ${p4:-none}"
 t "B2: point 2: check whether the knowledge already exists; if so update the existing entry, not a duplicate" test -n "$p2"
 t "B2: point 3: capture problem, root cause (if known), investigation steps, resolution or workaround, technical context" test -n "$p3"
-t "B2: point 4: if no reusable technical knowledge was gained, skip creating an entry" test -n "$p4"
-t "B2: the four points are four different list items of the section" test "$(printf '%s\n' "$p1" "$p2" "$p3" "$p4" | grep . | LC_ALL=C sort -u | grep -c .)" = 4
+# Unit B3 replaced B2's points 1 and 4 (only when reusable; skip if none) with "every bughunt and
+# support card records its card", so those two are not checked here; B2's points 2 and 3 stand.
+t "B3 (replaced B2's point 4): the section no longer says to skip an entry when no reusable technical knowledge was gained" test -z "$p4"
+t "B2: points 2 and 3 are two different list items of the section" test "$p2" != "$p3"
 t "B2: awaiting-customer is Unit B4's: not in README or INDEX" sh -c "! grep -qi 'awaiting-customer' '$R' && ! grep -qi 'awaiting-customer' '$KBT/INDEX.md'"
 t "INDEX: an example area heading" grep -Eq '^##+ ' "$KBT/INDEX.md"
 t "INDEX: the status key names all five statuses (resolved, workaround, fixed in release, open bug, unresolved)" para "$KBT/INDEX.md" 'status' 'resolved' 'workaround' 'fixed.in.release' 'open.bug' 'unresolved'
@@ -514,12 +529,31 @@ def walk(x, path):
 walk(json.load(open(sys.argv[1], encoding='utf-8')), "")
 EOF
 }
-info "versions: plugin.json $(vers "$PLUGIN/.claude-plugin/plugin.json" | tr '\n' ' '), marketplace.json $(vers "$REPO/.claude-plugin/marketplace.json" | tr '\n' ' ')"
-t "P31: plugin.json's version as in Unit B1" test "$(vers "$PLUGIN/.claude-plugin/plugin.json")" = "$(vers "$B1_PLUGIN/.claude-plugin/plugin.json")"
-t "P31: marketplace.json's versions as in Unit B1" test "$(vers "$REPO/.claude-plugin/marketplace.json")" = "$(vers "$W/b1-marketplace.json")"
-git -C "$REPO" show "$B1:CHANGELOG.md" 2>/dev/null | grep -E '^## [0-9]' > "$W/b1rel"
-t "setup: Unit B1's CHANGELOG has release headings" test -s "$W/b1rel"
-t "P31: CHANGELOG has the same release headings as Unit B1 (no new version)" test "$(grep -E '^## [0-9]' "$CL")" = "$(cat "$W/b1rel")"
+# marketplace.json has no version field (0.14.1), so vers finds nothing there and could never fail. mkt prints
+# every value in it but the descriptions (names, owner, sources, and any version or ref added), so P31's
+# "no version change" is checked on what the file holds.
+mkt() { python3 - "$1" <<'EOF'
+import json, sys
+def walk(x, path):
+    if isinstance(x, dict):
+        for k in sorted(x):
+            if k != "description": walk(x[k], path + "/" + k)
+    elif isinstance(x, list):
+        for i, v in enumerate(x): walk(v, path + "/" + str(i))
+    else:
+        print(path + "=" + str(x))
+walk(json.load(open(sys.argv[1], encoding='utf-8')), "")
+EOF
+}
+info "versions: plugin.json $(vers "$PLUGIN/.claude-plugin/plugin.json" | tr '\n' ' '), marketplace.json (no version field expected; all values but descriptions follow) $(mkt "$MARKETPLACE" | tr '\n' ' ')"
+# P31: no version change in a feature PR. Compared with the latest release this branch holds (REL), not
+# with Unit B1: a release merged in after B1 (0.14.1) legitimately moved the version.
+t "P31: plugin.json's version as in the latest release (REL)" test "$(vers "$PLUGIN/.claude-plugin/plugin.json")" = "$(vers "$W/rel-plugin.json")"
+t "setup: marketplace.json has values to compare (the check can't pass on nothing)" test -n "$(mkt "$W/rel-marketplace.json")"
+t "P31: marketplace.json's values (names, owner, sources, any version) as in the latest release (REL), descriptions aside" test "$(mkt "$MARKETPLACE")" = "$(mkt "$W/rel-marketplace.json")"
+git -C "$REPO" show "$REL:CHANGELOG.md" 2>/dev/null | grep -E '^## [0-9]' > "$W/b1rel"
+t "setup: the latest release's CHANGELOG has release headings" test -s "$W/b1rel"
+t "P31: CHANGELOG has the same release headings as the latest release (no new version)" test "$(grep -E '^## [0-9]' "$CL")" = "$(cat "$W/b1rel")"
 
 echo "== 10. What Unit B2 removes, and must not add"
 PAT='kb-sync|sync-state|lastSync|gmail'
@@ -537,8 +571,31 @@ t "B2: no kb-writer agent and no kb-nudge.md, anywhere in the plugin" test -z "$
 t "B2: nothing in the plugin names kb-writer or kb-nudge" not grep -rIEqi 'kb-writer|kb-nudge' "$PLUGIN"
 t "B2: the same agents as Unit B1" test "$(ls "$PLUGIN/agents")" = "$(ls "$B1_PLUGIN/agents")"
 t "B2: the same skills as Unit B1" test "$(ls "$PLUGIN/skills")" = "$(ls "$B1_PLUGIN/skills")"
-t "B2: skills/begin/SKILL.md unchanged from Unit B1" cmp -s "$PLUGIN/skills/begin/SKILL.md" "$B1_PLUGIN/skills/begin/SKILL.md"
-t "B2: skills/begin/pr-gate.md unchanged from Unit B1" cmp -s "$PLUGIN/skills/begin/pr-gate.md" "$B1_PLUGIN/skills/begin/pr-gate.md"
+# Unit B2 added nothing to the begin skill, and later units do change it (B4), so the two files are
+# not compared with Unit B1's: they must still exist and must not name what Unit B2 removed.
+t "B2: skills/begin/SKILL.md and pr-gate.md exist" sh -c "test -s '$PLUGIN/skills/begin/SKILL.md' && test -s '$PLUGIN/skills/begin/pr-gate.md'"
+t "B2: skills/begin/SKILL.md and pr-gate.md name none of kb-sync, sync-state, lastSync, gmail, kb-writer, kb-nudge" not grep -Eiq 'kb-sync|sync-state|lastsync|gmail|kb-writer|kb-nudge' "$PLUGIN/skills/begin/SKILL.md" "$PLUGIN/skills/begin/pr-gate.md"
+
+echo "== 11. Unit B4 (amendment 7): the README says a fix is fixed-in-release only once it is released"
+# "To write one:" is the lead-in to the numbered steps in '## When to write an entry'; step 2 is the one on the fix.
+awk '/^To write one/{p=1;next} p&&/^#+[[:space:]]/{exit} p' "$R" > "$W/towrite"
+items "$W/towrite" > "$W/towriteitems"
+grep -E '^2\.[[:space:]]' "$W/towriteitems" | head -1 > "$W/step2"
+info "To write one, step 2: $(cat "$W/step2")"
+t "B4: 'To write one' has a numbered step 2" test -s "$W/step2"
+t "B4: step 2 names fixed-in-release and fixed_in" sh -c "grep -qF 'fixed-in-release' '$W/step2' && grep -qF 'fixed_in' '$W/step2'"
+t "B4: step 2 says to set them only once the fix's version is in the product's changelog (a condition word, 'version', 'changelog')" sh -c "grep -Eqi 'only (once|when|if|after)|not (until|before)|until' '$W/step2' && grep -qi 'version' '$W/step2' && grep -qi 'changelog' '$W/step2'"
+t "B4: step 2 says a fix that is not yet released (on the development branch) stays open-bug" sh -c "grep -Eqi 'unreleased|not (yet )?(been )?released|not (yet )?in (the |a )?(product.s )?changelog|development branch' '$W/step2' && grep -qF 'open-bug' '$W/step2'"
+t "B4: step 2 says the fix is described in the entry's Solution" grep -Eqi 'describ[a-z]*.*solution|solution.*describ' "$W/step2"
+awk '/^- \*\*Statuses:\*\*/{p=1;print;next} p&&/^[[:space:]]+[^[:space:]]/{print;next} {p=0}' "$R" | tr '\n' ' ' | tr -s ' ' > "$W/statuses"
+sed -E 's/.*`fixed-in-release`//; s/`(resolved|workaround|open-bug|unresolved)`.*//' "$W/statuses" > "$W/fixedseg"
+info "Statuses bullet, fixed-in-release's part: $(cat "$W/fixedseg")"
+t "B4: the README has a Statuses bullet naming fixed-in-release" grep -qF '`fixed-in-release`' "$W/statuses"
+t "B4: the Statuses bullet defines fixed-in-release as fixed in a released version of the product" grep -Eqi 'fixed in a released version' "$W/fixedseg"
+t "B4: ... naming the version in fixed_in" grep -qF 'fixed_in' "$W/fixedseg"
+sed -E 's/.*`open-bug`//; s/`(resolved|workaround|fixed-in-release|unresolved)`.*//' "$W/statuses" > "$W/openseg"
+info "Statuses bullet, open-bug's part: $(cat "$W/openseg")"
+t "B4: the Statuses bullet defines open-bug as a confirmed bug not fixed in a released version yet" sh -c "grep -qi 'confirmed bug' '$W/openseg' && grep -Eqi 'not fixed in a released version' '$W/openseg'"
 
 echo "$fails failed, $passes passed"
 if [ "$fails" = 0 ]; then rm -rf "$T"; exit 0; else echo "scratch kept at $W"; exit 1; fi
@@ -558,6 +615,11 @@ docker run --rm -v <this checkout>:/repo:ro -v "$S":/s bash:3.2 \
 ```
 
 On a Mac, `REPO=<this checkout> /bin/bash check.sh` uses the system bash 3.2.
+
+From a worktree, `-v <this checkout>:/repo` fails with "SETUP FAIL: cannot read 92f84a2:..." (its
+`.git` points into the main checkout, which isn't mounted): mount the main checkout at its own
+path and pass `REPO` as the worktree's path (`-v "<main>":"<main>":ro -e REPO="<worktree>"`, and
+drop `REPO=/repo` from the `sh -c`), here and in the Python 3.8 run below.
 
 ### Python 3.8
 
@@ -586,11 +648,13 @@ Python 3.8 (the `info:` line says which). In detail, from the Unit B1 and Unit B
   rule, and has no "pasted into an AI tool" line. It has no Syncing section, never names
   `/ada:kb-sync`, `sync-state.json` or `lastSync`, never uses the word sync, and names Gmail on
   exactly one line, which gives `gmail:<thread id>` as a source form (entries written before this
-  change). It has one `## When to write an entry` section in which the rule's four points are
-  four different list items (other content in the section is allowed): only when the investigation produces technical information that could help resolve a
-  future issue; check whether the knowledge already exists and update the existing entry rather
-  than a duplicate; capture the problem, root cause, investigation steps, resolution or workaround
-  and technical context; skip it if no reusable technical knowledge was gained. Neither README nor
+  change). It has one `## When to write an entry` section in which B2's points 2 and 3 are
+  different list items (other content in the section is allowed): check whether the knowledge
+  already exists and update the existing entry rather than a duplicate; capture the problem, root
+  cause, investigation steps, resolution or workaround and technical context. Unit B2's other two
+  points (only when the investigation produces reusable technical information; skip it if none was
+  gained) were replaced by Unit B3 ("every bughunt and support card records its card"), so the
+  section has no "skip if no reusable technical knowledge" item. Neither README nor
   `INDEX.md` has `awaiting-customer` (Unit B4's). `INDEX.md`'s status key names the five statuses
   with five different icons.
 - **`kb`** with no argument creates `knowledge-base/` with the four files, each a byte-for-byte
@@ -637,13 +701,22 @@ Python 3.8 (the `info:` line says which). In detail, from the Unit B1 and Unit B
   entry" rule, and no `Nothing yet.`. Unit B1's entry (the one naming `ada-onboard kb`) names no
   mailbox, Gmail or sync; nothing in Unreleased names `/ada:kb-sync`, `sync-state.json` or
   `lastSync`. `plugin.json`'s and `marketplace.json`'s versions, and the CHANGELOG's release
-  headings, are Unit B1's (P31).
+  headings, are the latest release's, `REL` (P31: no version change in this branch).
+- **Unit B4's status rule (section 11, `B4:` checks; amendment 7 of the Unit B4 brief, agreed by
+  Anna Werno 2026-11-18):** in the README's `## When to write an entry`, "To write one" step 2
+  says to set `fixed-in-release` and `fixed_in` only once the fix's version is in the product's
+  changelog, and that a fix on the development branch that is not yet released stays `open-bug`,
+  with the fix described in the entry's Solution. The `Statuses` bullet defines `fixed-in-release`
+  as "fixed in a released version of the product", named in `fixed_in`, and `open-bug` as "a confirmed
+  bug, not fixed in a released version yet". The checks are greps on
+  those two items' text, so they pass on later branches; they fail on the README as Unit B2 and B3
+  left it (step 2 told Ada to set `fixed-in-release` on a fix found on the development branch).
 - **What Unit B2 removes and must not add:** `git grep -niE 'kb-sync|sync-state|lastSync|gmail'`
   over `plugins/`, `.claude/team/`, `README.md` and `DEVELOPING.md` (untracked files included)
   finds exactly one line, the template README's `gmail:<thread id>` source line. There is no
   `skills/kb-sync`, no kb-writer agent, no `kb-nudge.md`, nothing naming them; the agents and
-  skills are Unit B1's; `skills/begin/SKILL.md` and `skills/begin/pr-gate.md` are byte for byte
-  Unit B1's.
+  skills are Unit B1's; `skills/begin/SKILL.md` and `skills/begin/pr-gate.md` exist and name none of
+  those words (they are not compared with Unit B1's: later units change them).
 
 The break in step 4 (Unit B1's plugin; the docs are this checkout's) prints `FAIL` for the `B2:`
 lines about `bin/ada-onboard`, the template, `kb`'s output, the skill and the grep's line count
@@ -668,4 +741,4 @@ onboarded before Unit B1, changes nothing (Unit B2 brief, Decisions: "No `Kind:`
 `Kind: site`: onboarding and `ada-onboard check` behave exactly as before"). Section 6 is the
 regression for a product onboarded with Unit B1 (Waitlist). `check` from a subfolder by a
 relative path is in `check-from-subfolder.md`; `refresh`'s five outcomes in
-`refresh-adds-design-line.md`.
+`refresh-adds-pr-template-lines.md`.
