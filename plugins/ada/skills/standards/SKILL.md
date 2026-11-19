@@ -240,19 +240,22 @@ A reviewer looks for any other client:
 - `fsockopen()` and `stream_socket_client()`.
 - A vendor SDK that brings its own HTTP client.
 
-A third-party SDK that can't be changed is handled in this order:
+A third-party SDK or library that brings its own HTTP client isn't made to comply; it is flagged. It
+is recorded in the project's `STANDARDS.md` as an S rule that narrows P41. The rule says which
+library, what it bypasses (local blocks, `pre_http_request` stubs in tests, HTTP logging) and how it
+is kept from sending from a local copy (for example, kept inactive locally).
 
-1. If it accepts an HTTP client or handler (a PSR-18 client, a Guzzle handler), give it one that
-   sends through `wp_remote_request()`.
-2. Otherwise, record it as an exception in the project's `STANDARDS.md`, as an S rule that narrows
-   P41. It says which SDK, what it bypasses (local blocks, `pre_http_request` stubs in tests, HTTP
-   logging) and how it is kept from sending from a local copy (for example, kept inactive locally).
+Optionally, if the library accepts an HTTP client or handler (a PSR-18 client, a Guzzle handler),
+routing it through the HTTP API brings it under the local blocks and test stubs. Use
+`wp_safe_remote_request()` when its URL or host can come from outside the code, and
+`wp_remote_request()` otherwise. A library recorded in `STANDARDS.md` isn't a finding, even if it
+could take a handler; routing it through the HTTP API is a Should fix at most.
 
 A third-party plugin (code the project doesn't write) isn't rewritten. When it sends around the
 HTTP API, it is recorded in `STANDARDS.md` the same way.
 
-Severity: "Must fix" when the project's own code calls another client directly, and when an SDK has
-neither a handler that sends through `wp_remote_request()` nor a recorded exception.
+Severity: "Must fix" when the project's own code calls another client directly, and when a library
+or plugin that sends around the HTTP API isn't recorded in `STANDARDS.md` (the fix is the record).
 
 Why: local safety blocks (a mu-plugin that refuses calls to a live service), `pre_http_request`
 stubs in tests and HTTP logging all hook into the HTTP API. Any other client goes around them, so a
