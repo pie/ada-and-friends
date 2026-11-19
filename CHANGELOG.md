@@ -5,7 +5,39 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Onboarding sets up a product's knowledge base.** `PROJECT.md` takes a `- **Kind:**` line,
+  `product` (a plugin or theme PIE sells and supports) or `site`, and a `- **Knowledge base:**`
+  line. For a product, `/ada:onboard` asks for the Asana project for support tickets, then
+  runs the new `ada-onboard kb [<path>]`, which creates the folder (default `knowledge-base/`)
+  from the plugin's template, never overwriting a file.
+  `ada-onboard check` reports the folder if it's missing, or if its `config.json` isn't filled
+  in. A site, or a project onboarded before this, works as before. To set one up by hand, add the
+  two lines and run `ada-onboard kb`.
+- **The knowledge base says when to write an entry.** Its README has a "When to write an entry"
+  section: every bughunt and every support card worked by the team records its card in an entry,
+  new or updated, so the knowledge base keeps a record of all of them for reporting; an existing
+  entry is updated rather than duplicated.
+- **Grace uses a product's knowledge base in `/ada:bughunt`.** In a project whose `PROJECT.md`
+  says `Kind: product` with a `Knowledge base:` folder, Intake checks the knowledge base first,
+  and an entry with a fix or workaround that fits the report ends the hunt. Otherwise the hunt
+  goes on as before. Every bughunt then ends with an entry written or updated (also when an
+  entry ended the hunt at Intake, and for a "not a bug" result), in the main checkout's folder
+  and never a `bughunt/<slug>` worktree, uncommitted for the developer to commit. `FINDINGS.md`
+  "Known issue?" names the entry that matched and the file written or updated. A site, or a project
+  with no `Kind:` line, works as before.
+- **The PR template has a `Knowledge base:` line, and a product's PRs record their
+  knowledge-base entry.** In a product, when a step works a card from the support project
+  (its Asana projects include `config.json` `asana.projectGid`; Ada asks the developer when she
+  can't check), Ada writes or updates its entry in the step's worktree before Claudia's review,
+  following the README's "No customer data", and commits it in the PR. Claudia's "Docs still
+  true" check makes customer data in an entry Must Fix, and a missing entry, or one whose Cause,
+  Solution or status doesn't match the fix, Should Fix (`fixed-in-release` with `fixed_in` only
+  once that version is in the changelog; until then `open-bug`, as the knowledge-base README's
+  Statuses and "To write one" now say too). The PR gate's summary and the PR's `## Built` say
+  which entry was written or updated, or why none was needed. Onboarded repos will be offered the
+  new PR template by `ada-onboard refresh`: `refreshed` if theirs is untouched, `edited` with a
+  diff if they changed it. A site deletes the line, and otherwise works as before, as does a
+  project with no `Kind:` line.
 
 ## 0.14.1, 15 Nov 2026
 

@@ -240,7 +240,13 @@ for fix rounds, spawn afresh with a prompt that names only what to read.
    For non-trivial work Bob writes a plan into the brief and stops. Read it; approve or redirect
    in the brief; continue Bob with "Plan approved; build it." if you approve at once, or spawn him
 again if the developer had to be asked. No code until you have approved.
-3. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`:
+3. **Claudia.** When Bob's `REVIEW-REQUEST.md` says `Ready for Review: YES`, write a product's
+   knowledge-base entry first, then spawn Claudia. For a product (`PROJECT.md` `Kind:` is
+   `product` and `Knowledge base:` gives a folder), read `knowledge-base.md` in this skill's base
+   directory and follow it: it ends with a `Knowledge base:` line in `BUILD-LOG.md`. Otherwise
+   skip it.
+
+   Once the entry is written, or there is none to write, spawn Claudia:
    `Agent(subagent_type: "ada:claudia", model: "opus", prompt: "Review step N. Read .claude/handoff/REVIEW-REQUEST.md and follow your role file.")`
    If any `UI not specified:` line says anything but `none`, apply the test first (The design
    step, Back to design partway through a step); Claudia reviews once the brief covers that UI.

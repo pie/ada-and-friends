@@ -367,8 +367,9 @@ t "onboard skill: none is still the value with nothing to go on (regression)" ha
 # DoD 7. README, CHANGELOG, SYSTEM.md; the credit in README only.
 t "README links Google's DESIGN.md spec" grep -qF 'github.com/google-labs-code/design.md' README.md
 t "README names Google with it" sh -c "grep -F 'google-labs-code/design.md' README.md | grep -qi google || grep -qi \"google's design\" README.md"
-awk '$0=="## Unreleased"{p=1;next} p&&/^## /{exit} p' CHANGELOG.md | joined > "$W/unrel1"
-t "CHANGELOG Unreleased: a bold-lead bullet about DESIGN.md" has '- \*\*[^*]+\*\*.{0,600}DESIGN\.md|- \*\*[^*]*DESIGN\.md' "$W/unrel1"
+# Whole file, not just Unreleased: the bullet moves under a release heading when this step ships.
+joined < CHANGELOG.md > "$W/unrel1"
+t "CHANGELOG: a bold-lead bullet about DESIGN.md (Unreleased until released)" has '- \*\*[^*]+\*\*.{0,600}DESIGN\.md|- \*\*[^*]*DESIGN\.md' "$W/unrel1"
 t "CHANGELOG Unreleased: no 'Nothing yet.'" not in_section '## Unreleased' CHANGELOG.md '^Nothing yet\.'
 joined < .claude/team/SYSTEM.md > "$W/sys1"
 t "SYSTEM.md: describes the root DESIGN.md" has "$ROOT" "$W/sys1"
@@ -377,7 +378,7 @@ t "SYSTEM.md: the root file's tokens" has "$ROOT.{0,400}token|token.{0,400}$ROOT
 if [ -n "$BASE" ]; then
   # 'credit' also matches the pointers to begin's pr-gate.md "Commits and credit" (Co-Authored-By lines): not a credit to Google.
   t "no credit added in files an agent reads (plugins/ada, .claude/team, CLAUDE.md)" \
-    not sh -c "git diff '$BASE' -- $P .claude/team CLAUDE.md | grep '^+' | grep -Eiv 'commits and credit|each role.s credit' | grep -Eiq 'credit|thanks to|courtesy|copyright|licen[cs]e|google-labs-code'"
+    not sh -c "git diff '$BASE' -- $P .claude/team CLAUDE.md | grep '^+' | grep -Eiv 'commits and credit|each role.s credit|credited to you|licence keys' | grep -Eiq 'credit|thanks to|courtesy|copyright|licen[cs]e|google-labs-code'"
 fi
 grep -rniE 'google' $P | grep -v '@google/design\.md@' | sed 's/^/info: Google named in the plugin (part B item 12): /'
 
@@ -387,8 +388,11 @@ if [ -n "$BASE" ]; then
   t "plugin.json and marketplace.json unchanged (P31)" \
     test -z "$(git diff "$BASE" -- $P/.claude-plugin/plugin.json .claude-plugin/marketplace.json)"
   t "CHANGELOG: no new version heading (P31)" not sh -c "git diff '$BASE' -- CHANGELOG.md | grep -Eq '^\+## +v?[0-9]'"
-  t "bin/ unchanged: ada-handoff-init and ada-onboard as released (the onboard change is in the skill)" \
-    sh -c "git diff --quiet '$BASE' -- $P/bin && test -z \"\$(git ls-files --others --exclude-standard -- $P/bin)\""
+  # Rescoped: later steps change ada-onboard (the knowledge base, `ada-onboard kb`). What this step
+  # meant still holds: ada-handoff-init is as released, no change to any script in bin/ mentions
+  # DESIGN.md, and no script was added.
+  t "bin/: ada-handoff-init as released; no bin/ change mentions DESIGN.md; no new script (the onboard change is in the skill)" \
+    sh -c "git diff --quiet '$BASE' -- $P/bin/ada-handoff-init && ! git diff -U0 '$BASE' -- $P/bin | grep -E '^[-+]' | grep -v -e '^---' -e '^+++' | grep -qi 'DESIGN\\.md' && test -z \"\$(git ls-files --others --exclude-standard -- $P/bin)\" && test -z \"\$(git diff --name-status --diff-filter=A '$BASE' -- $P/bin)\""
   t "templates/handoff/ holds the same files as before (the handoff DESIGN.md not renamed)" \
     test "$(git ls-tree --name-only "$BASE" $P/templates/handoff/ | sed 's|.*/||' | sort | tr '\n' ' ')" = "$(ls $P/templates/handoff | sort | tr '\n' ' ')"
   t "no MCP added (.mcp.json, mcp__ tools)" \

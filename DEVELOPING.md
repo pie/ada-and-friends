@@ -84,7 +84,7 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   step's branch and doesn't trip the check for someone else's changes.
 - A plugin can't ship permissions or settings. `ada-onboard settings` writes them into the
   project's `.claude/settings.json`, including `promptCacheTtl: "1h"` for Ada's cache.
-- Each agent has a `tools:` allowlist, so connectors (Gmail, Asana, Chrome) aren't loaded into
+- Each agent has a `tools:` allowlist, so connectors (Asana, Chrome) aren't loaded into
   it. That keeps each role's starting context small.
 - One exception: Tess has Claude in Chrome (`ToolSearch` and `mcp__claude-in-chrome__*`), only
   for local checks the developer asks her to run, and only on the local site. It is in her own

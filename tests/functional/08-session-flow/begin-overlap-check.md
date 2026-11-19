@@ -110,16 +110,25 @@ t "DEVELOPING.md: Brief approval describes overlap" eval 'section "## Brief appr
 t "TEST-AREAS.md: area 01 mentions overlap" eval 'grep -E "^\| *01 *\|" .claude/team/TEST-AREAS.md | grep -q overlap'
 section '## Unreleased' CHANGELOG.md > "$W/unrel"
 t "CHANGELOG Unreleased: a '- **...**' bullet about overlap (S105)" grep -Eq '^- \*\*.*\*\*.*' "$W/unrel"
-t "CHANGELOG Unreleased: mentions overlap" grep -qi 'overlap' "$W/unrel"
+# Whole file, not just Unreleased: the entry moves under a release heading when this step ships.
+t "CHANGELOG: an entry about ada-brief overlap (Unreleased until released)" grep -qF 'ada-brief overlap' CHANGELOG.md
 t "CHANGELOG Unreleased: 'Nothing yet.' replaced" not grep -q 'Nothing yet' "$W/unrel"
 
 # Out of scope: unchanged by this branch. Compared with the merge base, not the tip of $BASE:
 # $BASE moves as other PRs merge (#36 changed tess.md), and that is not this branch's doing.
 MB=$(git merge-base "$BASE" HEAD 2>/dev/null) || MB=
 t "merge base of $BASE and HEAD found" test -n "$MB"
-for f in plugins/ada/agents/claudia.md plugins/ada/agents/tess.md \
-         plugins/ada/templates/repo/.github/pull_request_template.md plugins/ada/bin/ada-plan; do
+for f in plugins/ada/agents/tess.md plugins/ada/bin/ada-plan; do
   t "unchanged (out of scope): $f" git diff --quiet "$MB" -- "$f"
+done
+# claudia.md and the PR template are changed by later steps (Unit B4: the knowledge-base check), so
+# "unchanged since the merge base" no longer holds. What this step meant (no overlap check in them)
+# still does: no line added to or removed from either since the merge base mentions overlap, and
+# neither has an Overlaps: line.
+for f in plugins/ada/agents/claudia.md plugins/ada/templates/repo/.github/pull_request_template.md; do
+  t "out of scope: no changed line in $f mentions overlap" \
+    not sh -c "git diff -U0 '$MB' -- '$f' | grep -E '^[-+]' | grep -v -e '^---' -e '^+++' | grep -qi overlap"
+  t "out of scope: no Overlaps: line in $f" not grep -qF 'Overlaps:' "$f"
 done
 
 echo "$fails failed"
