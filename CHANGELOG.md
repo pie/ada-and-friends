@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.15.0, 19 Nov 2026
+
 - **Onboarding sets up a product's knowledge base.** `PROJECT.md` takes a `- **Kind:**` line,
   `product` (a plugin or theme PIE sells and supports) or `site`, and a `- **Knowledge base:**`
   line. For a product, `/ada:onboard` asks for the Asana project for support tickets, then
