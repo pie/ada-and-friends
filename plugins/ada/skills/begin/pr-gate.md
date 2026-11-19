@@ -28,14 +28,30 @@ both say `Ready for PR: YES`.
    ask them how to go on; never read it as no overlap.
 3. Summarise for the developer in a short paragraph: what was built, what the review found and how
    it was resolved, which tests are supplied, what was verified and what was not, and whether
-   `SYSTEM.md` / `API.md` were updated (or why none was needed).
+   `SYSTEM.md` / `API.md` were updated (or why none was needed). For a product (`PROJECT.md`
+   says `Kind:` is `product` and `Knowledge base:` gives a folder; with no `Kind:` line, `site`,
+   or `none`, leave this out), add whether the knowledge-base entry was written or updated, and
+   its file, or why none was needed. A PR that works a card from the product's support project
+   has an entry, fix or not, as the folder's `README.md` "When to write an entry" says. It is a
+   support card when the brief's `Asana:` task, looked up in Asana, has among its projects
+   (`memberships`) the gid in `asana.projectGid` of the folder's `config.json`. If that can't be
+   checked (no Asana tools, an error, no `config.json`), ask the developer; never write "not a
+   support card" without having checked. You wrote the entry in this step's worktree before
+   Claudia's review (`knowledge-base.md`), so it goes in the PR (step 5), and the
+   `Knowledge base:` line of `BUILD-LOG.md` names it. Why none was needed names the README
+   exception that applies ("What doesn't get an entry"), or says the task isn't a support card and
+   how that was checked (the task's projects, or the developer's answer).
 4. Ask: open the PR?
 5. On yes:
    - Update `BUILD-LOG.md`.
    - Commit, credited as in **Commits and credit** below. Every commit says what changed and
      what was verified (P20). When the handoff `DESIGN.md` says `Status: agreed` and its
      `Project DESIGN.md:` line says `created` or `updated`, stage the project's `DESIGN.md` at
-     the repo root too.
+     the repo root too. A product's knowledge-base entry and `INDEX.md`, written in this
+     worktree, go in a commit of their own after the build commit, credited to you. You commit
+     them, not the developer, because they were written in the step's worktree; the folder's
+     `README.md` "To write one" step 5 (leave them uncommitted; the developer commits them) is
+     for an entry written outside a PR, such as Grace's in `/ada:bughunt`.
    - Push the branch.
    - Write the PR description to `.claude/handoff/PR.md`, following
      `.github/pull_request_template.md`. Fill every section; "none" is an answer, blank is not.
@@ -43,7 +59,10 @@ both say `Ready for PR: YES`.
      can see them. Copy the Run record and the Manual test steps from TEST-REPORT.md. The Review line is the
      estimate from step 1, not the breakdown; leave the Actual review time line for the
      reviewer; and "For the reviewer" says where the review is: the changed logic, and any
-     fragile area, by file and function.
+     fragile area, by file and function. For a product, fill the `## Built` section's
+     `Knowledge base:` line from step 3: the entry's file (`issues/<file>`) and whether it was
+     written or updated, or why none was needed. Unless `PROJECT.md` says `Kind:` is `product`
+     and `Knowledge base:` gives a folder, delete the line.
    - Fill its `## Squash commit` section. It holds two fenced `text` blocks for the merger to
      paste into the squash-merge dialog:
      - **Title:** the PR title followed by ` (#<PR number>)`. Keep it short, imperative and

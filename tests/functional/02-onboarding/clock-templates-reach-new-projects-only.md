@@ -138,5 +138,5 @@ stdout and `echo $?`; on a FAIL, the kept scratch folder: `fresh/`, `edited/`, `
 ## Regression
 
 - `refresh` still refreshes only placeholder-free templates (`SYSTEM.md`, ada-onboard): the PR
-  template. `02-onboarding/refresh-adds-design-line.md` checks its five outcomes.
+  template. `02-onboarding/refresh-adds-pr-template-lines.md` checks its five outcomes.
 - The "Dates and the clock" heading is kept: projects' copies and Tess's plan mode refer to it.

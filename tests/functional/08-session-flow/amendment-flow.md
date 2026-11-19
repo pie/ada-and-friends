@@ -4,7 +4,7 @@
   the Amendments table)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219937425454517
 - Automate as: none (part A is a self-checking shell script; part B is a dry run for a person)
-- Last run: 2026-10-27, Part A passed 0 failed on bash 5.2, bash 3.2, Python 3.8, Part B not run; see the PR
+- Last run: 2026-11-18, Part A 0 failed (25 passed) on bash 5.2, broken copy fails all 12 trigger checks; Part B not run; see the PR
 
 ## Precondition
 
@@ -24,9 +24,10 @@
 
 1. Save the block below as `check.sh` in a scratch folder (not in this repo).
 2. Run `REPO=<this checkout> bash check.sh`.
-3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, delete the line naming
-   data repairs and migrations from the copy's `skills/begin/approval.md` trigger list, and run
-   `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. It must print `FAIL`.
+3. Break it on purpose, once: copy `plugins/ada` to a scratch folder, delete the default trigger
+   list (the six bullets after "The default triggers.") from the copy's `skills/begin/approval.md`,
+   and run `REPO=<this checkout> PLUGIN=<the copy> bash check.sh`. All 12 "approval.md: default
+   trigger names" checks must print `FAIL`.
 
 ```bash
 #!/bin/bash
@@ -55,13 +56,13 @@ allbegin() { cat "$1/skills/begin/SKILL.md"; for f in "$1"/skills/begin/*.md; do
 allbegin "$PLUGIN" > "$W/begin.all"; allbegin "$OLD_PLUGIN" > "$W/begin.old.all"
 flat "$W/begin.all" "$BG"; flat "$PLUGIN/skills/pickup/SKILL.md" "$PK"
 flat "$PLUGIN/skills/design/SKILL.md" "$DS"; flat "$W/begin.old.all" "$OBG"
+AP=$W/approval; flat "$PLUGIN/skills/begin/approval.md" "$AP"   # approval.md alone: it holds the Re-approval triggers
 
-# begin: the flow (D13). Checked in the text begin gains over the released one, so words that
-# were already there elsewhere ("fragile area", "customer") don't pass by accident.
-ADD=$W/begin.added
-diff "$W/begin.old.all" "$W/begin.all" | grep '^>' | sed 's/^> //' > "$W/added.raw"
-flat "$W/added.raw" "$ADD"
-echo "info: lines begin gained or changed: $(wc -l < "$W/added.raw" | tr -d ' ')"
+# begin: the flow (D13). Once the step is released, $BASE already has the flow, so "text begin gains
+# over the released one" is empty: the checks read all of begin's text. (Before release they read only
+# the added text, so words already there elsewhere, like "fragile area", could not pass by accident;
+# the distinctive phrases below still can't.)
+ADD=$BG
 t "begin (added text): the Re-approval column's 'not needed'" has "$ADD" 'not needed'
 t "begin (added text): the Re-approval column's 'needed: '" has "$ADD" 'needed: '
 t "begin (added text): names the Re-approval column" has "$ADD" 'Re-approval'
@@ -70,11 +71,12 @@ t "begin (added text): what submit prints when approval is kept" has "$ADD" '(ap
 # Builder question 6: begin runs submit for a 'not needed' amendment too (it posts the comment)
 t "begin (added text): runs 'ada-brief submit' in the amendment flow" has "$ADD" 'ada-brief submit'
 t "begin (added text): what submit prints when approval is reset" has "$ADD" '(approval reset)'
-# begin: the default triggers (Decisions, "Default list, in begin"), in the added text
+# begin: the default triggers (Decisions, "Default list, in begin"), in approval.md alone, the file that
+# holds them. Not all of begin: most of these words also appear in SKILL.md ('fragile area', 'customer',
+# 'pays', 'auth', 'payment', 'Expected review'), so a check on all of begin passes with the list deleted.
 for k in 'fragile area' 'customer' 'pays' 'dependency' 'external service' 'data repair' 'migration' 'security' 'auth' 'payment' 'Expected review' 'revers'; do
-  t "begin (added text): default trigger names '$k'" has "$ADD" "$k"
+  t "approval.md: default trigger names '$k'" has "$AP" "$k"
 done
-t "baseline: the released begin had no Re-approval column" not has "$OBG" 'Re-approval'
 # begin: the old rule, that every amendment of an approved brief needs approval again, is gone
 t "begin: no 'If the brief needed approval, an amendment does too'" not has "$BG" 'If the brief needed approval, an amendment does too'
 t "begin: no 'only an approval given after the brief last changed counts'" not has "$BG" 'only an approval given after the brief last changed counts'
@@ -113,7 +115,7 @@ In the practice project's session, in build, give these prompts in order. After 
 ## Expected
 
 Part A: every line `PASS`, last line `0 failed`, exit 0. Record the `info:` lines in the Run
-record. Step 3's broken copy prints `FAIL` for "data repair" and "migration".
+record. Step 3's broken copy prints `FAIL` for all 12 "approval.md: default trigger names" checks.
 
 Part B:
 

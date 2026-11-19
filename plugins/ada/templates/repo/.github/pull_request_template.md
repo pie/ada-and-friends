@@ -43,6 +43,8 @@ Reviewed-by: Claudia (Ada and friends, Claude Code) <claudia@ada.pie.co.de>
 
 Files touched, and any decision that wasn't in the brief.
 
+Knowledge base: the entry written or updated (`issues/<file>`), or why none was needed. Only for a product with a knowledge base (`PROJECT.md` `Kind:` `product`, `Knowledge base:` a folder); delete it otherwise.
+
 ## Reviewed
 
 Rules checked (STANDARDS.md numbers), what was found, how it was resolved.
