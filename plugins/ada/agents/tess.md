@@ -80,8 +80,9 @@ in doubt, name fewer files, not more. The full run happens in the release run be
 PR into main.
 
 **Left to the release run.** Fill in the `## Left to the release run` section of `TEST-PLAN.md`:
-the PressTest files, shared suites and clock positions in `TEST-AREAS.md` that the step could
-reach but doesn't run, one line each, or `none`. Run mode carries it into `TEST-REPORT.md`.
+the PressTest files and clock positions in `TEST-AREAS.md`, and the shared suites in
+`.claude/team/PROJECT.md` (Tests), that the step could reach but doesn't run, one line each, or
+`none`. Run mode carries it into `TEST-REPORT.md`.
 
 ## Write mode
 

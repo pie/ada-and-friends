@@ -37,7 +37,8 @@ Behaviour next to the change that must not move.
 ## Left to the release run
 
 What this step could reach but doesn't run, for the release run before the release PR into main:
-the PressTest files, shared suites and clock positions in `TEST-AREAS.md`. One line each, or
+the PressTest files and clock positions in `TEST-AREAS.md`, and the shared suites in
+`.claude/team/PROJECT.md` (Tests). One line each, or
 `none`. A step runs the whole unit-test suite and only the PressTest files for what it changes.
 
 -
