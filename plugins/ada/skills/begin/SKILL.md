@@ -89,7 +89,9 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
 9. Check the branch: in the step's worktree, `git branch --show-current` is the step's branch.
    If it isn't, say so and stop. Never switch branches in a step's worktree.
 10. Run `ada-onboard refresh`. It brings the PR template up to the plugin's. Say nothing if it
-    prints only `current` or `declined`. On `refreshed`, tell the developer in one line and
+    prints only `current`, `declined` or `removed` (the project deleted the template, and it
+    stays deleted); if `.claude/team/.template-hashes` changed, include it in the step's first
+    commit. On `refreshed`, tell the developer in one line and
     include the template and `.claude/team/.template-hashes` in the step's first commit. On
     `edited` or `unknown`, show the diff and ask: take the new template
     (`ada-onboard refresh --force`), merge it by hand, or keep theirs

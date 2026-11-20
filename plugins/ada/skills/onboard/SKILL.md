@@ -69,6 +69,8 @@ ada-onboard settings
   intent into it by hand, if it's needed at all. It records a hash of each file it copies in
   `.claude/team/.template-hashes`; commit that with the templates. When a later plugin version
   changes the PR template, `/ada:begin` refreshes it from there (`ada-onboard refresh`).
+  A template the project deletes stays deleted: `files` and `refresh` print `removed` and don't
+  copy it back. To bring one back, delete its line from `.template-hashes` and run `files`.
 - `settings` changes what Claude may run in this repo. **Show the developer the printed result and
   get their yes before you commit it.** It enables the plugin, allows the read-only and lint
   commands, and denies pushes to the production and release branches and direct SSH to

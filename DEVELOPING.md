@@ -81,7 +81,9 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   `/ada:begin` runs `ada-onboard refresh` at session start instead: the project's PR template is
   replaced if it's an untouched copy (its hash is in `.claude/team/.template-hashes`), and the
   developer is asked if it was edited. It runs after the branch step, so the change lands on the
-  step's branch and doesn't trip the check for someone else's changes.
+  step's branch and doesn't trip the check for someone else's changes. A template the project
+  deleted is recorded there as `removed` and isn't copied back. `refresh --force` brings the PR
+  template back; for any template, delete its line and run `ada-onboard files`.
 - A plugin can't ship permissions or settings. `ada-onboard settings` writes them into the
   project's `.claude/settings.json`, including `promptCacheTtl: "1h"` for Ada's cache.
 - Each agent has a `tools:` allowlist, so connectors (Asana, Chrome) aren't loaded into
