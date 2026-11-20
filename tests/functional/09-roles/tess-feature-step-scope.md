@@ -5,7 +5,7 @@
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220741559487512
 - Automate as: none (part A is a self-checking shell script; parts B and C are dry runs of Tess in
   plan mode, each with a self-checking after-script)
-- Last run: 2026-11-20, part A 0 failed (break-on-purpose: 21 failed as expected); parts B and C run interactively by the developer, check-plan.sh (fixed) 0 failed on both plans; see the PR
+- Last run: 2026-11-20, part A 0 failed (break-on-purpose: 22 failed as expected, staging-scope check added after PR #76 round 2); parts B and C run interactively by the developer, check-plan.sh (fixed) 0 failed on both plans; see the PR
 
 Written by Tess from the brief (step 1, change/feature-step-tests), not from the change.
 
@@ -34,8 +34,10 @@ Written by Tess from the brief (step 1, change/feature-step-tests), not from the
 2. Break it on purpose: export the base (`git -C <this checkout> archive $(git -C <this checkout>
    merge-base HEAD origin/next-release) | tar -x -C <empty folder>`) and run
    `REPO=<that folder> BASE_REPO=<this checkout> BASE=<the merge-base> bash $S/check.sh`. Every
-   `DoD` line FAILs except "says what a step runs (unit and PressTest)" and the three "no version"
-   lines; every `regression` line PASSes.
+   `DoD` line FAILs except "says what a step runs (unit and PressTest)", the three "no version"
+   lines, "tess.md has a staging run command" and the three "no bare ... staging in <template>" lines (the
+   base has no bare staging command in the templates); every `regression` line PASSes. The "every ... names the
+   scoped files" line for tess.md FAILs (the base staging run is bare).
 
 ```bash
 #!/bin/bash
@@ -116,6 +118,20 @@ bare=$(awk -v RS= '{gsub(/\n/, " "); print}' "$T" | awk '{n = split($0, a, "[.] 
   | grep -E "presstest run([${bt}|),;:]|[[:space:]]*\$|[[:space:]]+(#|\())")
 t "DoD2: no sentence in tess.md runs or hands over a bare 'presstest run' (outside the release run)" test -z "$bare"
 [ -n "$bare" ] && printf '      sentence: %s\n' "$bare"
+# A staging run is still a feature step's run: `presstest run --env staging` with no files runs the whole
+# project suite and every shared suite, so each one in a step's context must name the same scoped files
+# (`presstest run --env staging <files>`). Flatten each file (wrapped lines, runs of spaces), take each
+# occurrence with 12 characters before it and 40 after. Not counted: one just after "bare", "never",
+# "not" or "without" (a sentence that forbids it).
+stg() { awk -v RS= '{gsub(/\n/, " "); print}' "$1" | tr -s ' ' | grep -Eo '.{0,12}presstest run --env staging.{0,40}' | grep -Eiv '(bare|never|not|without)[^a-z]{0,6}presstest'; }
+stg_files='presstest run --env staging[[:space:]]+(<[A-Za-z _-]*files?[A-Za-z _-]*>|[A-Za-z0-9_./-]+_test\.js)'
+t "DoD2: tess.md has a staging run command (opt-in, kept)" test -n "$(stg "$T")"
+t "DoD2: every 'presstest run --env staging' in tess.md names the scoped files (<files> or a *_test.js), none is bare" \
+  test -z "$(stg "$T" | grep -Ev "$stg_files")"
+[ -n "$(stg "$T" | grep -Ev "$stg_files")" ] && stg "$T" | grep -Ev "$stg_files" | sed 's/^/      bare: /'
+for f in "$TP" "$TR" "$RM"; do
+  t "DoD2: no bare 'presstest run --env staging' in $(basename "$(dirname "$f")")/$(basename "$f")" test -z "$(stg "$f" | grep -Ev "$stg_files")"
+done
 
 # DoD 3: plan mode Dates only for date or time logic
 t "DoD3: plan mode's Dates item applies to date or time logic" item_has "Plan mode" "$T" '\*\*Dates\*\*' '(date|time)[^.]{0,25}logic'
@@ -482,7 +498,10 @@ From the brief's Decisions and Definition of Done (step 1, agreed 2026-11-20):
     what the step changes, fewer rather than more, and says a step never runs the shared suites;
     no Run mode sentence has the step's run include them, and no sentence in `tess.md` runs
     PressTest "everything" or hands the developer a bare `presstest run` (no files), except the
-    release run's.
+    release run's. The opt-in staging run is scoped the same way: every `presstest run --env
+    staging` in `tess.md` (and the templates) names the step's files (`presstest run --env staging
+    <files>`), never bare, because a bare staging run runs the whole project suite and every
+    shared suite (PR #76 review round 2).
   - DoD 3: Plan mode's **Dates** item applies when the step changes date or time logic and says,
     in words, that a step that only displays a date gets no clock checks.
   - DoD 4: the `TEST-PLAN.md` template has `## Left to the release run` with guidance naming the
