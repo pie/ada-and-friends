@@ -5,7 +5,14 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **A feature step tests less; the release run covers the rest.** On a step, Tess always runs
+  the project's whole unit-test suite, runs only the PressTest files for what the step changes
+  (never the shared suites; the old "or everything if the step touches checkout" is gone), and
+  adds clock positions only when the step changes date or time logic, not when it only displays
+  a date. Her plan has a new `## Left to the release run` section (the PressTest files, shared
+  suites and clock positions the step could reach but doesn't run), which `TEST-REPORT.md`
+  carries into Not verified, so the PR shows it. The onboarded `tests/README.md` template says
+  what a step runs and what the release run runs. The release run itself comes in a later change.
 
 ## 0.15.0, 19 Nov 2026
 

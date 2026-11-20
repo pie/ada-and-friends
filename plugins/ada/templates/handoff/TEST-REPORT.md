@@ -43,6 +43,13 @@ Goes into the PR description so PIE can see it.
 |---|---|
 | | |
 
+### Left to the release run
+
+Copied from the plan's `## Left to the release run`: what the step could reach but didn't run, one
+line each, or `none`. Goes into the PR description with the rest of Not verified.
+
+-
+
 ## Manual test steps
 
 Goes into the PR description. Numbered steps a person can follow in the browser: where to go,
