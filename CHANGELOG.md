@@ -13,6 +13,12 @@ Releasing in DEVELOPING.md).
   sending locally. Giving it a handler that sends through the HTTP API is optional advice.
   Third-party plugins that send around the HTTP API are recorded the same way. Guzzle,
   `curl_init()`, `file_get_contents()` on a URL and sockets are Must fix in the project's own code.
+- **A template the project deleted stays deleted.** `ada-onboard files` and `refresh` no longer
+  copy back a template that `.claude/team/.template-hashes` lists but the repo doesn't have. They
+  print `removed` and record the line as `removed`. `/ada:begin` says nothing about it. To bring
+  one back, run `ada-onboard refresh --force` for the PR template, or delete the template's line
+  from `.template-hashes` and run `ada-onboard files`. A template the file doesn't list, such as
+  a new one from a plugin update, is still copied.
 
 ## 0.15.0, 19 Nov 2026
 

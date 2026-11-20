@@ -59,13 +59,13 @@ State the scripts read and write, in an onboarded project:
 | Amendments table of the brief (five columns: `Date`, `What changed (old → new)`, `Why (evidence)`, `Re-approval`, `Agreed by`) | Ada, with the developer's yes (`templates/handoff/BRIEF.md`) | `compare()` (`bin/ada-brief:272-292`); `render_body` (`amendments_table`, `:223-231`); Claudia and Tess read `Agreed by` |
 | PR comment listing the Amendments rows added since approval | `submit`, when the approval is kept (`after_submit`, `bin/ada-brief:548-558`; posted at `:678`) | the approver |
 | `<!-- ada-brief: <path> -->` marker in the PR body | `render_body` (`bin/ada-brief:432`) | `ada-brief status` (`bin/ada-brief:708-711`) |
-| `.claude/team/.template-hashes` (`<copied\|declined> <sha256> <path>`) | `ada-onboard files` / `refresh` (`bin/ada-onboard:76-100`) | `ada-onboard refresh` |
-| `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:235-302`) | Claude Code |
-| `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:236-239`) |
+| `.claude/team/.template-hashes` (`<copied\|declined\|removed> <sha256> <path>`; `removed` marks a template the project deleted, with the sha its line held) | `ada-onboard files` / `refresh` (`bin/ada-onboard:81-107`) | `ada-onboard files` and `refresh` |
+| `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:255-322`) | Claude Code |
+| `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:256-259`) |
 | `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
-| `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:333-362`); Grace (`/ada:bughunt`, Intake and step 7); Ada (`begin/SKILL.md`, Direct Bob, Claudia and Tess, item 3, sends her to `begin/knowledge-base.md`; `pr-gate.md`, steps 3 and 5); Claudia (`agents/claudia.md`, item 13) |
-| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:144-181`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout; Ada (`begin/knowledge-base.md`): a support card's entry and `INDEX.md` in the step's worktree before Claudia's review, committed in the PR | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; Ada and Claudia (`asana.projectGid`, the entry); people |
-| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:364-433`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
+| `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:353-382`); Grace (`/ada:bughunt`, Intake and step 7); Ada (`begin/SKILL.md`, Direct Bob, Claudia and Tess, item 3, sends her to `begin/knowledge-base.md`; `pr-gate.md`, steps 3 and 5); Claudia (`agents/claudia.md`, item 13) |
+| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:157-194`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout; Ada (`begin/knowledge-base.md`): a support card's entry and `INDEX.md` in the step's worktree before Claudia's review, committed in the PR | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; Ada and Claudia (`asana.projectGid`, the entry); people |
+| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:384-453`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
 
@@ -273,47 +273,57 @@ Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
 
 ### ada-onboard: templates, settings and refresh
 
-- `files` (`bin/ada-onboard:104-144`): walks `templates/repo/`, never overwrites (prints `kept`,
-  `:125-127`), fills `{{KEY}}` for nine known keys (`:109`), writes LF, keeps the mode bits (`:133`),
-  and records `copied <sha>` of what it wrote (`:134`). Kept files get no hash.
-- `kb [<path>]` (`:143-180`): for a product only (`/ada:onboard` step 5). Takes at most one
+- `files` (`bin/ada-onboard:110-156`): walks `templates/repo/`, never overwrites (prints `kept`,
+  `:134-136`), fills `{{KEY}}` for nine known keys (`:115`), writes LF, keeps the mode bits (`:147`),
+  and records `copied <sha>` of what it wrote (`:148`). Kept files get no hash, and their line is
+  left as it is. A template whose path has a line in `.template-hashes` (any kind) but no file
+  was deleted by the project (`:137-141`): `files` prints `removed`, writes nothing, and records
+  the line as `removed` with the sha it held. A missing template with no line is new, and is
+  copied. `write_hashes` writes one line per path, sorted by path, with LF endings, so in a file
+  the tool wrote the other lines keep their text and order. A hand-reordered file, or one with
+  CRLF endings, is rewritten sorted with LF.
+- `kb [<path>]` (`:157-194`): for a product only (`/ada:onboard` step 5). Takes at most one
   argument, default `knowledge-base`, strips one trailing `/`, and refuses (exit 2, nothing
-  written) a path that doesn't match `:148` (relative, no part starting with a dot, so no `..` and
-  no absolute path). Then, part by part, it refuses (`:150-161`) a part that exists and isn't a
+  written) a path that doesn't match `:162` (relative, no part starting with a dot, so no `..` and
+  no absolute path). Then, part by part, it refuses (`:164-175`) a part that exists and isn't a
   folder (a file, or a symlink to nothing), and one whose real folder (`pwd -P`, so after any
   symlink) isn't inside the repo's. A part that doesn't exist ends the walk: `os.makedirs`
-  creates it and the rest inside the last real folder. Walks `templates/knowledge-base/` (`:162`,
+  creates it and the rest inside the last real folder. Walks `templates/knowledge-base/` (`:176`,
   next to `templates/repo/`, so `files` never copies it) in sorted order and, per file, prints
-  `kept` when it exists, else writes it with LF and prints `created` (`:173`, `:178`). It records
+  `kept` when it exists, else writes it with LF and prints `created` (`:187`, `:192`). It records
   no hashes and fills no placeholders, so `refresh` never touches the folder, and
   `config.json`'s two `{{KEY}}`s are left for the onboarding to fill by hand.
-- `refresh` (`:181-216`): only `.github/pull_request_template.md` (`:189`), because only
-  placeholder-free templates can be refreshed (`:188`). Order of the decision (`:197-212`): same
-  text → `current`; `--force`, file missing, or an untouched `copied` copy → `refreshed` (and
-  rewrites the hash); `--decline` → records `declined <sha of plugin copy>`; already declined at
-  this plugin hash → `declined`; otherwise `edited` (hash recorded) or `unknown` (none) followed
-  by a unified diff, file left alone. Hashes are of LF-normalised text (`:77-85`), so CRLF
-  checkouts on Windows still match.
-- `settings` (`:235-302`): loads `.claude/settings.json` with `json.load` (`:244`), sets the
-  marketplace and `ada@pie`, blanks commit/PR attribution (`:249`), sets `promptCacheTtl` only if
-  absent (`:252`), appends allow and deny rules not already present (`:264-297`), denies SSH to
-  the `PROD_SSH` host if `prod.env` has one (`:294-296`), and rewrites the file with two-space
-  indent (`:299`).
-- `check` (`:303-363`): reports `missing`, `fill in` (placeholders, `placeholders()` at `:308`),
-  `draft` (a `<prompt>` outside code, `:316-319`) or `ok` per file, then checks `ada@pie` and the
-  Brief approval section, and runs `ada-brief who`. Then the knowledge base (`:349-362`): only
+- `refresh` (`:195-237`): only `.github/pull_request_template.md` (`:203`), because only
+  placeholder-free templates can be refreshed (`:202`). Order of the decision (`:211-233`): same
+  text → `current`; a missing file with a hash line (any kind), without `--force` → `removed`,
+  nothing written, the line recorded as `removed` with the sha it held, whatever `--decline` says
+  (`:213-218`); `--force`, a missing file with no hash line, or an untouched `copied` copy →
+  `refreshed` (and rewrites the hash as `copied`); `--decline` → records
+  `declined <sha of plugin copy>`; already declined at this plugin hash → `declined`; otherwise
+  `edited` (hash recorded) or `unknown` (none, or `removed` with the file put back) followed by
+  a unified diff, file left alone. `--force` brings a removed PR template back; for any
+  template, so does deleting its line and running `files`. Hashes are of LF-normalised text
+  (`:81-91`), so CRLF checkouts on Windows still match.
+- `settings` (`:255-322`): loads `.claude/settings.json` with `json.load` (`:264`), sets the
+  marketplace and `ada@pie`, blanks commit/PR attribution (`:269`), sets `promptCacheTtl` only if
+  absent (`:272`), appends allow and deny rules not already present (`:284-317`), denies SSH to
+  the `PROD_SSH` host if `prod.env` has one (`:314-316`), and rewrites the file with two-space
+  indent (`:319`).
+- `check` (`:323-383`): reports `missing`, `fill in` (placeholders, `placeholders()` at `:328`),
+  `draft` (a `<prompt>` outside code, `:336-339`) or `ok` per file, then checks `ada@pie` and the
+  Brief approval section, and runs `ada-brief who`. Then the knowledge base (`:369-382`): only
   when `PROJECT.md`'s `Kind:` reads exactly `product` and `Knowledge base:` reads a value other
   than empty or `none` (trailing `/` stripped). Then `missing  <path>/` if the folder isn't there,
   `missing  <path>/config.json` if it has none, `fill in  <path>/config.json: …` while it holds a
   `{{KEY}}`, and nothing once it's filled, so a filled-in product prints what a site does. It
-  reads both lines with a copy of `presstest`'s `project_line` (`:337-348`, beside
+  reads both lines with a copy of `presstest`'s `project_line` (`:357-368`, beside
   `bin/presstest:129-140`): the first code span, else the first word; a value starting `<` is unset.
   A change to one copy is made to both. The path isn't validated here: `kb` refuses a bad one.
-- `clock` (`:364-433`): run by `/ada:onboard` in a clock-sensitive project. Takes exactly
+- `clock` (`:384-453`): run by `/ada:onboard` in a clock-sensitive project. Takes exactly
   `LOCAL_WP_PATH=` and `LOCAL_WP=`, each once and non-empty; any other argument, or a value with a
-  newline, a `#` or the `<…>` form, exits 2 before anything is written (`:365-384`). The setup is
+  newline, a `#` or the `<…>` form, exits 2 before anything is written (`:385-404`). The setup is
   `local-linux` when `uname -s` is `Linux` and `$HOME/.config/Local` is a folder, else `manual`
-  (`:411-415`). It reads `local.env` with a copy of `ada-clock`'s parser (`:386-409`; the third
+  (`:431-435`). It reads `local.env` with a copy of `ada-clock`'s parser (`:406-429`; the third
   copy, beside `bin/ada-clock:128-151` and `bin/presstest`), and for `ADA_CLOCK_ADAPTER`,
   `LOCAL_WP_PATH` and `LOCAL_WP` in turn prints `kept` when the key reads non-empty, else appends
   `KEY=value` (a newline first if the file doesn't end in one) and prints `added`. The appended
@@ -323,14 +333,16 @@ Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
 Traps:
 
 - `settings` crashes with a Python traceback on a `settings.json` that isn't strict JSON (comments,
-  trailing commas) (`:244`), and rewrites the whole file in its own two-space format (`:299`), so
+  trailing commas) (`:264`), and rewrites the whole file in its own two-space format (`:319`), so
   a hand-formatted file comes back reformatted.
-- `settings` sets `attribution` and the marketplace unconditionally (`:245-249`): a project's own
+- `settings` sets `attribution` and the marketplace unconditionally (`:265-269`): a project's own
   values there are overwritten.
-- `refresh` recreates the PR template if the project deleted it (`project is None`, `:199`).
+- A deleted template stays deleted only while `.template-hashes` has its line. With no line (the
+  line deleted by hand, or a repo onboarded before the hashes), `files` and `refresh` read it as a
+  new template and copy it back.
 - `check` and `settings` assume a PHP project: `check` lists `tools/composer.json`,
-  `phpcs.xml.dist`, `phpunit.xml.dist` (`:309-311`); `settings` allows `php -l`, phpcs, phpunit
-  (`:271`); `gitignore` adds `.phpunit.cache/` and `tools/vendor/` (`:218`). In this repo those
+  `phpcs.xml.dist`, `phpunit.xml.dist` (`:329-331`); `settings` allows `php -l`, phpcs, phpunit
+  (`:291`); `gitignore` adds `.phpunit.cache/` and `tools/vendor/` (`:240`). In this repo those
   show as missing and are expected to.
 - `clock`'s parser reads `KEY=   # comment` as the value `# comment`, as `ada-clock`'s and
   `presstest`'s do, so such a key is `kept`. A known gap, to be fixed in all three copies at once.
@@ -339,10 +351,10 @@ Traps:
   projects adopt it by hand (CHANGELOG). The same goes for the `Kind:` and `Knowledge base:`
   lines: a product onboarded before them adds the two lines by hand and runs `ada-onboard kb`.
 - The `Kind:` prompt starts with a word (`<one of ...>`) on purpose: `check` strips code spans
-  before it matches a `<prompt>` (`:314`), and ``<`product` ...>`` would leave `< ` behind, which
+  before it matches a `<prompt>` (`:338`), and ``<`product` ...>`` would leave `< ` behind, which
   doesn't match, so the unfilled line wouldn't be flagged.
-- `files`, `refresh` and `kb` read templates from `$(dirname "$0")/../templates/` (`:61`,
-  `:162`), so the copy of the script you run decides which templates you get (see Environments).
+- `files`, `refresh` and `kb` read templates from `$(dirname "$0")/../templates/` (`:65`,
+  `:176`), so the copy of the script you run decides which templates you get (see Environments).
 
 ### ada-plan: plans of several units
 
@@ -454,8 +466,8 @@ Traps:
   (`~/.claude/plugins/cache/pie/ada/<version>/bin`, `DEVELOPING.md:42,53`), not this checkout's.
   To run edited scripts, call them by path (`plugins/ada/bin/ada-brief`) or start Claude with
   `--plugin-dir` and `ada@pie` switched off in `.claude/settings.local.json`
-  (`DEVELOPING.md:15-22`). Template lookups follow the script's own location (`bin/ada-onboard:60`,
-  `:163`, `bin/ada-handoff-init:20`, `bin/ada-plan:32, 36`).
+  (`DEVELOPING.md:15-22`). Template lookups follow the script's own location (`bin/ada-onboard:65`,
+  `:176`, `bin/ada-handoff-init:20`, `bin/ada-plan:32, 36`).
 - **Flags.** `ADA_BRIEF_REQUIRE=1` makes everyone `required` for a dry run (`bin/ada-brief:13-14`,
   `:595`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
   (`bin/prod-wp:19-30`). No production server exists for this repo, so `prod-wp` is never used here.
@@ -468,7 +480,7 @@ Traps:
   `LOCAL_WP` (the command that runs WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`)
   from the same file, likewise overridable, with the same parser copied in
   (`bin/ada-clock:128-151`). `ada-onboard clock` reads `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and
-  `LOCAL_WP` with a third copy of it (`bin/ada-onboard:386-409`), not overridable by environment,
+  `LOCAL_WP` with a third copy of it (`bin/ada-onboard:406-429`), not overridable by environment,
   and appends the ones with no value; `uname -s` and `$HOME/.config/Local` pick the setup.
   `ada-clock` refuses any `LOCAL_URL` whose host isn't `localhost`, `127.0.0.1`, `.local` or
   `.test`, except for `ada-clock extension`, which reads no settings and runs before that
@@ -478,7 +490,7 @@ Traps:
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:
   - Python is found as `python3`, `python` or `py -3`, each tried with a version check, which skips
-    the Microsoft Store stub (`bin/ada-brief:103-112`; same block in `ada-onboard:61-70`,
+    the Microsoft Store stub (`bin/ada-brief:103-112`; same block in `ada-onboard:66-75`,
     `ada-plan:38-45`, `ada-size:41-49`).
   - Python output has `\r` stripped (`bin/ada-brief:113-114`, `bin/ada-plan:85-86, 96`, `bin/ada-size:72`);
     files are written with `newline='\n'`.
@@ -535,7 +547,7 @@ How it works:
 - A script that runs a sibling script works out its own folder (`here=`) before that `cd`
   (`bin/ada-brief:99-100`), because a relative `$0` resolves against the folder it was started
   from. `ada-brief` runs `"$here/ada-worktree"` and `"$here/ada-brief"`, and `ada-onboard check`
-  runs `"$here/ada-brief"` (`bin/ada-onboard:304-305`, `:331`), never `$0`.
+  runs `"$here/ada-brief"` (`bin/ada-onboard:324-325`, `:351`), never `$0`.
 - Exit code 2 is every script's usage or precondition failure (`die`, e.g. `bin/ada-brief:98`).
 - `ada-brief who` with no Brief approval section succeeds with `not-needed` (`bin/ada-brief:591`):
   a missing section means no approval, not an error.

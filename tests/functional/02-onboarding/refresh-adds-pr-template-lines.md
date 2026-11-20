@@ -3,9 +3,10 @@
 - Area: 02 Onboarding and refresh (`ada-onboard`); 11 Templates; 12 Platforms
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
   (the `Design:` line); https://app.asana.com/0/0/1220058523035214/f (the `Knowledge base:` line,
-  Unit B4)
+  Unit B4); https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220575393845404
+  (a deleted template stays deleted: the `deleted` cases)
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 18 Nov 2026, 0 failed (70 passed, bash 5.2 and bash 3.2 in Docker, after amendment 9's reworded line); break-it step not re-run (see the PR)
+- Last run: 20 Nov 2026, 0 failed (bash 5.x local, bash 3.2 in Docker by the developer); break-it against 59499fb: 12 failed as expected (see the PR)
 
 ## Precondition
 
@@ -53,6 +54,8 @@
 #   plugins/ada already exported (for a run with no git history, such as bash 3.2 in Docker).
 #   OLD_PLUGIN is still read as OLD_PLUGIN_D.
 # Both bases are pinned, not origin/next-release, which gains each line once its PR merges (KG-5).
+# Section 5: a template the project deleted stays deleted (`removed`, keeping the old copy's sha);
+# only a missing template with no hash line comes back.
 set -u
 REPO=${REPO:-$(git rev-parse --show-toplevel)}
 PLUGIN=${PLUGIN:-$REPO/plugins/ada}
@@ -181,12 +184,35 @@ cases() {
   t "$tag no hash: a unified diff follows" grep -q '^@@' "$W/out"
   t "$tag no hash: the template is left alone" untouched "$R"
 
-  # 5. Regression: a deleted template comes back as the plugin's.
+  # 5. A deleted template that .template-hashes lists stays deleted: removed, with the sha the
+  #    entry held (the old copy's), not the plugin's.
   R=$W/$tag-deleted; onboard "$R"
   rm "$R/$P"; commit "$R" "delete the template"
+  refresh "$R"; echo "info: $tag deleted exit code $(rc)"
+  t "$tag deleted: prints removed" line_is removed
+  t "$tag deleted: the template is not recreated" test ! -e "$R/$P"
+  t "$tag deleted: hash is removed with the old copy's sha" has_hash "$R" removed "$OLDT"
+  t "$tag deleted: one hash line for the template" one_hash "$R"
+  t "$tag deleted: only .template-hashes changed" test "$(git -C "$R" status --porcelain)" = " M $HF"
+  commit "$R" "refresh records removed"
   refresh "$R"
-  t "$tag deleted: prints refreshed" line_is refreshed
-  t "$tag deleted: template recreated as the plugin's" cmp -s "$NEWT" "$R/$P"
+  t "$tag deleted, second refresh: prints removed" line_is removed
+  t "$tag deleted, second refresh: nothing changed" clean "$R"
+  # --force is the way back: the plugin's copy, recorded copied.
+  refresh "$R" --force
+  t "$tag deleted, --force: prints refreshed" line_is refreshed
+  t "$tag deleted, --force: template is the plugin's" cmp -s "$NEWT" "$R/$P"
+  t "$tag deleted, --force: hash is copied, the new copy's" has_hash "$R" copied "$NEWT"
+  t "$tag deleted, --force: one hash line for the template" one_hash "$R"
+
+  # 6. Regression: a deleted template with no hash line comes back as the plugin's.
+  R=$W/$tag-deleted-unlisted; onboard "$R"
+  rm "$R/$P"
+  grep -v " $P\$" "$R/$HF" > "$W/h" && cp "$W/h" "$R/$HF"; commit "$R" "delete the template and its hash"
+  refresh "$R"
+  t "$tag deleted, no hash: prints refreshed" line_is refreshed
+  t "$tag deleted, no hash: template recreated as the plugin's" cmp -s "$NEWT" "$R/$P"
+  t "$tag deleted, no hash: hash is copied, the new copy's" has_hash "$R" copied "$NEWT"
 }
 
 cases "before-design" "$OLD_PLUGIN_D" 'Design:' 'Knowledge base:'
@@ -201,8 +227,14 @@ if [ "$fails" = 0 ]; then rm -rf "$W"; exit 0; else echo "scratch kept at $W"; e
 Every line `PASS`, last line `0 failed`, exit 0, under the local bash and bash 3.2. The `info:`
 lines record the exit codes for `edited` and `unknown`, which the docs don't fix; put them in the
 Run record. The broken copy in step 4 prints `FAIL` for the template's `Knowledge base:` checks,
-for each `unedited` and `--force`/`deleted` case's `Knowledge base:` line, and for each `edited`
-case's "the diff shows the Knowledge base: line arriving".
+for each `unedited`, `--force` and `deleted, no hash` case's `Knowledge base:` line, and for
+each `edited` case's "the diff shows the Knowledge base: line arriving".
+
+On a plugin from before a deleted template stayed deleted (e.g. `59499fb`, 0.15.0), each set's
+`deleted` checks FAIL (that plugin prints `refreshed` and recreates the template), and so does
+`deleted, --force: prints refreshed` (the template is already back, so it prints `current`); the
+other `deleted, --force` checks and `deleted, no hash` PASS (tried on 20 Nov 2026 with
+`PLUGIN=` an export of `59499fb`: 12 failed, all of them `deleted` checks).
 
 On the commit Unit B4 started from (a376b09, with no `Knowledge base:` line yet) the template's
 first, second, third and seventh checks and every `Knowledge base:` line check in both case sets
@@ -216,7 +248,10 @@ a repo with the old template untouched, `edited` with a diff where it was edited
 `.template-hashes` updates), Constraints, Surfaces (untouched `refreshed`, edited `edited` + diff,
 declined `declined`). #30's brief (the `Design:` line, as amended, Q5). `SYSTEM.md`, ada-onboard
 (the order of `current`, `refreshed`, `declined`, `edited`, `unknown`; the hash rewritten on
-`refreshed` and `--force`; `declined <sha of plugin copy>`; a missing template recreated).
+`refreshed` and `--force`; `declined <sha of plugin copy>`). The brief "A template the project deleted stays deleted": a
+missing template that `.template-hashes` lists prints `removed`, is not recreated, and is
+recorded `removed <the sha the entry held>`; `--force` brings it back as `copied`; one with no
+hash line is still `refreshed`.
 `API.md` (one line per template, the word padded to 9, a unified diff after `edited` and
 `unknown`).
 
@@ -227,9 +262,10 @@ The script's output and exit code. On a failure the scratch folder is kept and n
 
 ## Regression
 
-- Sections 3 to 5, the `--force` lines and the second refresh's `current` are the refresh outcomes
-  this change must not move, for a repo onboarded before #30 and one onboarded with the released
-  template.
+- Sections 3 and 4, the `--force` lines, the second refresh's `current` and section 6 (a missing
+  template with no hash line still `refreshed`) are the refresh outcomes this change must not
+  move, for a repo onboarded before #30 and one onboarded with the released template. Section 5
+  is the one case that changed: a deleted, listed template is now `removed`.
 - The PR template only gains the one line: every other line onboarded repos already have stays
   as it was (the template's "no line removed or changed" and "one non-blank line added" checks
   against `75554ce`), and the `Design:` line keeps its three values.
