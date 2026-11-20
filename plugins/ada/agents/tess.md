@@ -147,9 +147,11 @@ Read `TEST-PLAN.md`, `REVIEW-REQUEST.md` for the changed files, and `tests/READM
    can't be pulled, the site not started or password-protected), record what it printed and hand the
    suite to the developer like a local check: the same `presstest run <files>` command you
    recorded, once they've fixed it, or WP admin
-   → Presstest on the review site once the branch is merged there. Run on staging (`presstest
-   run --env staging`) only if Ada's spawn says the developer asked, and say which site each
-   result is from. Never production.
+   → Presstest on the review site once the branch is merged there. Run on staging only if Ada's
+   spawn says the developer asked, with the same file list as the local run
+   (`presstest run --env staging <files>`; a staging run with no files runs the whole project
+   suite and every shared suite, so never run it bare), and say which site each result is
+   from. Never production.
 3. For **local** checks, give Ada the exact steps and expected result for the developer to carry
    out, one check at a time, and record what they report, with the clock time used. A date
    check's steps move the site's clock as the project's `TEST-AREAS.md`, Dates and the clock,
