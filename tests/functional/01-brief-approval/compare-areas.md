@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief compare`, `brief_py()`); 12 Platforms (bash 3.2, Python 3.8, CRLF)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1220198325356405
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-11, 0 failed (267 PASS) on the host (bash 5.3, Python 3.14); Docker and the breaks not run; see the PR
+- Last run: 2026-11-20, 0 failed (267 PASS) on the host (bash 5.3, Python 3.14); Docker and the breaks not run; see the PR
 
 Offline. Every pair of briefs is compared twice, by this checkout's `ada-brief` and by the base
 branch's (`origin/add/brief-approval-by-area`). The first line must be the base's, word for word
@@ -335,8 +335,8 @@ if git -C "$REPO" rev-parse --verify -q "$BASE" >/dev/null 2>&1; then
   git -C "$REPO" diff --name-only "$BASE" -- tests/functional/01-brief-approval/ > "$W/d01"
   git -C "$REPO" ls-files --others --exclude-standard -- tests/functional/01-brief-approval/ >> "$W/d01"
   # compare-areas.md is new; re-approval-column-and-docs.md's header check changed (Amendment, 10 Nov 2026);
-  # area-status.md is new (Unit D1, DoD 1 as amended 2026-11-11)
-  grep -vxE 'tests/functional/01-brief-approval/(compare-areas|re-approval-column-and-docs|area-status)\.md' "$W/d01" > "$W/d01.cand"
+  # area-status.md is new (Unit D1, DoD 1 as amended 2026-11-11); area-labels.md is new (Unit D2)
+  grep -vxE 'tests/functional/01-brief-approval/(compare-areas|re-approval-column-and-docs|area-status|area-labels)\.md' "$W/d01" > "$W/d01.cand"
   # A script whose only change is its 'Last run' line (a re-run records itself) is unedited: compare
   # each other file with $BASE's copy, both with their '- Last run:' lines removed. A real edit still
   # differs; a new file (not in $BASE) still counts as a change.
@@ -346,7 +346,7 @@ if git -C "$REPO" rev-parse --verify -q "$BASE" >/dev/null 2>&1; then
     if git -C "$REPO" show "$BASE:$f" 2>/dev/null | grep -v '^- Last run:' > "$W/d01.base" \
        && grep -v '^- Last run:' "$REPO/$f" > "$W/d01.now" 2>/dev/null && cmp -s "$W/d01.base" "$W/d01.now"; then :; else echo "$f" >> "$W/d01.other"; fi
   done < "$W/d01.cand"
-  t "tests/functional/01-brief-approval/: no script but compare-areas.md, re-approval-column-and-docs.md and area-status.md differs from $BASE beyond its Last run line (got: $(tr '\n' ' ' < "$W/d01.other"))" test ! -s "$W/d01.other"
+  t "tests/functional/01-brief-approval/: no script but compare-areas.md, re-approval-column-and-docs.md, area-status.md and area-labels.md differs from $BASE beyond its Last run line (got: $(tr '\n' ' ' < "$W/d01.other"))" test ! -s "$W/d01.other"
 else
   echo "info: the tests/functional/01-brief-approval/ unedited check skipped: no $BASE in $REPO's git"
 fi
@@ -428,7 +428,7 @@ The pairs outside the table:
 - The usage header (the comment block at the top of `ada-brief`) contains `areas:`; the
   CHANGELOG's Unreleased has a `- **Brief approval by area.**` bullet mentioning `Areas:` and
   `Author:`; `bash -n` is clean; no file in `tests/functional/01-brief-approval/` but this one,
-  `re-approval-column-and-docs.md` (the Amendment of 10 Nov 2026) and `area-status.md` (Unit D1) differs from the base; no traceback; `gh` never called.
+  `re-approval-column-and-docs.md` (the Amendment of 10 Nov 2026) and `area-status.md` (Unit D1) and `area-labels.md` (Unit D2) differs from the base; no traceback; `gh` never called.
 
 Step 4's breaks print `FAIL` where it says.
 

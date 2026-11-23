@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief body`, `render_body`); 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219790041247935
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-11, 0 failed (20 PASS) on the host (bash 5.3); Docker and the breaks not run; see the PR
+- Last run: 2026-11-20, 0 failed (20 PASS) on the host (bash 5.3); Docker and the breaks not run; see the PR
 
 ## Precondition
 

@@ -37,12 +37,20 @@
 #       table there is one area, "everything: <the Approvers line> (catch-all)". With no Brief
 #       approval section it prints "everything: none (catch-all)" and "trusted: none", with who's
 #       warning on stderr. A table inside an HTML comment is ignored. A bad table, or a table
-#       with another header, stops areas, who, status, and submit to an existing PR (after the
-#       push), with an "ada-brief:" message on stderr, nothing on stdout, and exit 2.
+#       with another header, stops areas, who, status, submit to an existing PR, and submit and
+#       body for a brief with an Areas: line (submit after the push), with an "ada-brief:" message
+#       on stderr, nothing on stdout, and exit 2.
 #   ada-brief submit <task-id> <base-branch> [<branch>]
 #       Commits .claude/handoff/BRIEF.md as .claude/briefs/<task-id>.md, pushes the branch, and
 #       opens a draft PR into <base-branch> with the brief as its description (or updates the
-#       branch's PR). Prints "opened   <url>", or for an existing PR one of:
+#       branch's PR). Before the PR is opened or updated it creates the labels approvers add, in
+#       colour 0E8A16: brief-approved ("An approver has approved the brief") for a brief without
+#       an Areas: line; for a brief with one, approved:<slug> ("Approves the brief's <Area> area")
+#       for each area on it, exempt or not. A label the repo has is left as it is. A brief whose
+#       Areas: line names a slug PROJECT.md doesn't list is submitted as a brief without Areas:,
+#       with status's "ada-brief: the brief names area <x>, which PROJECT.md doesn't list" and
+#       "; it is submitted as a brief without Areas:" on stderr. Prints "opened   <url>", or for
+#       an existing PR one of the lines below. A brief without Areas:
 #         updated  <url> (approval kept)  an approver's label stays: the brief is the approved
 #                                         version, or compare says "allowed" (a PR comment lists
 #                                         the added Amendments rows); the description is
@@ -50,6 +58,27 @@
 #                                         description doesn't already show this brief
 #         updated  <url> (approval reset) compare says "reapprove", or there was no approval:
 #                                         the brief-approved label is removed
+#       A brief with Areas: is decided area by area, as status decides it (a label counts when
+#       last added by one of its area's Approved by or Trusted logins, and an exempt area has no
+#       label to keep). The label of each area compare sends back is removed; any other label
+#       stays, including one that doesn't count. Then, when a label counted before the submit:
+#         updated  <url> (approval reset: <slug>, ...)
+#                                         the areas that need approval and have no label that
+#                                         counts afterwards, in Areas: order (the catch-all, sent
+#                                         back when an approved section changed with no
+#                                         Amendments row, last when Areas: doesn't name it): a
+#                                         removed label, an area never approved, one added to
+#                                         Areas:, the catch-all (whose label is then created)
+#         updated  <url> (approval kept)  every area that needs approval keeps its label
+#       and when none counted:
+#         updated  <url> (approval reset)
+#       The description is replaced when it doesn't already show this brief. One PR comment is
+#       posted when a label is removed, and otherwise only when the description doesn't show
+#       this brief yet and a label that counted before the submit is kept through "allowed",
+#       or an area newly needs approval (on the Areas: line now and not before this submit, or
+#       the catch-all sent back by this submit's change). It lists each such area's label, why,
+#       and its approvers, then the added Amendments rows of the first area kept through
+#       "allowed". A repeat submit changes nothing and posts no comment.
 #       With <branch> (a planned unit's branch that isn't checked out), the brief is
 #       .claude/handoff/plan/<task-id>.md and is committed to <branch> without a checkout.
 #       A brief whose "Plan:" line names a plan file takes .claude/handoff/plan/PLAN.md with it,
@@ -58,11 +87,12 @@
 #       PR (a part of a larger unit) can't be submitted until that brief is approved.
 #   ada-brief status [<branch>]
 #       For the current branch's PR, or <branch>'s: approved, changes-requested or waiting, with
-#       who approved, or the approvers' comments since the brief was last submitted. When an
-#       approver's label is older than the brief's last change, the approved version is compared
-#       with the pushed brief: "same" or "allowed" prints "approved @<login> <time>" and a second
-#       line "amended since approval; no re-approval needed"; "reapprove <reason>" gives the
-#       note "... the brief has changed since: <reason>".
+#       who approved, or the approvers' comments since the brief was last submitted (not the
+#       comments submit posts for a brief with Areas:, which start "<!-- ada-brief: submit -->").
+#       When an approver's label is older than the brief's last change, the approved version is
+#       compared with the pushed brief: "same" or "allowed" prints "approved @<login> <time>" and a
+#       second line "amended since approval; no re-approval needed"; "reapprove <reason>" gives
+#       the note "... the brief has changed since: <reason>".
 #       With no Brief approval section, or "Approvers: none" and no areas table, it prints
 #       not-needed for every brief without reading the PR.
 #       Otherwise a brief whose pushed version has an "Areas: <slug>, ..." line is approved area
@@ -119,7 +149,15 @@
 #   brief-approved label was added, on the pushed branch.
 #   ada-brief body <task-id> [<branch>]
 #       Prints the draft PR description submit writes for the brief committed on the branch:
-#       what the approver checks, with the builder's details and the plan folded away.
+#       what the approver checks, with the builder's details and the plan folded away. For a
+#       brief with an Areas: line, its note lists one line per area, in that line's order:
+#         > - `approved:<slug>` (<Area>): @a, @b
+#         > - <Area>: not needed (@<author> approves it)
+#                                         the PR's opener (the gh login before there is a PR)
+#                                         counts for the area and Author: names them; not with
+#                                         ADA_BRIEF_REQUIRE=1
+#         > - <Area>: not needed (no approvers)
+#       then "> Trusted developers can add any of these labels: @x, @y" when Trusted isn't none.
 #   ada-brief ready <title> <description-file>
 #       At the end of the step: gives the branch's PR its final title and description and takes
 #       it out of draft.
@@ -565,26 +603,98 @@ def counts_for(area, trusted):
     """The logins whose approval counts for an area: its Approved by logins, then Trusted."""
     return area['approvers'] + trusted
 
+def label_description(area):
+    """The description of an area's label on GitHub."""
+    if area['label'] == os.environ['LABEL']:
+        return 'An approver has approved the brief'
+    return f"Approves the brief's {area['name']} area"
+
+def submit_mark():
+    """The first line of a comment submit posts on the PR of a brief with Areas:, so status doesn't
+    read it as the words of whoever ran submit."""
+    return os.environ['MARK'] + ' submit -->'
+
+def last_change(rev, path):
+    """When the file at path last changed on rev: its last commit's %cI, or '' with none."""
+    return subprocess.run(['git', 'log', '-1', '--format=%cI', rev, '--', path], capture_output=True, text=True).stdout.strip()
+
+def areas_in_effect(project_text):
+    """(by_slug, trusted, catch_all): PROJECT.md's areas by slug, its Trusted logins and the
+    catch-all area's slug."""
+    areas, trusted = read_areas(project_text)
+    by_slug = {area['slug']: area for area in areas}
+    catch_all = next(area['slug'] for area in areas if area['catch_all'])
+    return by_slug, trusted, catch_all
+
+def unlisted(touched, by_slug):
+    """The message for the first slug in touched (a brief's Areas: line) that PROJECT.md doesn't
+    list, or None when it lists them all."""
+    for slug in touched:
+        if slug not in by_slug:
+            return f"ada-brief: the brief names area {slug}, which PROJECT.md doesn't list"
+    return None
+
+def touched_areas(project_text, touched):
+    """areas_in_effect(), stopping with exit 2 when touched names a slug PROJECT.md doesn't list."""
+    by_slug, trusted, catch_all = areas_in_effect(project_text)
+    problem = unlisted(touched, by_slug)
+    if problem is not None:
+        print(problem, file=sys.stderr)
+        sys.exit(2)
+    return by_slug, trusted, catch_all
+
+def submitted_areas(text, project_path, warn):
+    """(touched, by_slug, trusted, catch_all) for a brief that submit and body read area by area,
+    or None: the brief has no Areas: line, or it names a slug PROJECT.md doesn't list, when it is
+    submitted as a brief without one (status stops on it). With warn, that slug is named on
+    stderr."""
+    touched = brief_areas(text)
+    if touched is None:
+        return None
+    by_slug, trusted, catch_all = areas_in_effect(read_project(project_path))
+    problem = unlisted(touched, by_slug)
+    if problem is not None:
+        if warn:
+            print(problem + '; it is submitted as a brief without Areas:', file=sys.stderr)
+        return None
+    return touched, by_slug, trusted, catch_all
+
+def exempt_author(opener, text, require):
+    """The login area_state() exempts: the PR's opener when the brief's Author: line names them
+    and require (ADA_BRIEF_REQUIRE=1) is false, else None."""
+    return opener if brief_author(text) == opener and not require else None
+
+def exemption(area, trusted, author):
+    """Why an area needs no approval: "author" (author, from exempt_author(), counts for it), "no
+    approvers", or None when it needs approval."""
+    if author in counts_for(area, trusted):
+        return 'author'
+    if not area['approvers']:
+        return 'no approvers'
+    return None
+
 def area_state(area, catch_all, trusted, author, found, pushed, brief, since, said):
     """An area's state for status, and its details: (state, detail). The state is the first of
-    "not needed" (author counts for the area, or it has no approvers), "approved" (its label is on,
-    last added by a login that counts, at or after since, or before it with the area left out of
-    what reapprove_areas() sends back), "changes-requested" (a login that counts said something
-    since since) and "waiting". detail has "notes" and "sent_back" (the slugs reapprove_areas()
-    sent back, the catch-all token as the catch_all slug; [] when nothing was compared), plus "by"
-    for not needed (author, or None for no approvers), "who", "when" and "amended" for approved,
-    and "said" for changes-requested. author is the PR's opener when the brief's Author: names
-    them, else None; found is approval() for the area; pushed and brief are the pushed ref and the
-    brief's path; since is when the brief last changed there; said is every (time, login, where,
-    body) on the PR since then."""
+    "not needed" (exemption() gives a reason), "approved" (its label is on, last added by a login
+    that counts, at or after since, or before it with the area left out of what reapprove_areas()
+    sends back), "changes-requested" (a login that counts said something since since) and
+    "waiting". detail has "notes", "sent_back" (the slugs reapprove_areas() sent back, the
+    catch-all token as the catch_all slug; [] when nothing was compared), "counted" (the label is
+    on, last added by a login that counts, on an area that needs approval) and "compared"
+    (compare() of the approved version with the pushed brief, when the label predates since and
+    there is an approved version; else None), plus "by" for not needed (author, or None for no
+    approvers), "who", "when" and "amended" for approved, and "said" for changes-requested. author
+    is from exempt_author(); found is approval() for the area; pushed and brief are the pushed ref
+    and the brief's path; since is when the brief last changed there; said is every (time, login,
+    where, body) on the PR since then."""
     counts = counts_for(area, trusted)
-    detail = {'notes': [], 'sent_back': []}
-    if author in counts:
-        return 'not needed', dict(detail, by=author)
-    if not area['approvers']:
-        return 'not needed', dict(detail, by=None)
+    detail = {'notes': [], 'sent_back': [], 'counted': False, 'compared': None}
+    exempt = exemption(area, trusted, author)
+    if exempt is not None:
+        return 'not needed', dict(detail, by=author if exempt == 'author' else None)
     if found is not None:
         who, when, _ = found
+        detail['counted'] = who in counts
         if who not in counts:
             detail['notes'].append(f"the {area['label']} label was added by @{who}, who doesn't approve {area['slug']}, so it does not count")
         elif parse_time(when) >= since:
@@ -597,21 +707,44 @@ def area_state(area, catch_all, trusted, author, found, pushed, brief, since, sa
                 current = git_show(pushed, brief)
                 sent = [catch_all if slug == CATCH_ALL else slug for slug in reapprove_areas(approved, current)]
                 detail['sent_back'] = sent
+                detail['compared'] = compare(approved, current)
                 if area['slug'] not in sent:
                     return 'approved', dict(detail, who=who, when=when, amended=True)
-                reason = ': ' + compare(approved, current)[0][len('reapprove '):]
+                reason = ': ' + detail['compared'][0][len('reapprove '):]
             detail['notes'].append(f"@{who} approved an earlier version of {area['slug']}; the brief has changed since{reason}")
     mine = [item for item in said if item[1].lower() in counts]
     if mine:
         return 'changes-requested', dict(detail, said=mine)
     return 'waiting', detail
+
+def area_results(repo, n, labels, by_slug, trusted, catch_all, touched, author, pushed, brief, since, said):
+    """[(area, state, detail)]: area_state() of each slug in touched, in that order, then of the
+    catch-all when an area's approval sends the brief back to it and touched doesn't name it.
+    labels are the PR's; the rest are area_state()'s arguments."""
+    results = []
+
+    def evaluate(slug):
+        area = by_slug[slug]
+        found = approval(repo, n, area, labels)
+        results.append((area,) + area_state(area, catch_all, trusted, author, found, pushed, brief, since, said))
+
+    for slug in touched:
+        evaluate(slug)
+    # An approved section changed with no Amendments row sends the brief back to the catch-all,
+    # whether or not Areas: names it; when it doesn't, the catch-all's line comes last.
+    if catch_all not in touched and any(catch_all in detail['sent_back'] for _, _, detail in results):
+        evaluate(catch_all)
+    return results
 PY
 }
 
 # The draft PR's description for a brief: what the approver checks, not the whole brief. The
 # outcome, decisions, scope and Definition of Done in full; the builder's constraints and build
-# order, and the plan, folded away. The full brief stays in .claude/briefs/ on the branch.
+# order, and the plan, folded away. The full brief stays in .claude/briefs/ on the branch. For a
+# brief with Areas:, the note lists each area's label and approvers, read from PROJECT.md, and the
+# areas the PR's opener needs no approval for (the opener is the gh login before the PR exists).
 # render_body <brief path in repo> <branch>
+# PROJECT.md is an argument, not environment, so Git Bash converts its path for Python.
 render_body() {
 	local ref="$2"
 	git rev-parse --verify -q "refs/heads/$ref" >/dev/null || ref="origin/$2"
@@ -715,8 +848,44 @@ def link(text):
             parts[i] = re.sub(pat, many, parts[i])
     return ''.join(parts)
 
-out = [f'{mark} {brief_path} -->',
-       f'> **Brief for approval.** Add the `{label}` label to approve it, or comment to ask for changes.',
+def opener_of(branch):
+    """The login, lowercased, of the opener of the branch's PR (None when GitHub gives none, a
+    deleted account); with no PR yet, the gh login running this, as submit is about to open it.
+    Any other gh failure stops, so the gh login isn't taken as the opener of a PR that exists."""
+    r = subprocess.run(['gh', 'pr', 'view', branch, '--json', 'author'], capture_output=True, text=True)
+    if r.returncode != 0:
+        if not r.stderr.startswith('no pull requests found'):
+            sys.exit(f"ada-brief: couldn't read the PR of {branch}: " + ' '.join(r.stderr.split()))
+        return subprocess.run(['gh', 'api', 'user', '-q', '.login'], check=True, capture_output=True, text=True).stdout.strip().lower()
+    author = json.loads(r.stdout)['author']
+    return None if author is None else author['login'].lower()
+
+def area_note(touched, by_slug, trusted):
+    """The note's lines for a brief read area by area (submitted_areas()): each area's label and
+    approvers, or why it needs none, then the Trusted logins."""
+    author = exempt_author(opener_of(os.environ['BRANCH']), brief, os.environ['REQUIRE'] == '1')
+    note = ["> **Brief for approval.** Each area it touches is approved by its own label, added by one of that area's approvers. Comment to ask for changes."]
+    for slug in touched:
+        area = by_slug[slug]
+        exempt = exemption(area, trusted, author)
+        if exempt == 'author':
+            note.append(f"> - {area['name']}: not needed (@{author} approves it)")
+        elif exempt == 'no approvers':
+            note.append(f"> - {area['name']}: not needed (no approvers)")
+        else:
+            note.append(f"> - `{area['label']}` ({area['name']}): " + ', '.join('@' + login for login in area['approvers']))
+    # A bare ">" ends the list, so the next line isn't read as part of its last item.
+    note.append('>')
+    if trusted:
+        note += ['> Trusted developers can add any of these labels: ' + ', '.join('@' + login for login in trusted), '>']
+    return note
+
+found = submitted_areas(brief, sys.argv[1], False)
+if found is None:
+    note = [f'> **Brief for approval.** Add the `{label}` label to approve it, or comment to ask for changes.']
+else:
+    note = area_note(*found[:3])
+out = [f'{mark} {brief_path} -->'] + note + [
        '> Nothing is built until it is approved. Check that the outcome is what is wanted, the decisions',
        '> fit the system, the scope is right, and each Definition of Done item can be checked.']
 if expected:
@@ -783,7 +952,8 @@ if plan:
 out.append(f'The full brief is `{brief_path}` on this branch.')
 print('\n'.join(out))
 PY
-	} | BRIEF="$1" REF="$ref" MARK="$MARK" LABEL="$LABEL" py -
+	} | BRIEF="$1" REF="$ref" BRANCH="$2" MARK="$MARK" LABEL="$LABEL" REQUIRE="${ADA_BRIEF_REQUIRE:-}" \
+		py - "$root/.claude/team/PROJECT.md"
 }
 
 # The Asana app for GitHub links a task by appending a block to the PR's description ("To see the
@@ -810,63 +980,166 @@ open(sys.argv[1], 'w', encoding='utf-8', newline='\n').write(new.rstrip('\n') + 
 PY
 }
 
-# What submit does about an existing PR's approval, from the approved version and the brief it
-# has just pushed. Prints one of these, then the PR's URL:
-#   keep      same or allowed, and the PR's description already shows this brief (a repeat)
-#   patch     the brief is the approved one (same), but the description isn't (its plan changed)
-#   comment   amended with no re-approval needed (allowed), and the description doesn't show it
-#             yet; the PR comment is written to its file
-#   reset     re-approval is needed, or there is no approver's label to keep
-# then one line for each label submit removes: those of the areas whose approval isn't kept, so
-# brief-approved after reset and nothing otherwise.
-# after_submit <repo> <pr number> <branch> <brief path in repo> <approvers> <description file> <comment file>
-# The files are arguments, not environment, so Git Bash converts their paths for Python.
+# What submit does about an existing PR's approval, from the approved versions and the brief it
+# has just pushed. Prints, one a line:
+#   the text in brackets after "updated  <url>": approval kept, approval reset, or (a brief with
+#     Areas: when a label counted) approval reset: <slug>, ...
+#   the PR's URL
+#   keep or patch: whether the PR's description is replaced with the description file
+#   none or post: whether the comment file, written here, is posted on the PR
+#   then "remove <label>" for each label to take off the PR, and "create <label><tab><description>"
+#   for each label to create: an area's that the brief doesn't name on Areas: but now needs.
+# A brief without Areas: has one area, its brief-approved label, and four outcomes: kept as it is
+# (same or allowed, and the description already shows this brief); kept with the description
+# replaced (same, but the description isn't this brief's: its plan changed); kept with the
+# description replaced and a comment listing the added Amendments rows (allowed); reset, with
+# the description replaced and the label removed (re-approval needed, or no approver's label).
+# A brief with Areas: is decided area by area, as status decides it (area_results()).
+# after_submit <repo> <pr number> <branch> <brief path in repo> <approvers> <description file> <comment file> <old rev>
+# <old rev> is origin/<branch> before submit pushed, or empty. The files are arguments, not
+# environment, so Git Bash converts their paths for Python.
 after_submit() {
 	{ brief_py; cat <<'PY'
-repo, n, branch, path = (os.environ[k] for k in ('REPO', 'N', 'BRANCH', 'FILE'))
+repo, n, branch, path, old = (os.environ[k] for k in ('REPO', 'N', 'BRANCH', 'FILE', 'OLD'))
 pr = gh(f'repos/{repo}/pulls/{n}')
 labels = [l['name'] for l in pr['labels']]
-# Each area with its verdict: compare() of its approved version with the brief just pushed, or
-# None when no approver's label is on for it or there is no approved version.
-verdicts = []
-for area in implicit_areas(os.environ['APPROVERS'].split()):
-    found = approval(repo, n, area, labels)
-    verdicts.append((area, since_approval(f'origin/{branch}', path, found[1]) if found and found[2] else None))
+pushed = f'origin/{branch}'
+current = git_show(pushed, path)
+found = submitted_areas(current, sys.argv[3], False)
 with open(sys.argv[1], encoding='utf-8') as f:
     shown = lines_of(pr['body'] or '') == lines_of(f.read())
-# The labels of the areas whose approval doesn't carry over to the brief just pushed.
-remove = [area['label'] for area, verdict in verdicts if verdict is None or verdict[0] not in ('same', 'allowed')]
-if remove:
-    print('reset')
-elif shown or all(verdict[0] == 'same' for _, verdict in verdicts):
-    print('keep' if shown else 'patch')
-else:
-    area, verdict = next((a, v) for a, v in verdicts if v[0] == 'allowed')
-    added = verdict[1]
-    text = [f"**Brief amended after approval; no re-approval needed.** Remove the `{area['label']}` label to withdraw the approval.", '']
+
+def allowed_comment(kept, added):
+    """The comment for an amendment that needs no re-approval: kept are the labels it keeps, added
+    the Amendments rows added since the approved version."""
+    names = ' or '.join(f'`{label}`' for label in kept)
+    text = [f'**Brief amended after approval; no re-approval needed.** Remove the {names} label to withdraw the approval.', '']
     if added:
         text += ['Amendments added since the approved version, each agreed and hitting no re-approval trigger:', '']
         text += amendments_table(added)
     else:
         text += ['Only sections outside Decisions and Constraints changed, and no amendment was added.']
+    return text
+
+def reason_of(verdict):
+    """compare()'s reason for a "reapprove <reason>" verdict."""
+    return verdict[0][len('reapprove '):]
+
+def listed(logins):
+    return ', '.join('@' + login for login in logins)
+
+comment, remove, create = [], [], []
+if found is None:
+    # Each area with its verdict: compare() of its approved version with the brief just pushed, or
+    # None when no approver's label is on for it or there is no approved version.
+    verdicts = []
+    for area in implicit_areas(os.environ['APPROVERS'].split()):
+        found = approval(repo, n, area, labels)
+        verdicts.append((area, since_approval(pushed, path, found[1]) if found and found[2] else None))
+    # The labels of the areas whose approval doesn't carry over to the brief just pushed.
+    remove = [area['label'] for area, verdict in verdicts if verdict is None or verdict[0] not in ('same', 'allowed')]
+    if remove:
+        said, body = 'approval reset', 'patch'
+    elif shown or all(verdict[0] == 'same' for _, verdict in verdicts):
+        said, body = 'approval kept', 'keep' if shown else 'patch'
+    else:
+        area, verdict = next((a, v) for a, v in verdicts if v[0] == 'allowed')
+        said, body = 'approval kept', 'patch'
+        comment = allowed_comment([area['label']], verdict[1])
+else:
+    touched, by_slug, trusted, catch_all = found
+    opener = None if pr['user'] is None else pr['user']['login'].lower()
+    author = exempt_author(opener, current, os.environ['REQUIRE'] == '1')
+    since = parse_time(last_change(pushed, path))
+    # Comments don't change what submit does, so none are read.
+    results = area_results(repo, n, labels, by_slug, trusted, catch_all, touched, author, pushed, path, since, [])
+    counted = any(detail['counted'] for _, _, detail in results)
+    # Every area that needs approval and has no counting label once submit is done.
+    needed = [(area, detail) for area, state, detail in results if state not in ('not needed', 'approved')]
+    if not counted:
+        said = 'approval reset'
+    elif needed:
+        said = 'approval reset: ' + ', '.join(area['slug'] for area, _ in needed)
+    else:
+        said = 'approval kept'
+    body = 'keep' if shown else 'patch'
+    # The brief as it was on the PR before this submit, to tell what this submit changed.
+    before = git_show(old, path) if old else None
+    before_areas = (brief_areas(before) or []) if before is not None else None
+    before_sent = reapprove_areas(before, current) if before is not None else None
+    lines = []
+    for area, detail in needed:
+        head = f"- `{area['label']}` ({area['name']}): "
+        tail = '. Approved by: ' + listed(area['approvers'])
+        if detail['counted']:
+            remove.append(area['label'])
+            reason = reason_of(detail['compared']) if detail['compared'] else 'the brief has no version from before the label was added'
+            # Left out when sent_back is empty, as it is when there was no approved version to compare.
+            sent = f"; sent back: {', '.join(detail['sent_back'])}" if detail['sent_back'] else ''
+            lines.append(head + f"label removed. Reason: {reason}{sent}" + tail)
+        elif area['slug'] in touched and before_areas is not None and area['slug'] not in before_areas:
+            lines.append(head + "now needed. Reason: the brief's Areas: line names it now" + tail)
+        elif area['slug'] not in touched and (before_sent is None or CATCH_ALL in before_sent):
+            # The catch-all, sent back by an approval this submit's change undid.
+            sender = next(d for _, _, d in results if d['compared'] and area['slug'] in d['sent_back'])
+            lines.append(head + f"now needed. Reason: {reason_of(sender['compared'])}; sent back: {', '.join(sender['sent_back'])}" + tail)
+        if area['slug'] not in touched:
+            create.append(area['label'] + '\t' + label_description(area))
+    # Without a label that counted, nothing was compared, so no area is sent back.
+    if lines and counted:
+        comment = ['**Brief amended; these areas need approving.**', ''] + lines
+    kept = [(area, detail) for area, state, detail in results
+            if state == 'approved' and detail['compared'] and detail['compared'][0] == 'allowed']
+    if kept and not shown:
+        comment += ([''] if comment else []) + allowed_comment([area['label'] for area, _ in kept], kept[0][1]['compared'][1])
+    if not remove and shown:
+        comment = []
+    if comment:
+        comment = [submit_mark()] + comment
+post = 'post' if comment else 'none'
+if comment:
     with open(sys.argv[2], 'w', encoding='utf-8', newline='\n') as f:
-        f.write('\n'.join(text) + '\n')
-    print('comment')
+        f.write('\n'.join(comment) + '\n')
+print(said)
 print(pr['html_url'])
+print(body)
+print(post)
 for label in remove:
-    print(label)
+    print('remove ' + label)
+for line in create:
+    print('create ' + line)
 PY
-	} | REPO="$1" N="$2" LABEL="$LABEL" BRANCH="$3" FILE="$4" APPROVERS="$5" py - "$6" "$7"
+	} | REPO="$1" N="$2" LABEL="$LABEL" MARK="$MARK" BRANCH="$3" FILE="$4" APPROVERS="$5" OLD="$8" \
+		REQUIRE="${ADA_BRIEF_REQUIRE:-}" py - "$6" "$7" "$root/.claude/team/PROJECT.md"
 }
 
-# The approval areas' labels, one a line. An area's label doesn't depend on its approvers, so
-# none are passed.
+# The labels submit creates for a brief, one "<label><tab><description>" a line: the
+# approved:<slug> label of each area on its Areas: line, in that order, or brief-approved without
+# one (PROJECT.md isn't read then). A slug PROJECT.md doesn't list, or a bad areas table, stops it
+# with exit 2. The files are arguments, not environment, so Git Bash converts their paths for Python.
+# area_labels <brief file>
 area_labels() {
 	{ brief_py; cat <<'PY'
-for area in implicit_areas([]):
-    print(area['label'])
+with open(sys.argv[1], encoding='utf-8') as f:
+    found = submitted_areas(f.read(), sys.argv[2], True)
+if found is None:
+    areas = implicit_areas([])
+else:
+    touched, by_slug, _, _ = found
+    areas = [by_slug[slug] for slug in touched]
+for area in areas:
+    print(area['label'] + '\t' + label_description(area))
 PY
-	} | LABEL="$LABEL" py -
+	} | LABEL="$LABEL" py - "$1" "$root/.claude/team/PROJECT.md"
+}
+
+# Creates the labels on stdin, one "<label><tab><description>" a line, in submit's colour. A label
+# the repo already has is left as it is.
+create_labels() {
+	local label desc
+	while IFS=$'\t' read -r label desc; do
+		gh label create "$label" --color 0E8A16 --description "$desc" >/dev/null 2>&1 || true
+	done
 }
 
 # The areas in effect, or what they mean for a brief touching some of them, as the header
@@ -1015,6 +1288,8 @@ submit)
 	plan="$(sed -n 's/^Plan:[[:space:]]*\(\.claude\/briefs\/[A-Za-z0-9_-]*-plan\.md\).*/\1/p' "$src" | head -1)"
 	plan_src=''
 	[ -n "$plan" ] && [ -f "$plan_dir/PLAN.md" ] && plan_src="$plan_dir/PLAN.md"
+	# The pushed branch before this submit: after_submit tells from it what this submit changed.
+	old="$(git rev-parse -q --verify "refs/remotes/origin/$branch")" || old=''
 
 	if [ "$branch" = "$current" ]; then
 		mkdir -p .claude/briefs
@@ -1038,10 +1313,8 @@ submit)
 		out="$(git push -q -u origin "$branch" 2>&1)" || die "push failed: $out"
 	fi
 
-	labels="$(area_labels)" || exit 2
-	while IFS= read -r label; do
-		gh label create "$label" --color 0E8A16 --description 'An approver has approved the brief' >/dev/null 2>&1 || true
-	done <<<"$labels"
+	labels="$(area_labels "$src")" || exit 2
+	create_labels <<<"$labels"
 	body="$(mktemp)"; comment="$(mktemp)"; trap 'rm -f "$body" "$comment"' EXIT
 	render_body "$file" "$branch" >"$body"
 	if n="$(pr_number "$branch")"; then
@@ -1050,27 +1323,30 @@ submit)
 		pol="$(policy)" || exit 2
 		approvers="${pol%%$'\n'*}"   # the first line: the approvers, or none or missing
 		case "$approvers" in missing|none) approvers='' ;; esac
-		kept="$(after_submit "$r" "$n" "$branch" "$file" "$approvers" "$body" "$comment")" || exit 2
-		# The action, the URL, then the labels to remove. No mapfile: macOS has bash 3.2.
+		kept="$(after_submit "$r" "$n" "$branch" "$file" "$approvers" "$body" "$comment" "$old")" || exit 2
+		# after_submit's lines, as its comment describes. No mapfile: macOS has bash 3.2.
 		kept_lines=(); while IFS= read -r line; do kept_lines+=("$line"); done <<<"$kept"
-		action="${kept_lines[0]}"; url="${kept_lines[1]}"
-		case "$action" in
-		keep)
-			echo "updated  $url (approval kept)" ;;
-		patch)
+		said="${kept_lines[0]}"; url="${kept_lines[1]}"
+		if [ "${kept_lines[2]}" = patch ]; then
 			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
-			echo "updated  $url (approval kept)" ;;
-		comment)
-			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
+		fi
+		# The comment goes before the labels are removed: if posting it fails, a retry still finds
+		# the labels, so it removes them and posts the comment again.
+		if [ "${kept_lines[3]}" = post ]; then
 			gh api -X POST "repos/$r/issues/$n/comments" -F "body=@$comment" >/dev/null
-			echo "updated  $url (approval kept)" ;;
-		reset)
-			url="$(gh api -X PATCH "repos/$r/pulls/$n" -F "body=@$body" -q .html_url)"
-			for label in "${kept_lines[@]:2}"; do
-				gh api -X DELETE "repos/$r/issues/$n/labels/$label" >/dev/null 2>&1 || true
-			done
-			echo "updated  $url (approval reset)" ;;
-		esac
+		fi
+		create=''
+		i=4
+		while [ "$i" -lt "${#kept_lines[@]}" ]; do
+			line="${kept_lines[$i]}"
+			case "$line" in
+			'remove '*) gh api -X DELETE "repos/$r/issues/$n/labels/${line#remove }" >/dev/null 2>&1 || true ;;
+			'create '*) create="$create${line#create }"$'\n' ;;
+			esac
+			i=$((i + 1))
+		done
+		[ -z "$create" ] || printf '%s' "$create" | create_labels
+		echo "updated  $url ($said)"
 	else
 		url="$(gh pr create --draft --base "$base" --head "$branch" --title "$title" --body-file "$body" 2>/dev/null)" ||
 			die "couldn't open the draft PR into $base"
@@ -1117,7 +1393,8 @@ def stop(*lines):
 
 def said_since(since_t):
     """Everyone's words on the PR since since_t: reviews with a body or changes requested, line
-    comments and PR comments, as (time, login, where, body)."""
+    comments and PR comments other than those submit posted (submit_mark()), as (time, login,
+    where, body)."""
     said = []
     for r in flat(gh(f'repos/{repo}/pulls/{n}/reviews')):
         if r.get('submitted_at') and parse_time(r['submitted_at']) >= since_t and (r.get('body') or r['state'] == 'CHANGES_REQUESTED'):
@@ -1126,7 +1403,7 @@ def said_since(since_t):
         if parse_time(c['created_at']) >= since_t:
             said.append((c['created_at'], c['user']['login'], f"on {c['path']}:{c.get('line') or c.get('original_line')}", c['body']))
     for c in flat(gh(f'repos/{repo}/issues/{n}/comments')):
-        if parse_time(c['created_at']) >= since_t:
+        if parse_time(c['created_at']) >= since_t and not c['body'].startswith(submit_mark()):
             said.append((c['created_at'], c['user']['login'], 'comment', c['body']))
     return said
 
@@ -1141,7 +1418,7 @@ if not m:
     stop('not-submitted', f"{pr['url']} has no ada-brief marker: submit with ada-brief submit")
 brief = m.group(1)
 # When the brief last changed on the pushed branch: approval and comments count after this.
-since = subprocess.run(['git', 'log', '-1', '--format=%cI', pushed, '--', brief], capture_output=True, text=True).stdout.strip()
+since = last_change(pushed, brief)
 if not since:
     stop('not-submitted', f'{brief} is not on the pushed branch')
 since_t = parse_time(since)
@@ -1154,32 +1431,14 @@ if touched is None and no_approval:
 
 if touched is not None:
     # The area path: each area on the pushed brief's Areas: line is approved on its own.
-    areas, trusted = read_areas(read_project(sys.argv[1]))
-    by_slug = {area['slug']: area for area in areas}
-    for slug in touched:
-        if slug not in by_slug:
-            print(f"ada-brief: the brief names area {slug}, which PROJECT.md doesn't list", file=sys.stderr)
-            sys.exit(2)
-    catch_all = next(area['slug'] for area in areas if area['catch_all'])
+    by_slug, trusted, catch_all = touched_areas(read_project(sys.argv[1]), touched)
     # The opener (None when gh gives "author": null, a deleted account) is exempt when Author: names them.
     opener = None if pr['author'] is None else pr['author']['login'].lower()
     named = brief_author(current)
     require = os.environ['REQUIRE'] == '1'
-    author = opener if named == opener and not require else None
+    author = exempt_author(opener, current, require)
     said = said_since(since_t)
-    results = []
-
-    def evaluate(slug):
-        area = by_slug[slug]
-        found = approval(repo, n, area, labels)
-        results.append((area,) + area_state(area, catch_all, trusted, author, found, pushed, brief, since_t, said))
-
-    for slug in touched:
-        evaluate(slug)
-    # An approved section changed with no Amendments row sends the brief back to the catch-all,
-    # whether or not Areas: names it; when it doesn't, the catch-all's line comes last.
-    if catch_all not in touched and any(catch_all in detail['sent_back'] for _, _, detail in results):
-        evaluate(catch_all)
+    results = area_results(repo, n, labels, by_slug, trusted, catch_all, touched, author, pushed, brief, since_t, said)
     states = [state for _, state, _ in results]
     approved = [detail for _, state, detail in results if state == 'approved']
     if 'changes-requested' in states:
