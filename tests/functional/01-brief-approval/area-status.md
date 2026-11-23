@@ -9,7 +9,7 @@ Trusted), or needs none because the PR's opener is its `Author:` and approves it
   status`); 12 Platforms (bash 3.2, Python 3.8, CRLF, a path with a space)
 - Asana: task 1220198285902650
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-20, 285 passed, 0 failed on the host (bash 5.3, Python 3.14); Docker and On GitHub not run; see the PR
+- Last run: 2026-11-23: 285 passed, 0 failed on the host (bash 5.3, Python 3.14); Docker and On GitHub not run; see the PR
 
 ## Precondition
 
@@ -880,7 +880,7 @@ git -C "$R" checkout -q add/x
 HL=$(printf 'Areas: content, design\nAuthor: @opener'); brief; at $T10; sub opener
 plan() { ( cd "$R" && PATH="$W/stub:$PATH" && GH_USER=tester && export PATH GH_USER && exec "$BASH_BIN" "$NP/bin/ada-plan" status ) > "$W/o" 2> "$W/e"; echo $? > "$W/c"; }
 ENDS() { if awk -v s="$1" 'length($0) >= length(s) && substr($0, length($0) - length(s) + 1) == s { f = 1 } END { exit !f }' "$W/o"; then ok 0 "$CASE: a line ends '$1'"; else ok 1 "$CASE: a line ends '$1'"; show; fi; }
-plan; EXIT 0; ENDS 'brief: waiting'
+plan; EXIT 0; ENDS 'brief: waiting (content, design)'
 label approved:content tester 2026-01-01T11:00:00Z; label approved:design tester 2026-01-01T11:05:00Z
 plan; EXIT 0; ENDS 'brief: approved @tester 2026-01-01T11:05:00Z'
 
