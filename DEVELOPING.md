@@ -97,14 +97,37 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
 
 ## Brief approval
 
-`bin/ada-brief` does the checking. Only a `brief-approved` label added by an approver, after the
-brief last changed, counts. It commits the brief to `.claude/briefs/<task id>.md` and opens the
+`bin/ada-brief` does the checking. For a brief without areas, only a `brief-approved` label
+added by an approver, after the brief last changed, counts. It commits the brief to `.claude/briefs/<task id>.md` and opens the
 draft PR. The draft PR shows what the approver checks: what to check, the expected review size,
 the outcome, decisions, out of scope and Definition of Done. The constraints and build order are
 folded away. When `ada-brief` replaces a PR's description, it keeps the block the Asana app adds.
 
 To try the flow as an approver, run Claude with `ADA_BRIEF_REQUIRE=1`. Your briefs then need
 approval, and your own label counts.
+
+**The area path.** When `PROJECT.md`'s Brief approval section has an areas table
+(`| Area | Slug | Approved by |`), approval goes area by area:
+
+- `ada-brief areas` prints each area's slug and approvers, the catch-all marked, then the Trusted
+  logins. It needs no `gh`. Ada reads it to check the slugs she writes on a brief's `Areas:`
+  line.
+- `ada-brief who <area>...` says what those areas mean for the developer running it. After
+  `required`, a `needs <slug>: @a, @b` line names each area they can't approve.
+- A brief's `Areas:` and `Author:` header lines are read by `submit`, `status`, `body` and
+  `compare`. The template's `<…>` prompt reads as none, so a brief without areas works as before.
+- `submit` creates an `approved:<slug>` label for each area on `Areas:`. Approvers add their
+  area's label; a Trusted login's label counts for every area.
+- `status` prints one `area <slug>: …` line per area: approved, waiting (on whom), changes
+  requested, or not needed. An area the author approves is not needed only when `Author:` names
+  the PR's opener, and never under `ADA_BRIEF_REQUIRE=1`.
+- `compare` adds a second line, `areas: <slug>, ...`, after `reapprove`: the areas an amendment
+  sends back, from its `needed: <area>` cells (`catch-all` for an approved section changed with
+  no row). `submit` then removes only those labels and prints
+  `updated  <url> (approval reset: <slug>, ...)`.
+
+Ada's side is in `skills/begin/approval.md`. Without a table, the one area is `everything` and
+its label is `brief-approved`.
 
 `ada-brief overlap [<file>...]` lists the work in flight a step could overlap. It fetches the
 `Branch from` and `PR into` branches `PROJECT.md` names. It lists the commits in `PR into` not in

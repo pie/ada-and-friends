@@ -11,7 +11,7 @@ Releasing in DEVELOPING.md).
   Trusted logins, without `gh`. `ada-brief who <area>...` says whether a brief touching those areas
   needs approval for you, and after `required` lists the areas you can't approve and who can. A
   bad table stops `ada-brief` with a message saying what is wrong. `ada-brief who` with no areas
-  is unchanged, and nothing calls the new commands yet.
+  is unchanged.
   `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
   ...` (the approval areas the brief touches) and `Author: @<login>`, and an amendment's
   Re-approval `needed: <area>, ...`. When an amended brief needs approving again,
@@ -30,6 +30,15 @@ Releasing in DEVELOPING.md).
   labels of the areas it sends back are removed; the others stay. Submit then prints
   `updated  <url> (approval reset: <slug>, ...)`, naming every area still to approve, and posts
   one PR comment saying which labels were removed and why, or which areas now need approving.
+  To set up areas, run `/ada:onboard`, which asks who decides what and offers a starter set of
+  seven areas to edit; or add the table to the Brief approval section of
+  `.claude/team/PROJECT.md` (the plugin's template has it in a comment) and fill in Approved by.
+  Ada then writes the areas each brief touches on its
+  `Areas:` line and your login on `Author:`, and asks only those areas' approvers, naming them.
+  You need no approval for the areas you approve, and Trusted approves every area. If you
+  approve an area, add its `approved:<slug>` label to the draft PR. An amendment comes back to
+  you only when it touches your area, and Iris's designs go to the design area's approvers.
+  Without a table, approval works as before, with `brief-approved`.
 
 ## 0.16.0, 23 Nov 2026
 

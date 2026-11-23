@@ -43,7 +43,7 @@ couldn't find or aren't sure of, and wait for answers:
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
 | Kind | ask: "Is this a plugin or theme PIE sells and supports, or a client's website?" The first is `product`, the second `site`. For a product, also ask for the Asana project for its support tickets (its name and GID). Step 5 puts them in the knowledge base's `config.json` |
-| Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin` (its `approval.md`); list them on `Re-approval triggers:`, else leave `none` |
+| Brief approval | ask both, whatever the first answer: "Will anyone outside PIE write code here?" and "Who decides what?" (a client may approve wording or design when PIE writes all the code). If nobody's briefs need approving, write `Approvers: none` and leave the template's areas table in its comment. Otherwise, for who decides what, offer the starter areas as a table to edit, never imposed: Wording and content `content`; Design and UI `design`; Price `price`; System behaviour (catch-all) `system`; Fragile areas `fragile`; Security, auth and payments `security`; New dependency, data repair or migration `dependencies`. The developer may drop, rename or add rows; one row stays the catch-all. Ask for each row's approvers (Approved by: `Approvers`, `@logins`, both, or `none`), naming a client developer where they own the area. Then the GitHub logins of the PIE people who approve briefs (`Approvers:`, which `Approvers` in the table stands for), and, if anyone outside PIE writes code, any client developers trusted to build without approval (`Trusted:`; Trusted approves every area). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. Move the agreed table out of the comment in `PROJECT.md`'s Brief approval section, then run `ada-brief areas`: it exits 0 and prints each slug with its approvers. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin` (its `approval.md`), and which area each goes back to; list them on `Re-approval triggers:`, else leave `none` |
 | Budget | ask: "Is this a project where a slip costs little (a brochure site, no payments or subscriptions)?" Yes → `lean`; otherwise `standard`. Say they can change it at any time, and that a step in a fragile area should run on `standard` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
 | Clock-sensitive behaviour | look for date and weekday logic, cut-off times and scheduled actions; then ask: yes (with the times to test, e.g. Friday after noon) or no |
@@ -79,8 +79,9 @@ ada-onboard settings
   instead of guessing.
 
 If briefs need approval, suggest a `.github/CODEOWNERS` line, `/.claude/ @<an approver>`, so a
-change to the approval lists (or any team file) needs a PIE review. It only takes effect with
-branch protection requiring code-owner review; say so, and leave turning that on to PIE.
+change to the approval lists and areas table (or any team file) needs a PIE review. It only
+takes effect with branch protection requiring code-owner review; say so, and leave turning that
+on to PIE.
 
 Commit the onboarding with the trailer `Co-Authored-By: Ada (Claude Code) <ada@ada.pie.co.de>`.
 

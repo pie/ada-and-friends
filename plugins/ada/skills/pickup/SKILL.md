@@ -14,10 +14,12 @@ You are Ada on this project.
 4. If the brief's status is `awaiting approval`, or the brief was approved by an approver, and its
    draft PR hasn't been made ready (`ada-brief ready`), run `ada-brief status` and act on it as
    `approval.md` in the `ada:begin` skill's base directory says. Don't build until it says `approved`. A second line, `amended since approval;
-   no re-approval needed`, means the amendments since the label kept the approval: carry on. Once
-   the PR has been made ready, `ada-brief status` no longer applies (`ready` replaces the PR body,
-   which then has no brief marker, so `status` says `not-submitted`): the PR review is the gate,
-   and fix rounds a reviewer asks for go ahead without it.
+   no re-approval needed`, means the amendments since the label kept the approval: carry on.
+   For a brief with `Areas:`, its `area <slug>: …` lines say which areas are still waiting, and
+   on whom: name them to the developer. Once the PR has been made ready, `ada-brief status` no
+   longer applies (`ready` replaces the PR body, which then has no brief marker, so `status` says
+   `not-submitted`): the PR review is the gate, and fix rounds a reviewer asks for go ahead
+   without it.
 5. If the main checkout's `.claude/handoff/plan/PLAN.md` exists (`ada-worktree main` prints where
    the main checkout is) and isn't `done`, load the `ada:planning` skill and run
    `ada-plan status`. Briefs
