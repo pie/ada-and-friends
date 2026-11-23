@@ -9,7 +9,7 @@ Trusted), or needs none because the PR's opener is its `Author:` and approves it
   status`); 12 Platforms (bash 3.2, Python 3.8, CRLF, a path with a space)
 - Asana: task 1220198285902650
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 2026-11-11, 285 passed, 0 failed on the host (bash 5.3, Python 3.14); the 5h and 5i author-null checks print FAIL against the pre-fix ada-brief; Docker and On GitHub not run; see the PR
+- Last run: 2026-11-20, 285 passed, 0 failed on the host (bash 5.3, Python 3.14); Docker and On GitHub not run; see the PR
 
 ## Precondition
 
