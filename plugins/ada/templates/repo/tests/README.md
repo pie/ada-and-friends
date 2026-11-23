@@ -50,6 +50,9 @@ presstest run                        # everything, with the shared suites
 presstest run checkout_test.js       # one file
 ```
 
+A step runs all the unit tests and only the PressTest files for what it changes. The release run
+before the release PR into main runs everything, with the shared suites.
+
 - One `*_test.js` file per area or flow, named in the PressTest column of
   `.claude/team/TEST-AREAS.md`. Code the tests share goes in `shared/`, imported by relative path
   (`require( './shared/checkout' )`).
