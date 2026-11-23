@@ -180,7 +180,8 @@ build order, definition of done. No prose. Name the `SYSTEM.md` sections and `AP
 that apply, the files you expect to change, and the surfaces to check (P12). Every item in the
 Definition of Done is observable: a thing Tess can see, not a feeling. For logic you expect to be
 unit-tested, name the function and its signature, so Tess can write the test before Bob writes
-the code (P29).
+the code (P29). Its `Areas:` line names the areas it touches and `Author:` the developer's
+`@login`, as `approval.md` says.
 
 **Check the brief against work in flight.** Before you confirm the brief, run
 `ada-brief overlap <the brief's expected files>`. It lists the work waiting to ship (in the

@@ -41,7 +41,9 @@ any brief is written:
 Then:
 
 1. `ada-plan init`, and fill in `.claude/handoff/plan/PLAN.md`: the Outcome, why this breakdown,
-   and the Units table. `ada-plan check` until it's clean.
+   and the Units table. `ada-plan check` until it's clean. The Unit cell may name the unit's
+   approval areas, e.g. `Checkout copy (content)`, but never add them as a column: `ada-plan
+   check` requires the six.
 2. **Design, once per feature, before its units' briefs.** Apply the design test (`ada:begin`,
    The design step) to each feature and to each top-level unit. Where it passes, offer the design
    step for it, as a whole, before any of its briefs is written, so its parts share one design.
@@ -50,13 +52,16 @@ Then:
    ID), which every unit's archive leaves in place. `.claude/handoff/DESIGN.md` stays the
    template until a unit that names the design is built (Working through a plan, 3).
 3. `ada-plan briefs` drafts a brief per unit, `.claude/handoff/plan/<task id>.md`, with its
-   branch, base, plan and order filled in. Write each one as **The brief** in `ada:begin` says. A
+   branch, base, plan and order filled in. Write each one as **The brief** in `ada:begin` says,
+   with the unit's areas on its `Areas:` line and `Author:` filled (`approval.md` there). A
    feature's Build order is its parts, and its Definition of Done is what the smoke test checks
    when they're all in. A brief that builds a designed unit, or part of one, is finished from its
    `plan/DESIGN-<task id>.md` as The design step says, and names that file in its Constraints.
 4. Confirm the plan and the briefs with the developer.
 5. `ada-plan branches` creates every unit's branch.
-6. Approval, if the project needs it (`ada:begin`): submit each top-level brief with
+6. Approval, if the project needs it (`ada:begin`): run `ada-brief who <its areas>` for each
+   top-level brief (`ada-brief who` with no areas table), and submit each one that says
+   `required` with
    `ada-brief submit <task id> <its base> <its branch>`, without checking the branch out. Each one
    carries the plan, so the approver sees the whole breakdown. A feature's parts are submitted
    once the feature's brief is approved; `ada-brief` refuses them before then.
@@ -79,8 +84,8 @@ touches are submitted again.
 that are ready at the same time can be built in parallel, each in its own session, if the
 developer asks.
 
-1. `ada-plan status` says what's ready: approved (or no approval needed), and not waiting on
-   another unit. Pick with the developer.
+1. `ada-plan status` says what's ready: approved (every area approved or not needed, or no
+   approval needed), and not waiting on another unit. Pick with the developer.
 2. Make the unit's worktree with `ada-worktree new <its branch>`, without a base: `ada-plan
    branches` made the branch. Move the session there with `EnterWorktree`, or give the developer
    the `cd "<path>" && claude` fallback and stop, as `ada:begin` says (Session start, 8). Bring
