@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <ruleset name="{{PROJECT_NAME}}">
-	<description>WordPress coding standards for the V&amp;Me shop. Run on changed files; older files are not clean and are not expected to be.</description>
+	<description>WordPress coding standards for {{PROJECT_NAME}}. Run on changed files; older files are not clean and are not expected to be.</description>
 
 	<arg name="extensions" value="php"/>
 	<arg name="basepath" value="."/>

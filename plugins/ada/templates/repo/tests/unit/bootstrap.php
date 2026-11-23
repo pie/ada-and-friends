@@ -14,7 +14,8 @@ define( 'ABSPATH', '/tmp/wordpress/' );
 define( 'TESTS_CODE_DIR', dirname( __DIR__, 2 ) . '/{{CODE_DIR}}' );
 
 // Constants the code under test expects, which are normally defined by a file that hooks into
-// WordPress as it loads, go here, e.g. define( 'Project\DATE_FORMAT', 'Y-m-d' );
+// WordPress as it loads, go here, e.g. define( 'MYPLUGIN_VERSION', '1.0.0' ); (a namespaced
+// constant takes its namespace: define( 'MyPlugin\VERSION', '1.0.0' );)
 
 require_once __DIR__ . '/TestCase.php';
 

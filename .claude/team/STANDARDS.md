@@ -34,7 +34,7 @@ No classes. Each script owns its state, and nothing else writes it:
 **S100. Scripts run on bash 3.2 and Git Bash.** No `mapfile`, associative arrays, `${x,,}` or
 other bash 4+ features; guard `"${arr[@]}"` on possibly empty arrays under `set -u`. Use only
 POSIX-compatible `sed`/`grep` options that BSD tools also have. Evidence: the 0.3.0 Mac fix
-(`CHANGELOG.md:191-192`), `bin/ada-brief:585`, `DEVELOPING.md:140-148`.
+(`CHANGELOG.md:191-192`), `bin/ada-brief:589`, `DEVELOPING.md:140-148`.
 
 **S101. Python in scripts is 3.8+, found through the `PY` block.** Try `python3`, `python`,
 `py -3` with a version check; strip `\r` from output; write files with `newline='\n'`; read with
@@ -44,7 +44,7 @@ POSIX-compatible `sed`/`grep` options that BSD tools also have. Evidence: the 0.
 **S102. Every script keeps the shared shape.** `set -euo pipefail`; a `die` that prints
 `<script>: <message>` to stderr and exits 2; `cd` to `git rev-parse --show-toplevel`; validate
 every argument used in a git ref or path with a regex before use; a header comment that is the
-complete usage text, kept current with the code. Evidence: `bin/ada-brief:1-102`, `:604-607`.
+complete usage text, kept current with the code. Evidence: `bin/ada-brief:1-102`, `:608-611`.
 
 **S103. Script output words are interfaces.** A status word or line format that a skill or
 another script reads (`API.md`) changes only with every reader in the same PR.

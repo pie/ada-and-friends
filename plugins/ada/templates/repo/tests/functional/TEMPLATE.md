@@ -2,7 +2,7 @@
 
 - Area: <number and name from .claude/team/TEST-AREAS.md>
 - Asana: <task URL that introduced or changed this behaviour>
-- Automate as: none | unit | presstest
+- Automate as: none | unit
 - Last run: <date, result in a few words, where the detail is (e.g. PR #123)>
 
 ## Precondition
@@ -20,8 +20,9 @@ not what the code happens to do.
 
 ## Observe at
 
-Where to look: the page, Reports → Meal deliveries, order notes, WooCommerce → Status → Logs
-(source), Tools → Scheduled Actions, the export.
+Where to look (the full list is in `.claude/team/TEST-AREAS.md`), e.g. the page, the browser's
+Network tab and console, an admin screen, order notes, WooCommerce → Status → Logs (source),
+Tools → Scheduled Actions, `debug.log`.
 
 ## Regression
 

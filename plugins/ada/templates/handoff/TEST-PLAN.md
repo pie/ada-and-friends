@@ -4,7 +4,7 @@ Written by Tess from BRIEF.md and TEST-AREAS.md, before reading the code.
 
 - Definition of Done items covered:
 - TEST-AREAS areas touched:
-- Clock positions used (if dates are involved):
+- Clock positions used (only if the step changes date or time logic):
 
 ## Checks
 
@@ -19,7 +19,7 @@ automated test).
 
 ## Tests supplied
 
-One row per Definition of Done item (`S29`). Type: **unit**, **presstest** or **functional**.
+One row per Definition of Done item (`P29`). Type: **unit**, **presstest** or **functional**.
 
 | DoD item | Type | File | If none, why |
 |---|---|---|---|
@@ -33,3 +33,12 @@ state after each.
 ## Regression
 
 Behaviour next to the change that must not move.
+
+## Left to the release run
+
+What this step could reach but doesn't run, for the release run before the release PR into main:
+the PressTest files and clock positions in `TEST-AREAS.md`, and the shared suites in
+`.claude/team/PROJECT.md` (Tests). One line each, or
+`none`. A step runs the whole unit-test suite and only the PressTest files for what it changes.
+
+-

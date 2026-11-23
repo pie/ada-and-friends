@@ -63,10 +63,11 @@ nobody does it again.
    (`LOCAL_URL`) in `.claude/team/local.env`. `PROJECT.md` says what goes there. This file stays
    on your machine. If the project's dates matter, set up its clock too (A local site's clock,
    below).
-6. If the project has a PressTest suite (`PROJECT.md`, Tests), also put in `local.env` where your
-   clone of pie/presstest.io is (`PRESSTEST_DIR`) and the local site's report token
-   (`PRESSTEST_SECRET`). `presstest config` shows what it found. Then `presstest run` runs the
-   project's suite against your local site, for you or for Tess. `presstest run --env staging`
+6. If the project has PressTest tests (`tests/presstest/`, and `PROJECT.md`, Tests), log Docker
+   in to GitHub's package registry and add the site's report token (`PRESSTEST_SECRET`) to
+   `local.env`, once: PressTest tests, below, has the steps. Then `presstest run` runs the
+   project's tests against your local site, for you or for Tess. No presstest.io clone is
+   needed. `presstest run --env staging`
    runs it on the project's staging site, if `PROJECT.md` names one; its token goes in
    `PRESSTEST_STAGING_SECRET`. It needs Docker, and never runs on production.
 
@@ -163,6 +164,72 @@ the site gives the fake time.
 
 Test payments on real time: payment webhooks fail their signature checks while the clock is
 moved.
+
+### PressTest tests
+
+`presstest run` runs the project's Playwright tests (`tests/presstest/`), and the shared suites
+`PROJECT.md` names, against your local site. They run in the PressTest runner image,
+`ghcr.io/pie/presstest-runner`, which Docker downloads the first time. You need Docker, `curl`
+and `jq`, and the Presstest Companion plugin (1.3.0 or later) on the local site. Set it up once
+per machine:
+
+**1. Log Docker in to GitHub's package registry.** The image is private, so Docker needs a GitHub
+login that can read packages. Your GitHub account needs read access to pie/presstest.io. Run
+these in a normal terminal, not through Claude Code (step 1 waits for you in the browser):
+
+1. `gh auth refresh -h github.com -s read:packages`. It prints a one-time code and waits. Open
+   https://github.com/login/device, enter the code and approve, within a few minutes. If GitHub
+   asks you to authorise SSO for `pie`, do that too.
+2. `gh auth status`. Check that `read:packages` is listed under Token scopes. If it isn't, the
+   approval didn't finish: run step 1 again.
+3. `gh auth token | docker login ghcr.io -u "$(gh api user -q .login)" --password-stdin`. It
+   prints `Login Succeeded`.
+4. `docker pull ghcr.io/pie/presstest-runner:<version>`, with the version from `PROJECT.md`
+   (PressTest image). It downloads the image.
+
+Without the `gh` command: create a classic token at https://github.com/settings/tokens/new with
+only `read:packages` ticked (and Configure SSO for `pie`, if it's offered), then run
+`docker login ghcr.io -u <your GitHub username>` and paste the token as the password.
+
+A `403 Forbidden` from the pull means the login can't read packages yet: check step 2, then
+log in again (step 3). If `read:packages` is there and it still fails, ask for read access to
+pie/presstest.io. The login lasts until the token expires or is revoked; `presstest run` says
+so when it fails to pull.
+
+**2. Add the site's report token to `local.env`.** It lets the tests create users and orders, and
+the plugin removes them when the run ends. Presstest > Settings shows it masked, so read it with
+WP-CLI instead: in Local, right-click the site, choose Open site shell, and run this, with the
+project's path. It adds the token without printing it:
+
+```sh
+printf 'PRESSTEST_SECRET=%s\n' "$(wp option get presstest_companion_report_secret)" >> "<the project>/.claude/team/local.env"
+```
+
+On the same settings page, switch on "Allow Presstest to create test data".
+
+**3. Add the project's own settings, if its tests need any.** A line
+`PRESSTEST_ENV_<NAME>=value` in `local.env` reaches the tests of a local run as `<NAME>` in the
+container's environment (for example `PRESSTEST_ENV_TEST_HELPER_SECRET=...` is read as
+`process.env.TEST_HELPER_SECRET`). The name is capitals, digits and underscores, starting with a
+capital; any other key starting `PRESSTEST_ENV_`, and names `presstest run` or bash uses itself
+(`URL`, `USERNAME`, `PASSWORD`, `HOME`, `PATH`, anything starting `PRESSTEST_`, `DOCKER_` or
+`BASH`, names bash won't export such as `SHELLOPTS` or `UID`, and so on) are refused. They go to local runs only, never to
+staging, and never on a command line or in presstest's output. The project's tests must not print
+them either, or they land in the report.
+
+**4. Check it.** In the repo, `presstest config` shows the image, the tests, `secret: (set)` and
+each project setting's name with `(set)`. Then `presstest run` should end with
+`presstest: passed <n>`.
+
+**Clock runs.** A test that needs the site at another time runs with
+`presstest run --clock <file>`, on your local site only, once `ada-clock` is set up (above). The
+container can't move the clock, so `presstest` runs `ada-clock set` and `ada-clock reset` on your
+computer when the test asks, one request at a time, with one test worker. It starts only when
+`ada-clock status` says `ada-clock: real`, and when the run ends, however it ends, it resets the
+clock and prints `presstest: ada-clock reset` and `presstest: ada-clock: real`. If the clock
+isn't back at real time, the run fails: run `ada-clock reset` yourself. Run any other way, the
+project's clock tests skip. The project's own tests say how to write one (V&Me:
+`tests/README.md`, Clock runs).
 
 ## Brief approval
 

@@ -38,10 +38,11 @@ couldn't find or aren't sure of, and wait for answers:
 |---|---|
 | Project name, client, people | git log authors, README, `style.css` / plugin headers |
 | Code directory (`CODE_DIR`) | the repo layout |
-| Text domain, package, namespace | `style.css`, plugin headers, `namespace` lines, `phpcs.xml.dist` |
+| Text domain, package, namespace | `style.css`, plugin headers, `namespace` lines, `phpcs.xml.dist`. The unit tests live in `<NAMESPACE>\Tests`, so a project with no namespace gets one for its tests from its name, e.g. `AscottAnalytical`; never `none` |
 | Timezone | ask (WordPress's own setting is in the database) |
 | Branches, environments, deploys | `.github/workflows/`, branch names on the remote |
 | Known-issues project | ask |
+| Kind | ask: "Is this a plugin or theme PIE sells and supports, or a client's website?" The first is `product`, the second `site`. For a product, also ask for the Asana project for its support tickets (its name and GID). Step 5 puts them in the knowledge base's `config.json` |
 | Brief approval | ask: "Will anyone outside PIE write code here?" No → `Approvers: none`. Yes → the GitHub logins of the PIE people who approve briefs, and any client developers trusted to build without approval (`Trusted:`). Collaborator logins: `gh api repos/<owner>/<repo>/collaborators -q '.[].login'`. If briefs need approval, ask whether any change on this project should always be approved again, beyond the defaults in `/ada:begin` (its `approval.md`); list them on `Re-approval triggers:`, else leave `none` |
 | Budget | ask: "Is this a project where a slip costs little (a brochure site, no payments or subscriptions)?" Yes → `lean`; otherwise `standard`. Say they can change it at any time, and that a step in a fragile area should run on `standard` |
 | Fragile areas | ask, and look for the code that's changed most and broken most (git log, reverts, "fix" commits) |
@@ -49,7 +50,9 @@ couldn't find or aren't sure of, and wait for answers:
 | Production SSH, table prefix, logs path | ask; WP Engine is `<install>@<install>.ssh.wpengine.net` and `sites/<install>/wp-content/uploads/wc-logs` |
 | Expensive or sensitive tables, classes whose constructors write | ask, and grep for views, `CREATE VIEW` and constructors that save |
 | How local copies are made safe | ask |
-| PressTest suite | the folder names under `all-tests/` in a pie/presstest.io clone, if the developer has one (ask where); then ask them to confirm which is this project's, or `none` |
+| PressTest image | the latest runner image version: `gh api repos/pie/presstest.io/contents/VERSION -q .content \| base64 -d`. If `gh` can't read it, ask |
+| PressTest shared suites | `wordpress-core`, and `woocommerce-core` if the site runs WooCommerce; confirm with the developer, or `none` |
+| Existing PressTest tests | whether pie/presstest.io has a folder for this project under `all-tests/` (`gh api repos/pie/presstest.io/contents/all-tests -q '.[].name'`). If it does, its tests move into `tests/presstest/` as a separate step, not during onboarding |
 | PressTest staging site | ask: the staging URL PressTest may run against, or `none` if there's no staging or Cloudflare's bot challenge blocks PressTest there. Never production |
 | Design guide (what Iris designs within) | if the repo has a root `DESIGN.md`, `Design guide: DESIGN.md`; else a style guide or pattern library in the repo (e.g. under `docs/`, a `styleguide` folder), or a link to one in the README; else `none`, for the developer to correct with a URL or a design system artifact link |
 
@@ -66,6 +69,8 @@ ada-onboard settings
   intent into it by hand, if it's needed at all. It records a hash of each file it copies in
   `.claude/team/.template-hashes`; commit that with the templates. When a later plugin version
   changes the PR template, `/ada:begin` refreshes it from there (`ada-onboard refresh`).
+  A template the project deletes stays deleted: `files` and `refresh` print `removed` and don't
+  copy it back. To bring one back, delete its line from `.template-hashes` and run `files`.
 - `settings` changes what Claude may run in this repo. **Show the developer the printed result and
   get their yes before you commit it.** It enables the plugin, allows the read-only and lint
   commands, and denies pushes to the production and release branches and direct SSH to
@@ -92,9 +97,13 @@ existing docs:
   prompt. Fill the `Design guide:` line under The project (add it if `PROJECT.md` was there
   before and has none): `DESIGN.md` for a root `DESIGN.md`, another path in the repo, a URL, a
   design system artifact link, or `none`. Iris reads it when she designs (`ada:design`, Look
-  first). Write the `PressTest suite:` line as the suite's folder name in a code span, first on
-  the line (`` `vandme` ``), and the `PressTest staging:` line as the staging URL in a code span,
-  or `none` for either: `presstest run` reads them.
+  first). Write the `PressTest image:` line as the version in a code span, first on the line
+  (`` `1.0.0` ``), the `PressTest shared suites:` line as one code span per suite
+  (`` `wordpress-core`, `woocommerce-core` ``), and the `PressTest staging:` line as the staging
+  URL in a code span, or `none` for any of them: `presstest run` reads them. `ada-onboard files`
+  copies a first test, `tests/presstest/site_test.js`; keep it unless PressTest is `none`. Write
+  the `Kind:` line as `` `product` `` or `` `site` `` in a code span, and leave `Knowledge base:`
+  as `` `none` ``: step 5 sets it for a product.
 - **`SYSTEM.md`:** the model, what fires when (hooks, scheduled actions, webhooks, cron), each
   fragile area, the environments, and the gotchas. Trace each claim to code and cite it
   (`file:line`). Mark anything you inferred but couldn't trace with *(unverified)*.
@@ -103,14 +112,35 @@ existing docs:
   owning classes. Leave the P rules to the plugin; don't copy them in.
 - **`TEST-AREAS.md`:** the areas, numbered; where to observe results; the clock positions, if
   anything depends on time. If nothing does, Dates and the clock says "none" and nothing else:
-  delete its `ada-clock` steps and rules.
+  delete its `ada-clock` steps and rules. The PressTest column names each area's files under
+  `tests/presstest/` (`site_test.js` to start with), or `none`.
 - **`CLAUDE.md`:** short. The layout, the team commands, and the project's one or two hard rules.
 - **`prod.env`:** add the never-query list (`PROD_FORBIDDEN`) once you know it.
 
 Depth matters most where the fragile areas are. A shallow line about a stable area is fine; a
 shallow line about the area that breaks is not.
 
-## 5. The local clock
+## 5. The knowledge base
+
+Only when `PROJECT.md`'s Kind line says `product`. When it says `site`, skip this step: don't run
+`ada-onboard kb`, and leave `Knowledge base:` as `` `none` ``.
+
+A product's knowledge base holds its past support issues. Ada and Grace add to it as they work
+support cards, and Grace searches it when she investigates a bug.
+
+1. **Create the folder.** Run `ada-onboard kb`. It copies the plugin's knowledge-base template
+   into `knowledge-base/`, never overwriting a file that exists, and prints `created` or `kept`
+   per file. If the developer wants the folder somewhere else in the repo, give its path:
+   `ada-onboard kb docs/kb`.
+2. **Fill `config.json`** in the folder from the step 2 answers: `{{ASANA_PROJECT_NAME}}` and
+   `{{ASANA_PROJECT_GID}}` with the Asana project for support tickets.
+3. **Set the `Knowledge base:` line** in `PROJECT.md` to the folder's path in a code span
+   (`` `knowledge-base/` ``). `ada-onboard check` reads it, and reports the folder if it's
+   missing or `config.json` still holds a `{{KEY}}`.
+
+The folder is committed with the drafted knowledge (step 7).
+
+## 6. The local clock
 
 Only when `PROJECT.md`'s Clock-sensitive behaviour line says yes. When it says no, skip this
 step: don't run `ada-onboard clock` or any `ada-clock` command, and don't ask about the clock.
@@ -164,20 +194,26 @@ the lines of `local.env` named here; the file also holds the developer's secrets
      `ada-clock extension`; it copies the extension to `~/.config/ada-clock/chrome-extension/` and
      prints how to load it in Chrome (`chrome://extensions`, Developer mode, Load unpacked).
 
-## 6. Hand over
+## 7. Hand over
 
 1. Run `ada-onboard check` and fix what it lists, except the prompts only the developer can
    answer.
 2. Commit on the onboarding branch: the templates and settings in one commit, the drafted
-   knowledge in another, so the knowledge can be reviewed on its own.
+   knowledge in another (with the knowledge-base folder, for a product), so the knowledge can be
+   reviewed on its own.
 3. Tell the developer, in a short list:
    - what you drafted, and how many lines are marked *(unverified)*;
    - what you couldn't find out;
    - that **they must read and correct `SYSTEM.md` and `PROJECT.md` before the first
      `/ada:begin`**;
-   - if the project has a PressTest suite, that each developer adds their `PRESSTEST_*` lines to
-     `.claude/team/local.env` (`PROJECT.md`, Local copies), then checks them with
-     `presstest config`;
+   - that each developer adds their PressTest logins and the site's report token, the
+     `PRESSTEST_*` lines, to `.claude/team/local.env` (`PROJECT.md`, Local copies), checks them
+     with `presstest config`, logs Docker in to ghcr.io once (the runner image is private:
+     the ada README's PressTest tests section has the steps), and runs `presstest run` once against their local site;
+   - if pie/presstest.io has tests for this project, that moving them into `tests/presstest/` is
+     its own step;
+   - if the project is a product, where its knowledge base is, that it starts empty, and
+     that Ada and Grace add entries as they work support cards;
    - if the project is clock-sensitive, the clock setup `ada-onboard clock` chose, and what is
      still to do for it (`LOCAL_URL`, `sudo apt install faketime`, `ada-clock install`, the
      restart in Local). Each other developer runs `ada-onboard clock` and `ada-clock install`

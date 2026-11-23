@@ -10,7 +10,7 @@ scripts do.
 - Area: 02 Onboarding and refresh (`ada-onboard check`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/100438094841951/task/1219769422658693
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 28 Oct 2026, 0 failed (25 PASS) under bash 5, bash --posix and Docker bash 3.2; the pre-fix break prints 8 FAIL as expected (see the PR)
+- Last run: 30 Oct 2026, 0 failed under bash 5.2 (see the PR)
 
 ## Precondition
 

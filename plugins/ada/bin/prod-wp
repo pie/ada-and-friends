@@ -7,7 +7,8 @@
 #   prod-wp sql "SELECT ..."                    one SELECT / SHOW / DESCRIBE / EXPLAIN;
 #                                               write {prefix} for the table prefix:
 #                                               SELECT ID FROM {prefix}posts ...
-#   prod-wp inspect <script> [args...]          a READ-ONLY script from the project's tools/bughunt/
+#   prod-wp inspect <script> [args...]          a READ-ONLY script from the project's tools/bughunt/,
+#                                               run behind a guard that blocks writes (below)
 #   prod-wp notes <order or subscription id> [count]    order notes, newest first
 #   prod-wp option <name>                       wp option get
 #   prod-wp actions <list|get|next> [args...]   wp action-scheduler action, read-only subcommands
@@ -22,7 +23,17 @@
 #   PROD_SSH=install@install.ssh.wpengine.net      required; your own SSH key does the auth
 #   PROD_PREFIX=wp_                                 the production table prefix
 #   PROD_LOGS=sites/install/wp-content/uploads/wc-logs
-#   PROD_FORBIDDEN=expensive_view another_table     names that may not appear in a query
+#   PROD_FORBIDDEN=expensive_view feedback      names (tables, views, post types) that may not
+#                                               appear in a query. While it is set, a query on
+#                                               {prefix}posts or {prefix}postmeta must also name
+#                                               its post_type or its IDs, so it can't return rows
+#                                               of a forbidden post type without naming it.
+#
+# Read-only is enforced, not trusted. sql runs in a READ ONLY MySQL session. An inspector is
+# refused if its code calls a known write function, and on the server it runs after a guard that
+# puts the session READ ONLY, drops every query through $wpdb that isn't SELECT, SHOW, DESCRIBE
+# or EXPLAIN, and stops mail and outgoing HTTP requests. The guard can't stop file or object
+# cache writes, which is what the scan is for; tools/bughunt/README.md has the rules.
 #
 # The WP Engine gateway re-parses inline commands and drops quotes, so remote commands are sent
 # as a script on standard input, each argument quoted with printf %q.
@@ -68,6 +79,61 @@ need_host() { [ -n "$HOST" ] || die "no PROD_SSH: add it to .claude/team/prod.en
 need_logs() { [ -n "$LOGS" ] || die "no PROD_LOGS: add it to .claude/team/prod.env"; }
 run() { need_host; ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" bash -s; }
 
+# What an inspector may not call: WordPress and WooCommerce writes, hooks that run other code,
+# the filesystem, processes, and ways round the guard. WRITE_CALLS_OK are the read-only names
+# the broad patterns would catch.
+WRITE_CALLS='(^|[^a-z0-9_$])((add|update|delete|set)_[a-z0-9_]+|(wc|wcs)_(create|update|delete|add|set|reduce|increase|cancel)[a-z0-9_]*|wp_(insert|create|update|delete|trash|untrash|publish|set|mail|schedule|unschedule|clear_scheduled|cache_(add|set|replace|delete|incr|decr|flush))[a-z0-9_]*|as_(schedule|enqueue|unschedule)[a-z0-9_]*|do_action(_ref_array)?|remove_(all_)?(filters?|actions?)|file_put_contents|fwrite|fputs|unlink|rename|rmdir|mkdir|copy|touch|chmod|exec|shell_exec|system|passthru|proc_open|popen|mysqli_[a-z_]+|eval)[[:space:]]*\(|->(save|delete|trash|untrash|insert|update|replace|cancel|refund|dbh)([^a-z0-9_]|$)'
+WRITE_CALLS_OK='(^|[^a-z0-9_$])(add_query_arg|add_filter|add_action|set_time_limit|set_error_handler|wp_set_current_user)[[:space:]]*\('
+
+# Sent ahead of every inspector and run on production before it. On a host without READ ONLY
+# sessions the query filter still applies.
+read -r -d '' GUARD <<'PHP' || true
+<?php
+// prod-wp's read-only guard. Edits belong in the plugin's bin/prod-wp, not here.
+( static function () {
+	$wpdb = $GLOBALS['wpdb'];
+	$quiet = $wpdb->suppress_errors( true );
+	if ( false === $wpdb->query( 'SET SESSION TRANSACTION READ ONLY' ) ) {
+		fwrite( STDERR, "prod-wp: this database has no READ ONLY sessions; the query filter still applies\n" );
+	}
+	$wpdb->suppress_errors( $quiet );
+	$blocked = static function ( $what ) {
+		fwrite( STDERR, 'prod-wp: blocked ' . substr( preg_replace( '/\s+/', ' ', $what ), 0, 160 ) . "\n" );
+	};
+	add_filter(
+		'query',
+		static function ( $query ) use ( $blocked ) {
+			$sql = preg_replace( '~^(\s+|/\*.*?\*/|\()+~s', '', (string) $query );
+			if ( preg_match( '/^(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN)\b/i', $sql )
+				&& ! preg_match( '/\b(INTO\s+(OUT|DUMP)FILE|FOR\s+UPDATE|LOCK\s+IN\s+SHARE\s+MODE)\b/i', $sql ) ) {
+				return $query;
+			}
+			$blocked( 'a write: ' . $query );
+			return ''; // wpdb::query() returns false for an empty query.
+		},
+		PHP_INT_MAX
+	);
+	add_filter(
+		'pre_wp_mail',
+		static function ( $short, $atts ) use ( $blocked ) {
+			$blocked( 'an email: ' . ( is_array( $atts ) && isset( $atts['subject'] ) ? $atts['subject'] : '' ) );
+			return false;
+		},
+		PHP_INT_MAX,
+		2
+	);
+	add_filter(
+		'pre_http_request',
+		static function ( $pre, $args, $url ) use ( $blocked ) {
+			$blocked( 'an HTTP request: ' . $url );
+			return new WP_Error( 'prod_wp_read_only', 'prod-wp: no outgoing requests from an inspector' );
+		},
+		PHP_INT_MAX,
+		3
+	);
+} )();
+PHP
+
 [ $# -ge 1 ] || die "no command. See the header of $0."
 cmd="$1"; shift
 
@@ -91,9 +157,16 @@ sql)
 	for name in $FORBIDDEN; do
 		[[ "$s" =~ $name ]] && die "$name is on this project's never-query list (PROD_FORBIDDEN); query the underlying tables"
 	done
+	# A forbidden post type's rows come back from any posts query that doesn't narrow by type.
+	if [ -n "$FORBIDDEN" ]; then
+		[[ "$s" =~ (\{prefix\}|$PREFIX)posts([^A-Za-z0-9_]|$) && ! "$s" =~ post_type[[:space:]]*(=|IN[[:space:]]*\() && ! "$s" =~ (^|[^A-Za-z0-9_])ID[[:space:]]*(=|IN[[:space:]]*\()[[:space:]]*[0-9] ]] &&
+			die "this project has a never-query list, so a query on {prefix}posts must name its post_type (post_type = '...' or IN (...)) or its IDs (ID = 123)"
+		[[ "$s" =~ (\{prefix\}|$PREFIX)postmeta([^A-Za-z0-9_]|$) && ! "$s" =~ post_type[[:space:]]*(=|IN[[:space:]]*\() && ! "$s" =~ post_id[[:space:]]*(=|IN[[:space:]]*\()[[:space:]]*[0-9] ]] &&
+			die "this project has a never-query list, so a query on {prefix}postmeta must name its post_id (post_id = 123) or join {prefix}posts and name the post_type"
+	fi
 	shopt -u nocasematch
 	s="${s//\{prefix\}/$PREFIX}"
-	echo "wp db query $(q "$s")" | run
+	echo "wp db query $(q "SET SESSION TRANSACTION READ ONLY; $s")" | run
 	;;
 inspect)
 	[ $# -ge 1 ] || die 'inspect needs a script name'
@@ -102,8 +175,17 @@ inspect)
 	file="$root/tools/bughunt/$name.php"
 	[ -f "$file" ] || die "no script tools/bughunt/$name.php in this repo"
 	head -5 "$file" | grep -q 'READ-ONLY' || die "tools/bughunt/$name.php is not marked READ-ONLY in its first five lines"
+	grep -q 'ADA_BUGHUNT_' "$file" && die "tools/bughunt/$name.php may not contain ADA_BUGHUNT_ (prod-wp's own markers)"
+	# Comment lines and trailing // comments are dropped first, so a comment naming a call is fine.
+	writes="$(sed -E -e 's@^[[:space:]]*(\*|/\*|//|#).*$@@' -e 's@[[:space:]]//.*$@@' "$file" |
+		grep -niE "$WRITE_CALLS" | grep -viE "$WRITE_CALLS_OK" || true)"
+	[ -z "$writes" ] || die "tools/bughunt/$name.php calls something that writes, sends or runs; inspectors are read-only (tools/bughunt/README.md):
+$writes"
 	args=''; for a in "$@"; do args+=" $(q "$a")"; done
-	{ echo "wp eval-file -$args <<'ADA_BUGHUNT_PHP'"; cat "$file"; echo; echo 'ADA_BUGHUNT_PHP'; } | run
+	# WP-CLI evals the script from standard input; the guard evals the inspector the same way.
+	{ echo "wp eval-file -$args <<'ADA_BUGHUNT_PHP'"; echo "$GUARD"
+		echo "eval( '?>' . <<<'ADA_BUGHUNT_INSPECTOR'"; cat "$file"; echo; echo 'ADA_BUGHUNT_INSPECTOR'; echo ');'
+		echo 'ADA_BUGHUNT_PHP'; } | run
 	;;
 notes)
 	[[ "${1:-}" =~ ^[0-9]+$ ]] || die 'notes needs a numeric id'

@@ -31,6 +31,158 @@ Releasing in DEVELOPING.md).
   `updated  <url> (approval reset: <slug>, ...)`, naming every area still to approve, and posts
   one PR comment saying which labels were removed and why, or which areas now need approving.
 
+## 0.16.0, 23 Nov 2026
+
+- **A feature step tests less; the release run covers the rest.** On a step, Tess always runs
+  the project's whole unit-test suite, runs only the PressTest files for what the step changes
+  (never the shared suites; the old "or everything if the step touches checkout" is gone), and
+  adds clock positions only when the step changes date or time logic, not when it only displays
+  a date. Her plan has a new `## Left to the release run` section (the PressTest files, shared
+  suites and clock positions the step could reach but doesn't run), which `TEST-REPORT.md`
+  carries into Not verified, so the PR shows it. The onboarded `tests/README.md` template says
+  what a step runs and what the release run runs. The release run itself comes in a later change.
+- **New standard P41: outbound HTTP goes through the WordPress HTTP API.** Bob builds to it and
+  Claudia reviews against it, on every project. A project's own PHP sends server-side requests
+  with `wp_remote_*`, and `wp_safe_remote_*` when the URL or host comes from outside the code. A
+  third-party SDK or library that brings its own HTTP client isn't made to comply; it is recorded
+  in the project's `STANDARDS.md` as an S rule that says what it bypasses and how it is kept from
+  sending locally. Giving it a handler that sends through the HTTP API is optional advice.
+  Third-party plugins that send around the HTTP API are recorded the same way. Guzzle,
+  `curl_init()`, `file_get_contents()` on a URL and sockets are Must fix in the project's own code.
+- **A template the project deleted stays deleted.** `ada-onboard files` and `refresh` no longer
+  copy back a template that `.claude/team/.template-hashes` lists but the repo doesn't have. They
+  print `removed` and record the line as `removed`. `/ada:begin` says nothing about it. To bring
+  one back, run `ada-onboard refresh --force` for the PR template, or delete the template's line
+  from `.template-hashes` and run `ada-onboard files`. A template the file doesn't list, such as
+  a new one from a plugin update, is still copied.
+
+## 0.15.0, 19 Nov 2026
+
+- **Onboarding sets up a product's knowledge base.** `PROJECT.md` takes a `- **Kind:**` line,
+  `product` (a plugin or theme PIE sells and supports) or `site`, and a `- **Knowledge base:**`
+  line. For a product, `/ada:onboard` asks for the Asana project for support tickets, then
+  runs the new `ada-onboard kb [<path>]`, which creates the folder (default `knowledge-base/`)
+  from the plugin's template, never overwriting a file.
+  `ada-onboard check` reports the folder if it's missing, or if its `config.json` isn't filled
+  in. A site, or a project onboarded before this, works as before. To set one up by hand, add the
+  two lines and run `ada-onboard kb`.
+- **The knowledge base says when to write an entry.** Its README has a "When to write an entry"
+  section: every bughunt and every support card worked by the team records its card in an entry,
+  new or updated, so the knowledge base keeps a record of all of them for reporting; an existing
+  entry is updated rather than duplicated.
+- **Grace uses a product's knowledge base in `/ada:bughunt`.** In a project whose `PROJECT.md`
+  says `Kind: product` with a `Knowledge base:` folder, Intake checks the knowledge base first,
+  and an entry with a fix or workaround that fits the report ends the hunt. Otherwise the hunt
+  goes on as before. Every bughunt then ends with an entry written or updated (also when an
+  entry ended the hunt at Intake, and for a "not a bug" result), in the main checkout's folder
+  and never a `bughunt/<slug>` worktree, uncommitted for the developer to commit. `FINDINGS.md`
+  "Known issue?" names the entry that matched and the file written or updated. A site, or a project
+  with no `Kind:` line, works as before.
+- **The PR template has a `Knowledge base:` line, and a product's PRs record their
+  knowledge-base entry.** In a product, when a step works a card from the support project
+  (its Asana projects include `config.json` `asana.projectGid`; Ada asks the developer when she
+  can't check), Ada writes or updates its entry in the step's worktree before Claudia's review,
+  following the README's "No customer data", and commits it in the PR. Claudia's "Docs still
+  true" check makes customer data in an entry Must Fix, and a missing entry, or one whose Cause,
+  Solution or status doesn't match the fix, Should Fix (`fixed-in-release` with `fixed_in` only
+  once that version is in the changelog; until then `open-bug`, as the knowledge-base README's
+  Statuses and "To write one" now say too). The PR gate's summary and the PR's `## Built` say
+  which entry was written or updated, or why none was needed. Onboarded repos will be offered the
+  new PR template by `ada-onboard refresh`: `refreshed` if theirs is untouched, `edited` with a
+  diff if they changed it. A site deletes the line, and otherwise works as before, as does a
+  project with no `Kind:` line.
+
+## 0.14.1, 15 Nov 2026
+
+- **A `PROJECT.md` line whose first word is `none` means none**, even if an explanation after it
+  names a suite or a site in a code span. `presstest` used to read V&Me's shared suites line as
+  `wordpress-core` and its staging line as `vmestg`.
+- **`presstest run --clock` lets a project's tests move the local site's clock.** The wrapper
+  runs `ada-clock` on your computer when a test asks (through request files in
+  `.claude/presstest/run/clock/`, with `set "YYYY-MM-DD HH:MM"` and `reset` the only requests it
+  accepts), runs Playwright with one worker, and resets the clock when the run ends, however it
+  ends, before the test session ends. It prints a line for each request, then
+  `presstest: ada-clock reset` and the status, and fails the run if the clock isn't back at real
+  time. Local only: with `--env staging` it stops with exit 2, and it won't start unless
+  `ada-clock status` says `ada-clock: real`. Runs without `--clock` are unchanged. With no command
+  or an unknown one, `presstest` now prints its commands.
+- **`ada-clock`'s mu-plugin keeps PressTest test sessions open across a clock jump.** On a local
+  site it adds ten years to each PressTest Companion test session's lifetime, clock real or fake,
+  as it already does for logins, so a test that moves the clock forward isn't refused by the
+  Companion. Run `ada-clock install` again to get it. A session that a killed run leaves open is
+  no longer cleaned up by the Companion's hourly task; Settings > Test sessions still removes it.
+
+## 0.14.0, 12 Nov 2026
+
+- **Onboarding allows `ada-clock status`, `ada-clock set` and `ada-clock reset`**, so Tess can
+  read and move the clock without a permission prompt. `ada-clock install`, `uninstall`, `wp` and
+  `extension` still ask. A repo that is already onboarded gets the rules the next time
+  `ada-onboard settings` runs.
+- **`/ada:bughunt` names the `ada-clock` commands.** When a bug depends on the time, Grace moves
+  the local site's clock with `ada-clock set`, checks it with `ada-clock status`, runs WP-CLI
+  through `ada-clock wp` and finishes with `ada-clock reset` and a `status` that says
+  `ada-clock: real`. She hands the steps to the developer under the `manual` setup, records the
+  fake time in `FINDINGS.md`, and reports a clock that couldn't be reset. Projects onboarded before
+  `ada-clock` no longer depend on their `TEST-AREAS.md` for the commands.
+- **`ada-plan` and `ada-brief overlap` stop when PROJECT.md has no `**Branch from:**` line.**
+  They used to assume a branch called `production` and fail later with "couldn't fetch
+  production". Now they say PROJECT.md has no `**Branch from:**` line and to add one under Code and
+  branches. Only `ada-plan init` runs without it. With the line present nothing changes.
+- **`presstest run` passes a project's own settings into the tests, locally.** Each
+  `PRESSTEST_ENV_<NAME>=value` line in `.claude/team/local.env` reaches a local run as `<NAME>` in the
+  container's environment (for a project's test helper secret, say). The value goes in through the
+  environment, never on a command line or in output; `presstest config` shows the name with
+  `(set)`. Not passed to staging. A key starting `PRESSTEST_ENV_` whose name isn't capitals, digits and
+  underscores, or a name that presstest or bash uses itself (`URL`, `HOME`, `PATH`, anything
+  starting `PRESSTEST_`, `DOCKER_` or `BASH`, `EXECIGNORE`, or any name bash won't export, such as
+  `SHELLOPTS` or `UID`), stops a local run with exit 2, before Docker runs; `config` shows it as
+  `(invalid name)` or `(reserved)`. The project's tests must not print the values.
+
+## 0.13.0, 9 Nov 2026
+
+- **PressTest tests live in the project, and run without a presstest.io clone.** `presstest run`
+  runs the project's own Playwright tests, in `tests/presstest/`, in the PressTest runner image
+  (`ghcr.io/pie/presstest-runner`), with the shared suites the project names. Docker pulls the
+  image the first time a version is used. The image is private: each developer logs Docker in
+  to ghcr.io once, with a GitHub account that can read pie/presstest.io. The README's new
+  PressTest tests section has the steps, and how to read the site's report token.
+  - Two lines in `PROJECT.md` replace `PressTest suite:`: `PressTest image:` (the version the
+    tests are pinned to, such as `1.0.0`) and `PressTest shared suites:` (such as
+    `wordpress-core`, `woocommerce-core`). `PRESSTEST_DIR` is no longer used.
+  - `presstest run` starts the site's test session and always ends it, even when a test fails,
+    and prints what the session removed. If the site couldn't clean up yet, it says so, with the
+    command that finishes it, and Tess reports it. It needs curl and jq, and the Presstest
+    Companion plugin 1.3.0 or later on the site. The report token never goes on a command line.
+  - The report and the screenshots of failed tests go to `.claude/presstest/`, which
+    `ada-onboard gitignore` ignores.
+- **Tess writes PressTest tests**, in `tests/presstest/`, instead of functional scripts marked
+  `Automate as: presstest`, and runs them in run mode. She uses the browser only for what a
+  PressTest test can't do: visual checks, exploring a page, and looking into a failure.
+- **Onboarding sets up PressTest**: the image and shared suites lines, a first test
+  (`tests/presstest/site_test.js`), the PressTest column in `TEST-AREAS.md`, and the test logins
+  each developer adds to `local.env`.
+- **In a repo onboarded earlier:** run `ada-onboard gitignore`, and replace the `PressTest suite:`
+  line in `PROJECT.md` with the two new lines (`ada-onboard check` says so until it's done). If
+  the project's tests are still in pie/presstest.io, `presstest run` doesn't reach them: run
+  them from presstest.io (`local-test.sh`) or the companion plugin until the project's own step
+  moves them into `tests/presstest/`.
+- **`prod-wp` enforces read-only instead of trusting a marker.** Before, an inspector only had to
+  say `READ-ONLY` in a comment, so one that called `update_option()` still ran on production.
+  - `prod-wp inspect` refuses a script whose code (not its comments) calls a known write, send or
+    shell function, and lists the lines. `tools/bughunt/README.md` has the rules.
+  - On production every inspector now runs after a guard that makes the database session
+    `READ ONLY`, drops any `$wpdb` query that isn't SELECT, SHOW, DESCRIBE or EXPLAIN, and stops
+    email and outgoing HTTP requests, printing `prod-wp: blocked …` for each.
+  - `prod-wp sql` runs in a `READ ONLY` session too.
+  - While `PROD_FORBIDDEN` is set, a query on `posts` or `postmeta` must name its post types or
+    IDs. A `post_content LIKE` search across every post type used to return the rows of a
+    forbidden post type, because the query never named it.
+- **Onboarding templates fit any project** (Copilot's review of the Ascott onboarding): the PR
+  and test plan templates cite the test rule as P29, not S29; `PROJECT.md` says that Approvers
+  `none` means no brief needs approval; the unit test examples work without a namespace or
+  WooCommerce; the functional test template and `phpcs.xml.dist` no longer describe V&Me.
+  `ada-onboard files` refuses `NAMESPACE=none`, which made `namespace none\Tests`.
+
 ## 0.12.0, 4 Nov 2026
 
 - **Ada costs less to run.** Measured over 215 Ada sessions, over half the cost was Ada's own

@@ -55,13 +55,15 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
 - Agents are spawned by their prefixed name: `ada:bob`, never `bob`.
 - `bin/` is on the PATH, so `prod-wp` and `presstest` ship here. Each project still allows them in
   its settings.
-- `presstest` runs a project's PressTest suite on the developer's local site. The suite is the
-  repo's (`PROJECT.md`); the site, the presstest.io clone and the secrets are the developer's
-  (`.claude/team/local.env`). It tests the local site (`.local` and `.test` hosts) or, with
-  `--env staging`, the staging URL in `PROJECT.md`, with separate `PRESSTEST_STAGING_*` settings.
-  There is no production option: the suites place orders, and nothing marks a test as safe for
-  live. It only touches the clone's `playwright` container, recreating it when the local site's
-  domain isn't mapped into it.
+- `presstest` runs a project's PressTest tests on the developer's local site, in the runner image
+  `ghcr.io/pie/presstest-runner`. The tests (`tests/presstest/`), the image version and the shared
+  suites are the repo's (`PROJECT.md`); the site and the secrets are the developer's
+  (`.claude/team/local.env`). It starts the site's test session and always ends it. It tests the
+  local site (`.local` and `.test` hosts) or, with `--env staging`, the staging URL in
+  `PROJECT.md`, with separate `PRESSTEST_STAGING_*` settings. There is no production option: the
+  suites place orders, and nothing marks a test as safe for live. Each run starts a fresh
+  container from the image, removed when it ends, with the local site's domain mapped to the
+  host.
 - `ada-clock` puts the developer's local WordPress site at a fake time. The site, its WordPress
   root and the WP-CLI command are the developer's (`.claude/team/local.env`); it refuses any site
   not on `localhost`, `127.0.0.1`, `.local` or `.test`. `install` copies a mu-plugin from
@@ -79,10 +81,12 @@ Tested 10 Oct 2026 on Claude Code 2.1.296:
   `/ada:begin` runs `ada-onboard refresh` at session start instead: the project's PR template is
   replaced if it's an untouched copy (its hash is in `.claude/team/.template-hashes`), and the
   developer is asked if it was edited. It runs after the branch step, so the change lands on the
-  step's branch and doesn't trip the check for someone else's changes.
+  step's branch and doesn't trip the check for someone else's changes. A template the project
+  deleted is recorded there as `removed` and isn't copied back. `refresh --force` brings the PR
+  template back; for any template, delete its line and run `ada-onboard files`.
 - A plugin can't ship permissions or settings. `ada-onboard settings` writes them into the
   project's `.claude/settings.json`, including `promptCacheTtl: "1h"` for Ada's cache.
-- Each agent has a `tools:` allowlist, so connectors (Gmail, Asana, Chrome) aren't loaded into
+- Each agent has a `tools:` allowlist, so connectors (Asana, Chrome) aren't loaded into
   it. That keeps each role's starting context small.
 - One exception: Tess has Claude in Chrome (`ToolSearch` and `mcp__claude-in-chrome__*`), only
   for local checks the developer asks her to run, and only on the local site. It is in her own

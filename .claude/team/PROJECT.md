@@ -60,7 +60,8 @@ Project-specific checks on top of the P rules, each pointing at its S rule: see 
 ## Tests
 
 - **Unit tests:** see `tests/README.md`.
-- **PressTest suite:** none
+- **PressTest image:** none
+- **PressTest shared suites:** none
 - **Clock-sensitive behaviour:** no
 
 ## Production access (for `/ada:bughunt`)

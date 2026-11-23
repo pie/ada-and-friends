@@ -8,7 +8,9 @@ identifiers; refer to areas by number.
 - **Static:** `php -l` and `tools/vendor/bin/phpcs` on changed files only.
 - **Unit:** `tools/vendor/bin/phpunit` (`tests/README.md`).
 - **Local site:** <where to observe results: order notes, logs, reports, Scheduled Actions>.
-- **PressTest:** <suite and what it covers, or "none">.
+- **PressTest:** `presstest run`, the project's Playwright tests in `tests/presstest/` and the
+  shared suites in `PROJECT.md` (Tests). The PressTest column of the areas below names each
+  area's test files.
 
 ## Dates and the clock
 
@@ -38,6 +40,9 @@ The rules, whoever moves the clock:
 
 ## The areas
 
-| # | Area | Scope |
-|---|---|---|
-| 01 | | |
+Each area's PressTest files are under `tests/presstest/` (`presstest run <file>` runs one), or
+"none" where nothing covers it yet.
+
+| # | Area | Scope | PressTest |
+|---|---|---|---|
+| 01 | | | |

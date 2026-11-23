@@ -10,6 +10,8 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 - **Client:** <name>. Approves: <who>. Releases: <who>.
 - **People:** <PIE developers>, <client developers>
 - **Known issues live in:** <Asana project name and URL>. Search it before investigating a bug.
+- **Kind:** <one of `product` (a plugin or theme PIE sells and supports) or `site` (a client's website)>
+- **Knowledge base:** `none` <or, for a product, the folder's path, e.g. `knowledge-base/`>
 - **Design guide:** `none` <or a path in the repo, a URL, or a design system artifact link>
 - **Budget:** standard <`standard`, or `lean`: Bob, Claudia and Tess's Opus work at medium effort
   instead of high, for a project where a slip costs little. `/ada:begin` has the model table>
@@ -34,8 +36,8 @@ values.
 - **Trusted:** <`none`, or the GitHub logins who don't need approval but can't approve>
 - **Re-approval triggers:** none (the defaults in /ada:begin apply)
 
-Approvers never need approval. Anyone on neither list does: a new developer is covered without
-anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
+Approvers never need approval. When Approvers is `none`, no brief needs approval. Otherwise
+anyone on neither list does: a new developer is covered without anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
 added by an approver. Once a brief is approved, Ada checks each amendment against the default
 triggers in `/ada:begin` and any this project adds above. Only an amendment that hits one needs
 approving again.
@@ -65,8 +67,12 @@ Project-specific checks on top of the P rules, each pointing at its S rule:
 ## Tests
 
 - **Unit tests:** `tools/vendor/bin/phpunit` (`tests/README.md`).
-- **PressTest suite:** <`suite`, the folder under `all-tests/` in pie/presstest.io, or "none">.
-  `presstest run` reads the first `code` span here (or the first word), so keep the name first.
+- **PressTest tests:** `tests/presstest/`, run with `presstest run` (`tests/README.md`).
+- **PressTest image:** <`1.0.0`, the version of the runner image, ghcr.io/pie/presstest-runner,
+  the tests are pinned to, or "none">. `presstest run` reads the first `code` span here (or the
+  first word), so keep the version first. Moved up with each new image, and the tests run again.
+- **PressTest shared suites:** <`wordpress-core`, `woocommerce-core`: the suites in the image that
+  run with the project's tests, or "none">. Every `code` span here is read.
 - **PressTest staging:** <`https://staging.example.com`, the staging site `presstest run --env
   staging` tests, or "none" (e.g. Cloudflare's bot challenge blocks PressTest there)>. Never
   production: the suites place orders.
@@ -99,13 +105,17 @@ emails disabled. Say what a check should verify.>
   the only host Tess opens in Chrome, and the only site `presstest run` tests. The developer logs in to its admin before Tess checks
   anything in the browser. Tess sees a customer's view through the User Switching plugin's
   "Switch To", so the local site needs User Switching active; without it those checks stay manual.
-- **Running the PressTest suite locally:** `presstest run` (`presstest config` shows the settings
-  in use). Each developer adds to `.claude/team/local.env`: `PRESSTEST_DIR` (their clone of
-  pie/presstest.io), `PRESSTEST_SECRET` (the site's report token, Presstest > Settings, with "Allow
-  Presstest to create test data" on), and `PRESSTEST_CUSTOMER_USERNAME` /
-  `PRESSTEST_CUSTOMER_PASSWORD` if a test needs a shop customer. For staging (`--env staging`),
-  the same with `PRESSTEST_STAGING_` in front: local values are never sent to staging. Needs Docker and the Presstest
-  Companion plugin on the local site. <Which tests need the customer, if any.>
+- **Running the PressTest tests locally:** `presstest run` (`presstest config` shows the settings
+  in use). Each developer adds to `.claude/team/local.env`: `PRESSTEST_SECRET` (the site's report
+  token, Presstest > Settings, with "Allow Presstest to create test data" on), and
+  `PRESSTEST_CUSTOMER_USERNAME` / `PRESSTEST_CUSTOMER_PASSWORD` if a test needs a shop customer.
+  For staging (`--env staging`), the same with `PRESSTEST_STAGING_` in front: local values are
+  never sent to staging. Needs Docker, curl and jq, and the Presstest Companion plugin (1.3.0 or
+  later) on the local site. The runner image is private: each developer logs Docker in to
+  ghcr.io once, as the "PressTest tests" section of the ada README says
+  (https://github.com/pie/ada-and-friends#presstest-tests), which also says how to read the
+  report token.
+  <Which tests need the customer, if any.>
 - **Also checked before anything runs on the local site:** the background runners (Action
   Scheduler, WP-Cron) are frozen; the time WordPress reports from a web request is the intended
   time; nothing from an earlier run is left over (`.claude/handoff/CHECKPOINT.md`).
