@@ -25,6 +25,11 @@ Releasing in DEVELOPING.md).
   has no approvers, or when the PR's opener approves it and the brief's `Author:` line names
   them. A change to an approved section with no Amendments row sends the brief back to the
   catch-all area's approvers.
+  `ada-brief submit` creates the `approved:<slug>` labels of the areas a brief touches, and the
+  draft PR lists each label with its approvers. When an amended brief is submitted, only the
+  labels of the areas it sends back are removed; the others stay. Submit then prints
+  `updated  <url> (approval reset: <slug>, ...)`, naming every area still to approve, and posts
+  one PR comment saying which labels were removed and why, or which areas now need approving.
 
 ## 0.12.0, 4 Nov 2026
 
