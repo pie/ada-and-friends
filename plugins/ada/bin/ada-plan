@@ -20,7 +20,14 @@
 #       Pushing is ada-brief submit's job.
 #   ada-plan status
 #       Each unit's PR, brief approval, whether it has shipped, and what happens next: which
-#       units are ready to build, and what the others are waiting for.
+#       units are ready to build, and what the others are waiting for. A unit's approval is
+#       decided from the "Areas:" line of its draft brief (plan/<task id>.md; none when the draft
+#       or the line is missing, empty, or still the template's "<" prompt): ada-brief who <areas>,
+#       run once for each distinct set of areas. A unit with areas has ada-brief status asked for
+#       its open PR even when you needn't have the brief approved. For a brief waiting or with
+#       changes requested, the areas in that state follow it, as in "brief: waiting (design,
+#       content)"; "next:" names them too while the brief is waiting, as in "waiting for the
+#       brief to be approved (design, content)". A unit without areas prints as it did.
 #
 # The production and release branches are the "Branch from" and "PR into" names in
 # .claude/team/PROJECT.md. Every command but init needs the **Branch from:** line and stops
@@ -188,6 +195,27 @@ plan_file = f'.claude/briefs/{epic}-plan.md'
 def git(*a):
     return subprocess.run(['git', *a], capture_output=True, text=True)
 
+def unit_areas(task):
+    """The slugs on the "Areas:" line of the unit's draft brief (plan/<task>.md), lowercased,
+    in order, without repeats. This repeats how ada-brief reads the line (header_value(),
+    slugs() and strip_comments() in bin/ada-brief: the header only, comments left out), so a
+    change to that rule is made here too. None when there is no draft, no such line, no slug on
+    it, or it starts "<" (the template's prompt)."""
+    path = os.path.join(d, f'{task}.md')
+    if not os.path.exists(path):
+        return None
+    draft = re.sub(r'<!--.*?-->\n?', '', open(path, encoding='utf-8').read(), flags=re.S)
+    head = re.split(r'^## ', draft, maxsplit=1, flags=re.M)[0]
+    m = re.search(r'^Areas:[ \t]*(.*)$', head, re.M)
+    if not m or m.group(1).startswith('<'):
+        return None
+    slugs = []
+    for item in m.group(1).split(','):
+        slug = item.strip().lower()
+        if slug and slug not in slugs:
+            slugs.append(slug)
+    return slugs or None
+
 if cmd == 'check':
     print(f'plan {plan_file}: {len(units)} units')
     for u in units:
@@ -240,12 +268,25 @@ elif cmd == 'status':
     brief_bin = os.environ['BRIEF_BIN']
     def run(*a):
         return subprocess.run(list(a), capture_output=True, text=True)
-    # Whether this developer's briefs need approval at all.
-    who = (run(brief_bin, 'who').stdout.split() or ['required'])[0]
-    needed = who == 'required'
+    # Whether this developer's briefs for a set of areas (none: all of them) need approval.
+    # `who` runs once for each distinct set.
+    asked = {}
+    def needs_approval(areas):
+        key = tuple(sorted(areas or []))
+        if key not in asked:
+            r = run(brief_bin, 'who', *key)
+            if r.returncode:
+                # `who` failed (e.g. an area the project doesn't list): say so, and treat the
+                # briefs as required.
+                print(f'ada-plan: ada-brief who {" ".join(key)}: {r.stderr.strip()}', file=sys.stderr)
+            asked[key] = (r.stdout.split() or ['required'])[0] == 'required'
+        return asked[key]
     def ok(s):
         return s.startswith('approved') or s == 'not-needed'
     for u in units:
+        areas = u['areas'] = unit_areas(u['task'])
+        needed = needs_approval(areas)
+        u['waiting_on'] = []
         r = run('gh', 'pr', 'list', '--head', u['branch'], '--state', 'all', '--limit', '1',
                 '--json', 'number,state,isDraft,mergeCommit,url')
         prs = json.loads(r.stdout or '[]') if r.returncode == 0 else []
@@ -265,7 +306,15 @@ elif cmd == 'status':
         elif pr['state'] == 'CLOSED':
             u['brief'], u['state'] = '-', 'PR closed'
         else:
-            u['brief'] = (run(brief_bin, 'status', u['branch']).stdout.splitlines() or ['unknown'])[0].strip() if needed else 'not-needed'
+            # A unit with areas asks status even when who says not-needed: status knows the
+            # brief's Author:, so it prints not-needed itself when no area needs approval.
+            if areas or needed:
+                lines = run(brief_bin, 'status', u['branch']).stdout.splitlines()
+                u['brief'] = (lines or ['unknown'])[0].strip()
+                if u['brief'] in ('waiting', 'changes-requested'):
+                    u['waiting_on'] = [m.group(1) for m in (re.match(rf"area ([a-z0-9-]+): {u['brief']}\b", l) for l in lines) if m]
+            else:
+                u['brief'] = 'not-needed'
             u['state'] = 'draft PR' if pr['isDraft'] else 'PR open'
     for u in units:
         pr, parent = u['pr'], byid.get(u['parent'])
@@ -285,7 +334,8 @@ elif cmd == 'status':
         elif u['brief'] == 'changes-requested':
             nxt = 'changes requested: go through them with the developer, then submit the brief again'
         elif not ok(u['brief']):
-            nxt = 'waiting for the brief to be approved' if u['brief'] == 'waiting' else f"brief {u['brief']}"
+            on = f" ({', '.join(u['waiting_on'])})" if u['waiting_on'] else ''
+            nxt = f'waiting for the brief to be approved{on}' if u['brief'] == 'waiting' else f"brief {u['brief']}"
         elif held:
             nxt = f"build waits for {', '.join('Unit ' + x for x in held)} to be in {prod} (Unit {parent['id']} ships after)"
         elif blockers:
@@ -298,7 +348,8 @@ elif cmd == 'status':
             nxt = 'ready to build (or building)'
         num = f"#{pr['number']}" if pr else '-'
         note = '' if u['local'] or pr else '  (no branch yet: ada-plan branches)'
-        print(f"{u['id']:<4} {u['kind']:<8} {num:<6} {u['state']:<24} brief: {u['brief']}")
+        shown = u['brief'] + (f" ({', '.join(u['waiting_on'])})" if u['waiting_on'] else '')
+        print(f"{u['id']:<4} {u['kind']:<8} {num:<6} {u['state']:<24} brief: {shown}")
         print(f"     next: {nxt}")
         print(f"     {u['branch']}{note}")
 PY

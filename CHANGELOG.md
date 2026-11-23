@@ -11,7 +11,7 @@ Releasing in DEVELOPING.md).
   Trusted logins, without `gh`. `ada-brief who <area>...` says whether a brief touching those areas
   needs approval for you, and after `required` lists the areas you can't approve and who can. A
   bad table stops `ada-brief` with a message saying what is wrong. `ada-brief who` with no areas
-  is unchanged, and nothing calls the new commands yet.
+  is unchanged. `ada-plan status` calls `who <area>...`; no skill or agent does yet.
   `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
   ...` (the approval areas the brief touches) and `Author: @<login>`, and an amendment's
   Re-approval `needed: <area>, ...`. When an amended brief needs approving again,
@@ -30,6 +30,13 @@ Releasing in DEVELOPING.md).
   labels of the areas it sends back are removed; the others stay. Submit then prints
   `updated  <url> (approval reset: <slug>, ...)`, naming every area still to approve, and posts
   one PR comment saying which labels were removed and why, or which areas now need approving.
+  `ada-plan status` decides each unit's approval from the `Areas:` line of its draft brief
+  (`.claude/handoff/plan/<task>.md`), asking `ada-brief who <areas>` once for each distinct set of
+  areas. A unit with areas always has `ada-brief status` asked for its open PR, so a unit whose
+  areas need no approval from you shows `not-needed`. For a brief waiting or with changes
+  requested, the areas in that state follow it: `brief: waiting (design, content)`,
+  `brief: changes-requested (design)`, and `next: waiting for the brief to be approved (design,
+  content)`. A plan whose units have no `Areas:` prints as before.
 
 ## 0.16.0, 23 Nov 2026
 
