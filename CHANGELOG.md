@@ -5,6 +5,10 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.16.0, 23 Nov 2026
+
 - **A feature step tests less; the release run covers the rest.** On a step, Tess always runs
   the project's whole unit-test suite, runs only the PressTest files for what the step changes
   (never the shared suites; the old "or everything if the step touches checkout" is gone), and
