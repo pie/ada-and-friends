@@ -39,6 +39,13 @@ Releasing in DEVELOPING.md).
   approve an area, add its `approved:<slug>` label to the draft PR. An amendment comes back to
   you only when it touches your area, and Iris's designs go to the design area's approvers.
   Without a table, approval works as before, with `brief-approved`.
+  `ada-plan status` decides each unit's approval from the `Areas:` line of its draft brief
+  (`.claude/handoff/plan/<task>.md`), asking `ada-brief who <areas>` once for each distinct set of
+  areas. A unit with areas always has `ada-brief status` asked for its open PR, so a unit whose
+  areas need no approval from you shows `not-needed`. For a brief waiting or with changes
+  requested, the areas in that state follow it: `brief: waiting (design, content)`,
+  `brief: changes-requested (design)`, and `next: waiting for the brief to be approved (design,
+  content)`. A plan whose units have no `Areas:` prints as before.
 
 ## 0.16.0, 23 Nov 2026
 
