@@ -46,6 +46,10 @@ Releasing in DEVELOPING.md).
   requested, the areas in that state follow it: `brief: waiting (design, content)`,
   `brief: changes-requested (design)`, and `next: waiting for the brief to be approved (design,
   content)`. A plan whose units have no `Areas:` prints as before.
+  The PR template's `Brief:` line records approval area by area (`approved by area: design by @x
+  on <date>, content not needed (@y approves it)`), and Ada fills it from the brief's `Approval:`
+  line. `/ada:begin` offers the new PR template: an untouched copy is refreshed, and an edited
+  copy shows the diff so you can take it, merge it by hand or keep yours.
 
 ## 0.16.0, 23 Nov 2026
 

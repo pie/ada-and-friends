@@ -1,5 +1,5 @@
 Asana:
-Brief: <`.claude/briefs/<task id>.md`, approved by @login | approval not needed, and why>
+Brief: <`.claude/briefs/<task id>.md`; approved by area: <slug> by @login on <date>, <slug> not needed (@login approves it), <slug> not needed (no approvers) | approved by @login | approval not needed, and why>
 Plan: <none | unit <ID> of `.claude/briefs/<Epic task id>-plan.md`; ships <independent | after #PR>>
 Design: <the Design artifact link | text only, in the brief | none>
 
