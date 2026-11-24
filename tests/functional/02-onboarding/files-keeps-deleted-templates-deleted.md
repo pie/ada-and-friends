@@ -3,7 +3,7 @@
 - Area: 02 Onboarding and refresh (`ada-onboard`); 12 Platforms
 - Asana: https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220575393845404
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 20 Nov 2026, 0 failed (bash 5.x local, bash 3.2 in Docker by the developer); break-it against 59499fb: 46 failed as expected (see the PR)
+- Last run: 24 Nov 2026, 0 failed (bash 5.x local; bash 3.2 in Docker not run this time) (see the PR)
 
 ## Precondition
 

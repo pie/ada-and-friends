@@ -3,7 +3,7 @@
 - Area: 13 Design (`/ada:design`, Iris); also 08 Session flow, 09 Roles, 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
 - Automate as: none (part A is a self-checking shell script; part B is read by a person)
-- Last run: 2026-11-23, part A 0 failed (167 PASS) with BASE=origin/add/brief-approval-by-area; part B not run (see the PR)
+- Last run: 2026-11-24, part A 0 failed (167 PASS) with BASE=origin/add/brief-approval-by-area; part B not run (see the PR)
 
 ## Precondition
 
@@ -137,12 +137,16 @@ t "REVIEW-REQUEST template: one UI not specified: line" test "$(grep -c 'UI not 
 t "plugin PR template: a Design: line" grep -q 'Design:' "$PT"
 t "plugin PR template: the Design: line as amended (Q5)" grep -qF 'Design: <the Design artifact link | text only, in the brief | none>' "$PT"
 # Rescoped for Unit B4 (the Knowledge base: line, added to the plugin's template only; this repo's
-# copy gets it from `ada-onboard refresh` after release): the two are byte for byte the same once
-# any `Knowledge base:` line is set aside, so the Design: line and every other line still match.
-nokb() { grep -v '^Knowledge base:' "$1" | cat -s; }
-t "this repo's PR template is the plugin's, byte for byte, apart from any Knowledge base: line" \
+# copy gets it from `ada-onboard refresh` after release) and again for Unit G (the Brief: line,
+# reworded in the plugin's template for approval by area; this repo's copy gets the new line from
+# `ada-onboard refresh` after release): the two are byte for byte the same once any `Knowledge base:`
+# and any `Brief:` line is set aside on both sides, so the Design: line and every other line still match.
+nokb() { grep -v -e '^Knowledge base:' -e '^Brief:' "$1" | cat -s; }
+t "this repo's PR template is the plugin's, byte for byte, apart from any Knowledge base: or Brief: line" \
   eval 'nokb "$PT" > "$W/pt-nokb"; nokb "$GT" > "$W/gt-nokb"; cmp -s "$W/pt-nokb" "$W/gt-nokb"'
-t "plugin PR template: no line removed" not sh -c "git diff '$BASE' -- '$PT' | grep '^-' | grep -v '^---' | grep -q ."
+# Rescoped for Unit G: the Brief: line is replaced (its old line shows as removed), the only change
+# this unit makes to the template. Any other removed line still fails.
+t "plugin PR template: no line removed, apart from the Brief: line (Unit G)" not sh -c "git diff '$BASE' -- '$PT' | grep '^-' | grep -v '^---' | grep -v '^-Brief:' | grep -q ."
 t "this repo's .template-hashes: PR template is an untouched copy" \
   grep -Fxq "copied $(sha "$GT") $GT" .claude/team/.template-hashes
 
