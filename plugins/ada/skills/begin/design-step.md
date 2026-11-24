@@ -40,9 +40,10 @@ from it:
 - **Definition of Done:** an observable item for each state and each breakpoint the design
   specifies, so Tess can check it and Claudia can trace it.
 
-The approver sees the design with the brief. The artifact is private, so when `ada-brief who`
-says `required`, ask the developer to share it with the approver: who sees it is their decision,
-not yours or Iris's.
+The approvers see the design with the brief. The artifact is private, so when `ada-brief who`
+says an area needs approval (`required`), ask the developer to share it with the design area's
+approvers (its line in `ada-brief areas`), or the catch-all's when the project has no design
+area. The developer decides who sees it, not you or Iris.
 
 **Back to design partway through a step.** UI that nobody thought was needed can turn up at any
 point. Whoever finds it, you apply the test:
@@ -57,6 +58,11 @@ point. Whoever finds it, you apply the test:
 - **If the test passes:** pause the step and offer Iris. She designs only the new part, in the
   same artifact, and updates the handoff `DESIGN.md` and the project's `DESIGN.md`. Then amend
   the brief from it (the Amendments rules in `/ada:begin`, and `approval.md` if it was approved): it needs the developer's yes again. Check it
-  against the re-approval triggers there; new UI that the customer sees usually hits one.
+  against the re-approval triggers there; new UI that the customer sees usually hits one, and
+  goes back to the design area (`needed: design`, or `content` for new wording, by their starter
+  slugs; the area that covers it, as `approval.md` says, and the catch-all's slug only when no
+  area fits), added to the brief's `Areas:` line if it
+  isn't there. Ask the developer to share the updated artifact with the design area's approvers
+  again.
 - **If it fails** (the UI reuses an existing pattern unchanged): add a line to the brief's
   Constraints naming the pattern and where it is used, and the step carries on.

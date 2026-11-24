@@ -44,7 +44,7 @@ State the scripts read and write, in an onboarded project:
 
 | State | Written by | Read by |
 |---|---|---|
-| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:225-241`) reads Approvers and Trusted, and checks the optional areas table (`\| Area \| Slug \| Approved by \|`) through `read_areas()`, which `areas` and `who <area>` read; Ada reads the triggers (`skills/begin/approval.md`, Amending an approved brief) |
+| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`, optional areas table `\| Area \| Slug \| Approved by \|`; the repo template has the seven starter rows inside an HTML comment, where they are ignored) | the developer; `/ada:onboard` offers the starter table to edit and writes the agreed one out of the comment | `ada-brief` `policy()` (`bin/ada-brief:225-241`) reads Approvers and Trusted, and checks the optional areas table through `read_areas()`, which `areas` and `who <area>` read; Ada runs `ada-brief areas` and `who <area>...` (`skills/begin/approval.md`, Getting the brief approved; `design-step.md` for the design area's approvers) and reads the triggers (Amending an approved brief) |
 | `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:75-93`, `111`); `ada-brief overlap` (`branches()`) |
 | `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*), one set per checkout: the main checkout and each step's worktree | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
 | `CHECKPOINT.md` `- Branch:` (the branch alone) and `- Worktree:` | Ada, at session end | `ada-worktree check` (`Branch:`), `ada-worktree list` (`Step:`); `/ada:begin` and `/ada:pickup` run `check` before reading the checkpoint |
@@ -54,11 +54,12 @@ State the scripts read and write, in an onboarded project:
 | `DESIGN.md` at the repo root: the project's design system, in the DESIGN.md format (spec `version: alpha`: YAML front matter tokens, then the spec's 8 `##` sections). Committed in the PR of the step that builds from the design | Iris, from `templates/DESIGN.md`, when a design is agreed: created if missing, else new tokens added; an existing token changed or removed only with the developer's yes, recorded in the handoff `DESIGN.md`. Linted with the version pinned in `skills/design/SKILL.md` (Write DESIGN.md) when `npx` is available | Iris first (Look first); Bob, Claudia and Tess for token values; `/ada:onboard` sets `Design guide: DESIGN.md` when it exists |
 | `.claude/handoff/archive/<name>/` | `ada-handoff-init --archive` / `--archive-plan` (`bin/ada-handoff-init:25-51`); `ada-worktree remove`, into the main checkout's, as `<YYYY-MM-DD>-<slug>/` | people |
 | `.claude/handoff/plan/PLAN.md` and `plan/<task>.md`, in the main checkout only (the first entry of `git worktree list --porcelain`, printed by `ada-worktree main`) | `ada-plan init` / `briefs` (`bin/ada-plan:58-64`, `225-248`); Ada adds "Building in `<worktree path>`; the live brief is there." under a unit's title when its build starts | `ada-plan`, `ada-brief submit`, `ada-handoff-init --archive-plan`, from any worktree |
-| `.claude/briefs/<task>.md`, `.claude/briefs/<epic>-plan.md` (committed) | `ada-brief submit` (`bin/ada-brief:1296-1319`) | `ada-brief status`/`body`/`submit` via `git show` and `git log` (`git_show`, `approved_version`, `bin/ada-brief:290-293`, `459-464`; `since`, `:1425`) |
-| `brief-approved` label on the draft PR | an approver, by hand; removed by `submit` when re-approval is needed (`bin/ada-brief:1347`) | `approval()` (`bin/ada-brief:589-600`), from `status` (`:1482-1509`) and `submit` (`after_submit`, `:1005-1118`) |
-| Amendments table of the brief (five columns: `Date`, `What changed (old → new)`, `Why (evidence)`, `Re-approval`, `Agreed by`) | Ada, with the developer's yes (`templates/handoff/BRIEF.md`) | `compare()` (`bin/ada-brief:370-391`); `render_body` (`amendments_table`, `:321-330`); Claudia and Tess read `Agreed by` |
-| PR comment listing the Amendments rows added since approval | `submit`, when the approval is kept (`after_submit`, `bin/ada-brief:1098-1102`; posted at `:1339-1341`) | the approver |
-| `<!-- ada-brief: <path> -->` marker in the PR body | `render_body` (`bin/ada-brief:892`) | `ada-brief status` (`bin/ada-brief:1420-1422`) |
+| `.claude/briefs/<task>.md`, `.claude/briefs/<epic>-plan.md` (committed) | `ada-brief submit` (`bin/ada-brief:1288-1318`) | `ada-brief status`/`body`/`submit` via `git show` and `git log` (`git_show()`, `bin/ada-brief:290-292`; `approved_version()`, `:459-463`; `since`, `:1425`) |
+| `brief-approved` label on the draft PR (a brief without `Areas:`), or one `approved:<slug>` label per area on `Areas:` | `submit` creates them (`create_labels`); an approver adds their area's, by hand; `submit` removes `brief-approved` when re-approval is needed (`bin/ada-brief:1347`), and only the labels of the areas an amendment sends back | `approval()` (`bin/ada-brief:589-600`), from `status`'s path for a brief without `Areas:` (`:1482-1509`), `area_state()` (`:680-722`) and `submit` (`after_submit`, `:1005-1118`) |
+| Amendments table of the brief (five columns: `Date`, `What changed (old → new)`, `Why (evidence)`, `Re-approval`, `Agreed by`) | Ada, with the developer's yes (`templates/handoff/BRIEF.md`) | `compare()` (`bin/ada-brief:370-391`); `render_body` (`amendments_table()`, `:321-329`); Claudia and Tess read `Agreed by` |
+| A brief's `Areas: <slug>, ...` and `Author: @<login>` header lines (after `Approval:`; the template's `<…>` prompts read as none) | Ada (`skills/begin/approval.md`, Getting the brief approved): `Areas:` from what the brief changes, checked against `ada-brief areas`, left as the prompt with no areas table; `Author:` from `gh api user`, always; an amendment adds an area it sends the brief back to (Amending an approved brief) | `ada-brief` `brief_areas()` and `brief_author()` (in `brief_py()`), for `submit` (labels, area path), `status` (area path; `Author:` for the exemption), `body` (one line per area) and `compare` (the `areas:` line) |
+| PR comment listing the Amendments rows added since approval | `submit`, when the approval is kept (`allowed_comment()`, `bin/ada-brief:1016-1027`, in `after_submit`; posted at `:1340`) | the approver |
+| `<!-- ada-brief: <path> -->` marker in the PR body | `render_body` (`bin/ada-brief:892`) | `ada-brief status` (`bin/ada-brief:1420-1423`) |
 | `.claude/team/.template-hashes` (`<copied\|declined\|removed> <sha256> <path>`; `removed` marks a template the project deleted, with the sha its line held) | `ada-onboard files` / `refresh` (`bin/ada-onboard:81-107`) | `ada-onboard files` and `refresh` |
 | `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:255-322`) | Claude Code |
 | `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:256-259`) |
@@ -99,10 +100,17 @@ them, to keep Ada's context small):
    test runs again if undesigned UI turns up during the build. Before the brief is confirmed,
    `ada-brief overlap` with its expected files; Ada fills `Overlaps:` and stops for the developer
    on any overlap.
-3. Approval (`approval.md`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
-   opens a draft PR and the session stops until `ada-brief status` says `approved`. After
-   approval, Ada checks each amendment against the re-approval triggers, records `not needed` or
-   `needed: <trigger>` in its row, and runs `ada-brief submit`: `(approval kept)` carries on,
+3. Approval (`approval.md`): `ada-brief areas`; with an areas table Ada writes the brief's
+   `Areas:` (the slugs it touches) and, always, `Author:` (`gh api user`), then runs
+   `ada-brief who <areas>` (`ada-brief who` with no table). On `required <login>` she names the
+   approvers of each `needs <slug>:` area, `ada-brief submit <task> <base>` opens a draft PR,
+   and the session stops until `ada-brief status` says `approved`; its `area <slug>: …` lines
+   say which areas wait, and on whom. When `who` says an area needs approval and the step has a
+   design, she asks the developer to share the artifact with the design area's approvers (the
+   catch-all's without one; `design-step.md`). After approval, Ada checks each amendment against
+   the re-approval triggers, records `not needed` or `needed: <area>, ...` in its row
+   (`needed: <trigger>` with no table), adding a missing area to `Areas:`, and runs
+   `ada-brief submit`: `(approval kept)` carries on; `(approval reset: <slug>, ...)` or
    `(approval reset)` stops for approval again (`approval.md`, Amending an approved brief).
 4. Build (Direct Bob, Claudia and Tess): Tess plan-and-write, Bob (plan then build), Claudia review, fix rounds
    (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet. Every Agent call names its model from begin's table; one without `model:`
@@ -132,7 +140,8 @@ confirmed with the developer; a finished step is archived on their yes, as in be
 `ada-brief status` if the brief is `awaiting approval` or was approved and its draft PR hasn't been
 made ready (`ada-brief ready` replaces the PR body, after which `status` says `not-submitted` and the
 PR review is the gate), where a second line `amended since approval; no re-approval needed` means
-carry on, and `ada-plan status` for the main checkout's plan.
+carry on and the `area <slug>: …` lines name the areas still waiting, and `ada-plan status` for
+the main checkout's plan.
 
 **`/ada:bughunt`** (`skills/bughunt/SKILL.md`) is Grace's read-only hunt, from Intake to
 `FINDINGS.md`. Only when `PROJECT.md` says `Kind: product` with a `Knowledge base:` folder (the
@@ -175,9 +184,12 @@ How it works:
   `implicit_areas()`'s, label `approved:<slug>`. No table gives `implicit_areas()` with the
   Approvers line; no section, with no approvers. The first problem stops with `ada-brief: <message>`
   (exit 2 through the caller's `|| exit 2`).
-- `areas` (`:1258-1261`) and `who <area>...` (`:1233-1240`) run `area_report` (`:1155-1207`). `areas`
+- `areas` (`:1258-1261`) and `who <area>...` (`:1232-1241`) run `area_report` (`:1155-1207`). `areas`
   needs no `gh`. `who <area>...` runs it twice: first with no login, which prints `not-needed`
   when no named area has an approver (no `gh` needed); otherwise again with `me()`'s login.
+  Ada runs both (`skills/begin/approval.md`, Getting the brief approved; `design-step.md` for
+  the design area's approvers; `ada:planning` step 6), and `/ada:onboard` runs `areas` on the
+  table it writes.
 - `brief_py()` (`:278-743`) prints the Python that reads briefs and PROJECT.md's Brief approval
   section, shared by `policy()`, `render_body`, `after_submit`, `area_labels`, `area_report`,
   `status` and `compare`: each runs `{ brief_py; cat <<'PY' ... PY; } | py -`. It holds
@@ -208,20 +220,20 @@ How it works:
   `Areas:` line holding only commas is none too, and prints only the first line as well.
   `brief_author()` reads `Author: @<login>` (lowercased; `None` unless the value is one
   `@login`), which `status` reads on its area path.
-- The approved version (`approved_version()`, `:459-464`): `git log -1 --until=<label time>
+- The approved version (`approved_version()`, `:459-463`): `git log -1 --until=<label time>
   <ref> -- <brief>`, then `git show`. The label time is the last `labeled` event's `created_at`
   (`approval()`, `:589-600`, which returns nothing unless the label is on the PR).
-- `submit` (`:1263-1358`): validates names (`:1266-1271`), refuses `production`, `next-release`,
+- `submit` (`:1263-1359`): validates names (`:1264-1272`), refuses `production`, `next-release`,
   `review`, `main`, `master` (`:1272`). If the base branch has its own PR, the base's brief must be
   `approved`, `not-needed` or `not-submitted` first, by calling itself as `"$here/ada-brief" status "$base"`
-  (`:1280-1285`). On the current branch it copies `BRIEF.md` (and the plan) into `.claude/briefs/`,
-  commits only those paths, pushes (`:1296-1312`). For another branch it commits without a checkout
+  (`:1280-1286`). On the current branch it copies `BRIEF.md` (and the plan) into `.claude/briefs/`,
+  commits only those paths, pushes (`:1298-1308`). For another branch it commits without a checkout
   through a throwaway index and `git commit-tree` / `git update-ref` (`commit_to`, `:1211-1225`),
-  refusing a branch checked out in another worktree (`:1310-1312`). It creates the label if missing
-  (`:1320-1321`) and renders the PR body (`:1322-1323`). On a new branch it opens a draft PR (`:1354-1357`,
+  refusing a branch checked out in another worktree (`:1310-1313`). It creates its labels if missing
+  (`area_labels` and `create_labels`, `:1320-1321`) and renders the PR body (`:1322-1323`). On a new branch it opens a draft PR (`:1354-1357`,
   prints `opened   <url>`). On an existing PR it runs `policy()` and `after_submit` (`:1005-1118`),
   which compares the approved version on `origin/<branch>` with the brief just pushed, when the
-  label is on and was added by an approver, and prints an action (`:1329-1353`):
+  label is on and was added by an approver, and prints an action (`:1324-1353`):
   - `keep` (`same` or `allowed`, PR body text unchanged): nothing changes on the PR. For
     `allowed` this is a repeat of a submit that already replaced the body and posted the comment.
   - `patch` (`same`, body differs, e.g. the plan in it changed): PATCH the body.
@@ -230,8 +242,13 @@ How it works:
   - `reset` (`reapprove`, no approver's label, or no approved version): PATCH the body and DELETE
     the label.
   The first three print `updated  <url> (approval kept)`; `reset` prints
-  `updated  <url> (approval reset)`.
-- `status` (`:1361-1520`): the PR body's marker names the brief path (`:1420-1422`); `since` is the
+  `updated  <url> (approval reset)`. A brief with `Areas:` is decided area by area, as `status`
+  decides it: `create_labels` makes each area's `approved:<slug>` label, the label of each area
+  `compare` sends back is removed, and when a label counted before the submit it prints
+  `updated  <url> (approval reset: <slug>, ...)`, the areas that need approval and have no label
+  that counts afterwards, or `(approval kept)`. Ada reads all three forms
+  (`skills/begin/approval.md`, Amending an approved brief).
+- `status` (`:1361-1520`): the PR body's marker names the brief path (`:1420-1423`); `since` is the
   committer date of the last commit touching it on the pushed branch (`:1425`). If the label is on
   and was last added by an approver (`approval()`): at or after `since`, `approved`; before it,
   `since_approval()` on the pushed branch, where `same` or `allowed` prints `approved @<login>
@@ -258,12 +275,15 @@ How it works:
   too and its line goes last. Reviews and comments are fetched once (`said_since()`) for
   everyone; the base path keeps only the approvers'. Labels of areas the brief doesn't touch are
   never read. `brief-approved` is read on the area path only as the label of `everything`, the
-  one area of a project with no areas table.
+  one area of a project with no areas table. The area lines (`area <slug>: approved @<login>
+  <time>`, `waiting (@a, @b)`, `changes-requested`, `not needed (@<author> approves it)`, `not
+  needed (no approvers)`) are read by Ada (`skills/begin/approval.md`, Getting the brief
+  approved) and by `/ada:pickup` step 4.
 - `ready` (`:1560-1571`): PATCHes title and body, keeps the Asana block, `gh pr ready`.
 - `render_body` (`:752-961`) parses the brief's headings and bullets and the plan's Units table,
-  and calls `gh pr list` once per unit (`:815-817`). The Amendments table keeps its column count:
+  and calls `gh pr list` once per unit (`:815-818`). The Amendments table keeps its column count:
   five columns if any row has five cells (a four-cell row then gets an empty Re-approval), else
-  the old four (`amendments_table()`, `:321-330`). A filled `Overlaps:` header
+  the old four (`amendments_table()`, `:321-329`). A filled `Overlaps:` header
   line becomes `> Overlaps with work in flight: …` in the note to the approver; without the line
   the body is as before.
 - `overlap [<file>...]`: `branches()` reads `Branch from` and `PR into` from `PROJECT.md` with
@@ -303,7 +323,7 @@ Traps:
 - **`gh pr create` errors are swallowed** (`:1355`, `2>/dev/null`): only "couldn't open the draft
   PR" reaches the user.
 - **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/approval.md`, Getting the brief approved),
-  by `submit` (`:1280-1285`) and by `ada-plan status` (`bin/ada-plan:312`). Don't change its words.
+  by `submit`, for a part's base (`:1280-1286`), and by `ada-plan status` (`bin/ada-plan:312`). Don't change its words.
 - **The Asana block** is found by a fixed English sentence (`:972`); if Asana changes it, the
   block is dropped on the next description replace.
 - **`overlap`'s first line is an interface** read by `/ada:begin`, as are its group headings,
@@ -319,8 +339,9 @@ Traps:
   construction: the range is empty.
 - Parsing depends on template wording: `# Brief…:` title (`:781`, `:1289`), `Plan:` line pointing
   at `.claude/briefs/<id>-plan.md` (`:802`, `:1292`), `- Out of scope:` / `- Expected review:`
-  bullets under `## Constraints` (`take()`, `:789-796`), `- [ ]` Definition of Done items (`:797`), the
-  `Overlaps:` line (`:786`, `:899-900`). A change
+  bullets under `## Constraints` (`:788-796`), `- [ ]` Definition of Done items (`:797`), the
+  `Overlaps:` line (`:786`, `:900`), the `Areas:` and `Author:` header lines (`header_value()`;
+  a value starting `<`, the template's prompt, is none). A change
   to `templates/handoff/BRIEF.md` can silently empty parts of the PR body.
 
 Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
@@ -551,13 +572,13 @@ Traps:
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:
   - Python is found as `python3`, `python` or `py -3`, each tried with a version check, which skips
-    the Microsoft Store stub (`bin/ada-brief:204-213`; same block in `ada-onboard:66-75`,
+    the Microsoft Store stub (`bin/ada-brief:207-213`; same block in `ada-onboard:66-75`,
     `ada-plan:45-52`, `ada-size:41-49`).
   - Python output has `\r` stripped (`bin/ada-brief:214-215`, `bin/ada-plan:92-93, 103`, `bin/ada-size:72`);
     files are written with `newline='\n'`.
-  - No `mapfile` (bash 3.2): a `while read` loop instead (`bin/ada-brief:1243`, `:1332`, `:1367`); CHANGELOG
+  - No `mapfile` (bash 3.2): a `while read` loop instead (`bin/ada-brief:1243`, `:1332`); CHANGELOG
     0.3.0 records the bug this fixed (`CHANGELOG.md:191-192`).
-  - Empty arrays are guarded before `"${arr[@]}"` under `set -u` (`bin/ada-brief:1623`,
+  - Empty arrays are guarded before `"${arr[@]}"` under `set -u` (`bin/ada-brief:1253`,
     `bin/ada-size:58`), which bash before 4.4 treats as unbound.
 
 ## What `ada-clock install` changes outside the repo

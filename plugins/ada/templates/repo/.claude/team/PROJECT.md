@@ -27,20 +27,42 @@ this project. Keep it short and factual; the detail lives in `SYSTEM.md`, `API.m
 
 ## Brief approval
 
-Whose briefs need approving before anything is built, and which amendments need approving again.
-`ada-brief` reads the first two lines; keep the three lines as they are and change only the
-values.
+Whose briefs need approving before anything is built, by whom, and which amendments need
+approving again. `ada-brief` reads the Approvers and Trusted lines and the areas table; keep the
+lines and the table's header as they are and change only the values.
 
 - **Approvers:** <`none` if no one outside PIE writes code here; otherwise the GitHub logins who
   can approve, e.g. `@neilpie, @annawerno`>
-- **Trusted:** <`none`, or the GitHub logins who don't need approval but can't approve>
+- **Trusted:** <`none`, or the GitHub logins who don't need approval; they can approve only
+  with an areas table, and then every area>
 - **Re-approval triggers:** none (the defaults in /ada:begin apply)
 
-Approvers never need approval. When Approvers is `none`, no brief needs approval. Otherwise
-anyone on neither list does: a new developer is covered without anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
-added by an approver. Once a brief is approved, Ada checks each amendment against the default
-triggers in `/ada:begin` and any this project adds above. Only an amendment that hits one needs
-approving again.
+<!-- The areas of concern: what a brief can touch, and who approves each. /ada:onboard offers
+this starter set, to edit with the developer; to use it, move the table out of this comment and
+fill in Approved by: @logins, Approvers (the Approvers line's logins), both, or none. One row's
+Area ends (catch-all): it approves anything no other area covers. Inside this comment the table
+is ignored, and the Approvers line alone decides.
+
+| Area | Slug | Approved by |
+|---|---|---|
+| Wording and content | content | Approvers |
+| Design and UI | design | Approvers |
+| Price | price | Approvers |
+| System behaviour (catch-all) | system | Approvers |
+| Fragile areas | fragile | Approvers |
+| Security, auth and payments | security | Approvers |
+| New dependency, data repair or migration | dependencies | Approvers |
+-->
+
+When Approvers is `none` and there is no areas table, no brief needs approval. Otherwise each
+brief names the areas it touches on its `Areas:` line, and needs approving for each one by that
+area's approvers, who add its `approved:<slug>` label to the brief's draft PR. With no areas
+table there is one area, everything, approved by the Approvers with the `brief-approved` label.
+An author needs no approval for the areas they approve, and Trusted approves every area. Anyone
+else does: a new developer is covered without anyone remembering to add them. Once a brief is
+approved, Ada checks each amendment against the default triggers in `/ada:begin` and any this
+project adds above. Only an amendment that hits one needs approving again, and only by the areas
+it touches.
 
 ## Environments
 
