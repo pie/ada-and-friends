@@ -96,6 +96,7 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
     `edited` or `unknown`, show the diff and ask: take the new template
     (`ada-onboard refresh --force`), merge it by hand, or keep theirs
     (`ada-onboard refresh --decline`, so it isn't asked again until the template changes).
+11. No areas table yet? Do `approval.md`, The areas note.
 
 **No step facts in auto-memory.** Don't save a step's branch, task, decisions or state in Claude
 Code's auto-memory: another step's session in the same folder would read them as its own. Step

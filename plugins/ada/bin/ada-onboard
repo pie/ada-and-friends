@@ -46,6 +46,9 @@
 #       "missing  <path>/" when that folder isn't there, "missing  <path>/config.json" when the
 #       folder has none, or "fill in  <path>/config.json: <placeholders>" while it holds a
 #       {{KEY}}; nothing when it's filled in.
+#       When PROJECT.md has a Brief approval section with neither an areas table (outside a
+#       comment) nor a "- **Areas:** defaults kept" line, also prints "missing  areas table in
+#       .claude/team/PROJECT.md (...)": /ada:begin offers the starter set once.
 #   ada-onboard clock LOCAL_WP_PATH=<path> LOCAL_WP=<command>
 #       Writes this computer's ada-clock setup to .claude/team/local.env, which /ada:onboard runs
 #       in a clock-sensitive project: ADA_CLOCK_ADAPTER (local-linux on Linux when
@@ -349,6 +352,14 @@ check)
 			echo 'missing  "PressTest image" and "PressTest shared suites" lines in .claude/team/PROJECT.md, which replace "PressTest suite" (see the plugin template)'
 		fi
 		out="$("$here/ada-brief" who 2>&1 >/dev/null)" || echo "error    brief approval: $out"
+		# A section with no areas table (ada-brief areas then starts "everything:", a slug no table can
+		# use) and no "- **Areas:** defaults kept" line is offered the starter set by /ada:begin.
+		if grep -q '^## Brief approval' .claude/team/PROJECT.md &&
+		   [[ "$("$here/ada-brief" areas 2>/dev/null | head -1 || true)" == everything:* ]] &&
+		   ! sed -n '/^## Brief approval/,/^## /p' .claude/team/PROJECT.md | tr -d '\r' |
+		     grep -E '^[[:space:]]*-[[:space:]]*\*\*Areas:\*\*[[:space:]]*defaults kept' >/dev/null; then
+			echo 'missing  areas table in .claude/team/PROJECT.md (/ada:begin offers the starter set, or add "- **Areas:** defaults kept")'
+		fi
 	fi
 	project="$root/.claude/team/PROJECT.md"
 	# A `- **<label>:** value` line from PROJECT.md: its first code span, or else its first word.

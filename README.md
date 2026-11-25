@@ -249,7 +249,9 @@ each with its approvers. For example:
 `Approvers` in the table means the logins on the Approvers line. One row is the catch-all: it
 covers anything no other area does. `/ada:onboard` offers a starter set of seven areas for you to
 edit, and the `PROJECT.md` template has them in a comment. A project with no table has one area,
-everything, approved by the Approvers.
+everything, approved by the Approvers. A project that has neither a table nor an
+`- **Areas:** defaults kept` line is offered the starter set once, by `/ada:begin`: say yes to set
+the areas up, or no, and `/ada:begin` adds the `defaults kept` line so the note doesn't return.
 
 Ada writes the areas a brief touches on its `Areas:` line, e.g. `Areas: content`, and your
 GitHub login on its `Author:` line. Who needs approval:
@@ -278,6 +280,25 @@ When your brief needs approval:
 
 Only a label added after the last change to the brief counts, by someone who approves that area.
 The draft PR becomes the PR for the work. You need `gh`, logged in.
+
+### Changing the areas
+
+- **Editing.** Change the table in `PROJECT.md`'s Brief approval section: rename a row, change who
+  approves it, add or drop rows. One row stays the catch-all. Run `ada-brief areas` to check the
+  table.
+- **New labels.** A new slug's `approved:<slug>` label is created on the next `ada-brief submit`
+  that needs it.
+- **Renamed or dropped slugs.** A brief's open PR keeps the labels it has, and a label for a slug
+  that no longer exists counts for nothing. `ada-brief status` on an open PR whose brief names a
+  renamed or dropped area stops (exit 2, nothing on stdout) with `ada-brief: the brief names area
+  <slug>, which PROJECT.md doesn't list`, whatever the Approvers line says, until the brief's
+  `Areas:` line names slugs the table lists and the brief is submitted again. Only then does it
+  wait for the new areas' labels.
+- **Back to one area.** Delete the table, and add `- **Areas:** defaults kept (<name>, <date>)` to
+  the section so `/ada:begin` doesn't offer the starter set again. An open PR whose brief has an
+  `Areas:` line then stops in `ada-brief status` the same way (unless `Approvers: none`, when it
+  prints `not-needed`), until that line is removed and the brief submitted again; it is then
+  approved as a whole with the `brief-approved` label. A brief with no `Areas:` line is unaffected.
 
 **Changes after approval.** A change to an approved brief needs approving again only when it hits
 a re-approval trigger (`/ada:begin` lists them), and then only by the areas it touches. Ada
