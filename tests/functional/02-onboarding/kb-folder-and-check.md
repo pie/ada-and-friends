@@ -126,13 +126,15 @@ kept()    { grep -Eq "^kept +$(esc "$1")/$(esc "$2")\$" "$W/out"; }
 bullet() { awk -v k="$2" '/^## /{s=($0=="## The project")} s && index($0,"- **" k ":**")==1 {p=1; b=$0; next} p && /^[[:space:]]+[^[:space:]-]/ {sub(/^[[:space:]]+/," "); b=b $0; next} p {print b; p=0} END{if(p)print b}' "$1" | tr -s ' '; }
 # braw <file> <name>: the same bullet as the template's lines have it (not joined)
 braw() { awk -v k="$2" '/^## /{s=($0=="## The project")} s && index($0,"- **" k ":**")==1 {p=1; print; next} p && /^[[:space:]]+[^[:space:]-]/ {print; next} {p=0}' "$1"; }
-# proj <repo> <kind bullet or ""> <knowledge base bullet or "">: a filled-in PROJECT.md
+# proj <repo> <kind bullet or ""> <knowledge base bullet or "">: a filled-in PROJECT.md. Its Brief
+# approval section has a "defaults kept" line (Unit H), so check's areas line, tested in
+# check-areas-table.md, doesn't show in these comparisons.
 proj() {
   mkdir -p "$1/.claude/team"
   { printf '%s\n' '# Scratch' '' '## The project' '' '- **What it is:** a scratch repo.' '- **Known issues live in:** nowhere.'
     [ -z "$2" ] || printf '%s\n' "$2"
     [ -z "$3" ] || printf '%s\n' "$3"
-    printf '%s\n' '' '## Code and branches' '' '- **Branch from:** `main`. **PR into:** `main`.' '' '## Brief approval' '' '- **Approvers:** none' '- **Trusted:** none'
+    printf '%s\n' '' '## Code and branches' '' '- **Branch from:** `main`. **PR into:** `main`.' '' '## Brief approval' '' '- **Approvers:** none' '- **Trusted:** none' '- **Areas:** defaults kept (Tess, 24 Nov 2026)'
   } > "$1/.claude/team/PROJECT.md"
 }
 # chk <dir> <script> <outfile>: check's stdout and stderr in <outfile>, exit code in <outfile>.rc
