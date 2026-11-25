@@ -109,3 +109,32 @@ When unsure, record `needed:`. Give every change to Decisions or Constraints its
 `ada-brief` resets the approval when they changed and no row was added (with areas, sending the
 brief back to the catch-all), but once one row has been added it can't tell which change a row
 is for.
+
+## The areas note
+
+Session start 11. Run `ada-onboard check` and show the note when it prints the `missing  areas
+table` line: that is the one place the rule is worked out (a Brief approval section with neither
+an areas table outside a comment nor a `- **Areas:** defaults kept` line), whatever the
+Approvers line says. Without that line, say nothing.
+
+The rows are the seven starter rows (Area and Slug). Take them from the commented table in the
+Brief approval section of `PROJECT.md` when it has one, otherwise from the Brief approval row of
+`/ada:onboard` (`skills/onboard/SKILL.md`).
+
+Say, in one short paragraph: areas are the kinds of change a brief can touch (wording, design,
+price and so on), each with its own approvers; the starter set is seven, and name their slugs
+from those rows; and keeping one area, as now, changes nothing. Then ask: set the areas up, or
+keep the defaults.
+
+- **Yes.** Go through the rows with the developer: keep, rename or drop each; who approves it
+  (`@login`s, `Approvers`, both, or `none`); which row is the catch-all (its Area ends
+  `(catch-all)`). If the section has the commented table, move it out of its comment and edit
+  it, as `/ada:onboard` does; otherwise write a new table. Either way there is one table, outside
+  any comment, below the Re-approval triggers line, or below the Trusted line in a project onboarded
+  before that line existed. Run `ada-brief areas`, show its output, and fix the table and
+  rerun until it exits 0.
+- **No.** Add `- **Areas:** defaults kept (<name>, <date>)` after the Trusted line, with the
+  name from `git config user.name` and the date as `4 Nov 2026`.
+
+Either edit goes in the step's first commit, as a refreshed PR template does (Session start 10).
+The next session finds the table or the line, so the note doesn't return.

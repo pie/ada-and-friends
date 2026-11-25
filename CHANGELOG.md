@@ -33,6 +33,10 @@ Releasing in DEVELOPING.md).
   To set up areas, run `/ada:onboard`, which asks who decides what and offers a starter set of
   seven areas to edit; or add the table to the Brief approval section of
   `.claude/team/PROJECT.md` (the plugin's template has it in a comment) and fill in Approved by.
+  A project with neither a table nor a `- **Areas:** defaults kept` line gets a one-time note
+  offering the starter set in `/ada:begin`: the answer is written into `PROJECT.md` (the table, or
+  the `defaults kept` line, which `/ada:onboard` also writes when the developer keeps one area),
+  and `ada-onboard check` prints `missing  areas table …` until it is.
   Ada then writes the areas each brief touches on its
   `Areas:` line and your login on `Author:`, and asks only those areas' approvers, naming them.
   You need no approval for the areas you approve, and Trusted approves every area. If you
