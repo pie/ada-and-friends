@@ -281,7 +281,8 @@ you. Then:
   so later units that share the design get the new part.
 - Hand back to Ada. She amends the brief, which then needs the developer's yes again. If the
   brief was approved, she checks the amendment against the re-approval triggers in `/ada:begin`;
-  it is approved again only if it hits one.
+  it is approved again only if it hits one, and then only by the areas it goes back to: the
+  `design` area for new UI (`content` for new wording), as its `approval.md` says.
 
 ## Fallbacks
 

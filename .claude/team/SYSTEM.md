@@ -44,8 +44,8 @@ State the scripts read and write, in an onboarded project:
 
 | State | Written by | Read by |
 |---|---|---|
-| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`) | the developer | `ada-brief` `policy()` (`bin/ada-brief:121-148`) reads Approvers and Trusted only; Ada reads the triggers (`skills/begin/approval.md`, Amending an approved brief) |
-| `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:68-86`, `104`); `ada-brief overlap` (`branches()`) |
+| `.claude/team/PROJECT.md` "Brief approval" section (`**Approvers:**`, `**Trusted:**`, optional `**Re-approval triggers:**`, optional `**Areas:** defaults kept (<name>, <date>)` (read only by `ada-onboard check`; `policy()` and `read_areas()` ignore it), optional areas table `\| Area \| Slug \| Approved by \|`; the repo template has the seven starter rows inside an HTML comment, where they are ignored) | the developer; `/ada:onboard` offers the starter table to edit and writes the agreed one out of the comment, or the `defaults kept` line when they keep one area; `/ada:begin` offers it once to a project with neither (`begin/approval.md`, The areas note) | `ada-brief` `policy()` (`bin/ada-brief:225-241`) reads Approvers and Trusted, and checks the optional areas table through `read_areas()`, which `areas` and `who <area>` read; `ada-onboard check` (`bin/ada-onboard:355-362`) reads the `defaults kept` line; Ada runs `ada-brief areas` and `who <area>...` (`skills/begin/approval.md`, Getting the brief approved; `design-step.md` for the design area's approvers) and reads the triggers (Amending an approved brief) |
+| `PROJECT.md` `**Branch from:**` / `**PR into:**` | the developer | `ada-plan` (`bin/ada-plan:75-93`, `111`); `ada-brief overlap` (`branches()`) |
 | `.claude/handoff/*.md` (BRIEF, BUILD-LOG, CHECKPOINT, DESIGN, FINDINGS, REVIEW-*, TEST-*), one set per checkout: the main checkout and each step's worktree | `ada-handoff-init` copies; roles fill (DESIGN: Iris) | the roles (DESIGN only when it says `Status: agreed`) |
 | `CHECKPOINT.md` `- Branch:` (the branch alone) and `- Worktree:` | Ada, at session end | `ada-worktree check` (`Branch:`), `ada-worktree list` (`Step:`); `/ada:begin` and `/ada:pickup` run `check` before reading the checkpoint |
 | `.claude/worktrees/<slug>/`: one git worktree per step, in the main checkout, git-ignored | `ada-worktree new` (from `/ada:begin` or `ada:planning`); removed by `ada-worktree remove` | git; `ada-worktree list`; Claude Code's `EnterWorktree` |
@@ -53,19 +53,20 @@ State the scripts read and write, in an onboarded project:
 | `.claude/handoff/plan/DESIGN-<task id>.md` | Iris, in a plan: the only handoff design file she writes then, and `.claude/handoff/DESIGN.md` stays the template (`skills/design/SKILL.md`, Write DESIGN.md); the project's root `DESIGN.md` is written at agreement, as in a step | Ada, who copies it to `.claude/handoff/DESIGN.md` when a unit that names it is built (`skills/planning/SKILL.md`) |
 | `DESIGN.md` at the repo root: the project's design system, in the DESIGN.md format (spec `version: alpha`: YAML front matter tokens, then the spec's 8 `##` sections). Committed in the PR of the step that builds from the design | Iris, from `templates/DESIGN.md`, when a design is agreed: created if missing, else new tokens added; an existing token changed or removed only with the developer's yes, recorded in the handoff `DESIGN.md`. Linted with the version pinned in `skills/design/SKILL.md` (Write DESIGN.md) when `npx` is available | Iris first (Look first); Bob, Claudia and Tess for token values; `/ada:onboard` sets `Design guide: DESIGN.md` when it exists |
 | `.claude/handoff/archive/<name>/` | `ada-handoff-init --archive` / `--archive-plan` (`bin/ada-handoff-init:25-51`); `ada-worktree remove`, into the main checkout's, as `<YYYY-MM-DD>-<slug>/` | people |
-| `.claude/handoff/plan/PLAN.md` and `plan/<task>.md`, in the main checkout only (the first entry of `git worktree list --porcelain`, printed by `ada-worktree main`) | `ada-plan init` / `briefs` (`bin/ada-plan:51-57`, `197-220`); Ada adds "Building in `<worktree path>`; the live brief is there." under a unit's title when its build starts | `ada-plan`, `ada-brief submit`, `ada-handoff-init --archive-plan`, from any worktree |
-| `.claude/briefs/<task>.md`, `.claude/briefs/<epic>-plan.md` (committed) | `ada-brief submit` (`bin/ada-brief:629-657`) | `ada-brief status`/`body`/`submit` via `git show` and `git log` (`git_show`, `approved_version`, `bin/ada-brief:192-194`, `294-298`; `since`, `:713`) |
-| `brief-approved` label on the draft PR | an approver, by hand; removed by `submit` when re-approval is needed (`bin/ada-brief:680-683`) | `approval()` (`bin/ada-brief:311-321`), from `status` (`:720-734`) and `submit` (`after_submit`, `:527-562`) |
-| Amendments table of the brief (five columns: `Date`, `What changed (old → new)`, `Why (evidence)`, `Re-approval`, `Agreed by`) | Ada, with the developer's yes (`templates/handoff/BRIEF.md`) | `compare()` (`bin/ada-brief:272-292`); `render_body` (`amendments_table`, `:223-231`); Claudia and Tess read `Agreed by` |
-| PR comment listing the Amendments rows added since approval | `submit`, when the approval is kept (`after_submit`, `bin/ada-brief:548-558`; posted at `:678`) | the approver |
-| `<!-- ada-brief: <path> -->` marker in the PR body | `render_body` (`bin/ada-brief:432`) | `ada-brief status` (`bin/ada-brief:708-711`) |
-| `.claude/team/.template-hashes` (`<copied\|declined\|removed> <sha256> <path>`; `removed` marks a template the project deleted, with the sha its line held) | `ada-onboard files` / `refresh` (`bin/ada-onboard:81-107`) | `ada-onboard files` and `refresh` |
-| `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:255-322`) | Claude Code |
-| `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:256-259`) |
+| `.claude/handoff/plan/PLAN.md` and `plan/<task>.md`, in the main checkout only (the first entry of `git worktree list --porcelain`, printed by `ada-worktree main`) | `ada-plan init` / `briefs` (`bin/ada-plan:58-64`, `225-248`); Ada adds "Building in `<worktree path>`; the live brief is there." under a unit's title when its build starts | `ada-plan`, `ada-brief submit`, `ada-handoff-init --archive-plan`, from any worktree |
+| `.claude/briefs/<task>.md`, `.claude/briefs/<epic>-plan.md` (committed) | `ada-brief submit` (`bin/ada-brief:1288-1318`) | `ada-brief status`/`body`/`submit` via `git show` and `git log` (`git_show()`, `bin/ada-brief:290-292`; `approved_version()`, `:459-463`; `since`, `:1425`) |
+| `brief-approved` label on the draft PR (a brief without `Areas:`), or one `approved:<slug>` label per area on `Areas:` | `submit` creates them (`create_labels`); an approver adds their area's, by hand; `submit` removes `brief-approved` when re-approval is needed (`bin/ada-brief:1347`), and only the labels of the areas an amendment sends back | `approval()` (`bin/ada-brief:589-600`), from `status`'s path for a brief without `Areas:` (`:1482-1509`), `area_state()` (`:680-722`) and `submit` (`after_submit`, `:1005-1118`) |
+| Amendments table of the brief (five columns: `Date`, `What changed (old → new)`, `Why (evidence)`, `Re-approval`, `Agreed by`) | Ada, with the developer's yes (`templates/handoff/BRIEF.md`) | `compare()` (`bin/ada-brief:370-391`); `render_body` (`amendments_table()`, `:321-329`); Claudia and Tess read `Agreed by` |
+| A brief's `Areas: <slug>, ...` and `Author: @<login>` header lines (after `Approval:`; the template's `<…>` prompts read as none) | Ada (`skills/begin/approval.md`, Getting the brief approved): `Areas:` from what the brief changes, checked against `ada-brief areas`, left as the prompt with no areas table; `Author:` from `gh api user`, always; an amendment adds an area it sends the brief back to (Amending an approved brief) | `ada-brief` `brief_areas()` and `brief_author()` (in `brief_py()`), for `submit` (labels, area path), `status` (area path; `Author:` for the exemption), `body` (one line per area) and `compare` (the `areas:` line) |
+| PR comment listing the Amendments rows added since approval | `submit`, when the approval is kept (`allowed_comment()`, `bin/ada-brief:1016-1027`, in `after_submit`; posted at `:1340`) | the approver |
+| `<!-- ada-brief: <path> -->` marker in the PR body | `render_body` (`bin/ada-brief:892`) | `ada-brief status` (`bin/ada-brief:1420-1423`) |
+| `.claude/team/.template-hashes` (`<copied\|declined\|removed> <sha256> <path>`; `removed` marks a template the project deleted, with the sha its line held) | `ada-onboard files` / `refresh` (`bin/ada-onboard:84-110`) | `ada-onboard files` and `refresh` |
+| `.claude/settings.json` | `ada-onboard settings` (`bin/ada-onboard:258-325`) | Claude Code |
+| `.claude/team/prod.env` | the developer | `prod-wp`; `ada-onboard settings` (SSH host to deny, `bin/ada-onboard:259-262`) |
 | `PROJECT.md` `**PressTest image:**` and `**PressTest staging:**` (first code span, else first word), `**PressTest shared suites:**` (every code span, else the words); `none` or a `<prompt>` means none | the developer, at onboarding | `presstest` (`bin/presstest`, `project_line` and `project_list`) |
-| `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:353-382`); Grace (`/ada:bughunt`, Intake and step 7); Ada (`begin/SKILL.md`, Direct Bob, Claudia and Tess, item 3, sends her to `begin/knowledge-base.md`; `pr-gate.md`, steps 3 and 5); Claudia (`agents/claudia.md`, item 13) |
-| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:157-194`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout; Ada (`begin/knowledge-base.md`): a support card's entry and `INDEX.md` in the step's worktree before Claudia's review, committed in the PR | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; Ada and Claudia (`asana.projectGid`, the entry); people |
-| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:384-453`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
+| `PROJECT.md` `**Kind:**` (`product` or `site`) and `**Knowledge base:**` (the folder's path, or `none`), read the same way; no Kind line, `site`, `none` or a `<prompt>` switch nothing on | the developer, at onboarding (`/ada:onboard`, steps 4 and 5) | `ada-onboard check` (`bin/ada-onboard:364-393`); Grace (`/ada:bughunt`, Intake and step 7); Ada (`begin/SKILL.md`, Direct Bob, Claudia and Tess, item 3, sends her to `begin/knowledge-base.md`; `pr-gate.md`, steps 3 and 5); Claudia (`agents/claudia.md`, item 13) |
+| A product's knowledge-base folder (default `knowledge-base/`: `README.md`, `INDEX.md`, `config.json` with `asana.projectName`, `asana.projectGid`, `issues/`), committed | `ada-onboard kb` creates it from `templates/knowledge-base/` (`bin/ada-onboard:160-197`); `/ada:onboard` fills `config.json`; Grace (`/ada:bughunt` step 7): entries and `INDEX.md`, left uncommitted in the main checkout; Ada (`begin/knowledge-base.md`): a support card's entry and `INDEX.md` in the step's worktree before Claudia's review, committed in the PR | `ada-onboard check` (`config.json`'s `{{KEY}}`s); Grace, Intake; Ada and Claudia (`asana.projectGid`, the entry); people |
+| `.claude/team/local.env` (`LOCAL_URL`, `PRESSTEST_*`, `PRESSTEST_STAGING_*`, `PRESSTEST_ENV_<NAME>` (the project's own settings, passed to local `presstest run` only; the project's tests mustn't print the values), `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH`, `LOCAL_WP`, `ADA_CLOCK_LOCAL_SITE`; git-ignored, other keys ignored) | each developer; `ada-onboard clock` appends `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and `LOCAL_WP` when they have no value (`bin/ada-onboard:395-464`) | `presstest` (`bin/presstest`, the local.env parser); `ada-clock`; `ada-onboard clock`; Tess and Iris read `LOCAL_URL` |
 
 ## What fires when
 
@@ -90,8 +91,9 @@ them, to keep Ada's context small):
    after a bughunt, the developer first picks the `bughunt/*` worktree from `ada-worktree list`,
    and Ada copies its `FINDINGS.md` into the new worktree before reading it) then
    `EnterWorktree` (`path`), or `cd "<path>" && claude` and stop, unless the session is already in a
-   worktree with no step on the step's branch; check the branch; `ada-onboard refresh`. No step
-   facts in auto-memory.
+   worktree with no step on the step's branch; check the branch; `ada-onboard refresh`; the areas note (step 11, `approval.md`: once, when `ada-onboard check` prints `missing  areas table`, that is when
+   `PROJECT.md` has neither an areas table nor an `Areas: defaults kept` line, it offers the starter
+   set and commits the answer with the step's first commit). No step facts in auto-memory.
 2. Brief (Your three jobs; `design-step.md`): one PR or a plan (`ada:planning`); `.claude/handoff/BRIEF.md` with an
    `Expected review:` level. Before the rest of the brief, once "done" is pinned down, Ada
    applies the design test (begin, The design step); when it passes she offers the design step
@@ -99,10 +101,17 @@ them, to keep Ada's context small):
    test runs again if undesigned UI turns up during the build. Before the brief is confirmed,
    `ada-brief overlap` with its expected files; Ada fills `Overlaps:` and stops for the developer
    on any overlap.
-3. Approval (`approval.md`): `ada-brief who`; on `required <login>`, `ada-brief submit <task> <base>`
-   opens a draft PR and the session stops until `ada-brief status` says `approved`. After
-   approval, Ada checks each amendment against the re-approval triggers, records `not needed` or
-   `needed: <trigger>` in its row, and runs `ada-brief submit`: `(approval kept)` carries on,
+3. Approval (`approval.md`): `ada-brief areas`; with an areas table Ada writes the brief's
+   `Areas:` (the slugs it touches) and, always, `Author:` (`gh api user`), then runs
+   `ada-brief who <areas>` (`ada-brief who` with no table). On `required <login>` she names the
+   approvers of each `needs <slug>:` area, `ada-brief submit <task> <base>` opens a draft PR,
+   and the session stops until `ada-brief status` says `approved`; its `area <slug>: …` lines
+   say which areas wait, and on whom. When `who` says an area needs approval and the step has a
+   design, she asks the developer to share the artifact with the design area's approvers (the
+   catch-all's without one; `design-step.md`). After approval, Ada checks each amendment against
+   the re-approval triggers, records `not needed` or `needed: <area>, ...` in its row
+   (`needed: <trigger>` with no table), adding a missing area to `Areas:`, and runs
+   `ada-brief submit`: `(approval kept)` carries on; `(approval reset: <slug>, ...)` or
    `(approval reset)` stops for approval again (`approval.md`, Amending an approved brief).
 4. Build (Direct Bob, Claudia and Tess): Tess plan-and-write, Bob (plan then build), Claudia review, fix rounds
    (Bob fresh; Claudia re-review on Sonnet; Tess for test items), Tess run on Sonnet. Every Agent call names its model from begin's table; one without `model:`
@@ -132,7 +141,8 @@ confirmed with the developer; a finished step is archived on their yes, as in be
 `ada-brief status` if the brief is `awaiting approval` or was approved and its draft PR hasn't been
 made ready (`ada-brief ready` replaces the PR body, after which `status` says `not-submitted` and the
 PR review is the gate), where a second line `amended since approval; no re-approval needed` means
-carry on, and `ada-plan status` for the main checkout's plan.
+carry on and the `area <slug>: …` lines name the areas still waiting, and `ada-plan status` for
+the main checkout's plan.
 
 **`/ada:bughunt`** (`skills/bughunt/SKILL.md`) is Grace's read-only hunt, from Intake to
 `FINDINGS.md`. Only when `PROJECT.md` says `Kind: product` with a `Knowledge base:` folder (the
@@ -154,40 +164,77 @@ issue?" names the entry that matched and the file written or updated.
 
 How it works:
 
-- `who` (`bin/ada-brief:587-602`): parses `PROJECT.md` with a regex for `## Brief approval` and the
-  `- **Approvers:**` / `- **Trusted:**` bullets (`policy()`, `:121-148`). A value starting `none`
-  means empty; otherwise every `@login` is taken, lowercased. Other bullets in the section, such as
-  `- **Re-approval triggers:**`, are not read. No section prints `not-needed` plus a warning on
-  stderr (`:591`). Then `gh api user` gives the login (`me()`, `:176`). `ADA_BRIEF_REQUIRE=1` forces
-  `required` (`:597`).
-- `brief_py()` (`:182-323`) prints the Python that reads briefs, shared by `render_body`,
-  `after_submit`, `status` and `compare`: each runs `{ brief_py; cat <<'PY' ... PY; } | py -`. It
-  holds `split()` and `table_rows()` (what a section and a table data row are), `compare()`,
-  `approved_version()`, `since_approval()`, `gh()`/`flat()` and `approval()`.
-- `compare <approved> <current>` (`:757-780`, rules in `compare()`, `:272-292`): offline. `same`
+- `who` with no arguments (`bin/ada-brief:1243-1257`): reads `PROJECT.md` through `policy()`
+  (`:225-241`), which runs `brief_py`'s readers: `approval_section()` finds `## Brief approval`
+  with a regex, and `logins()` the `- **Approvers:**` / `- **Trusted:**` bullets. A value starting
+  `none` means empty; otherwise every `@login` is taken, lowercased. Other bullets in the section,
+  such as `- **Re-approval triggers:**`, are not read. `policy()` also runs `read_areas()`, so a bad
+  areas table stops `who`, `status`, and `submit` to an existing PR (after its push), with exit 2.
+  No section prints `not-needed` plus the `NO_SECTION` warning on stderr (`:219`, `:1245`). Then
+  `gh api user` gives the login (`me()`). `ADA_BRIEF_REQUIRE=1` forces `required` (`:1251`).
+- The areas table (`| Area | Slug | Approved by |`) in the Brief approval section is read by
+  `read_areas()` (`:577-588`) and checked by `table_areas()` (`:516-571`). `read_areas()` passes
+  the section through `strip_comments(..., keep_newline=True)` first, so a table inside an HTML
+  comment is ignored and a line ending in a comment stays its own line rather than joining the
+  table's header (`approved_sections()`, `amendments()` and `show()` call it without
+  `keep_newline`, which removes the newline after `-->`). The Approvers and Trusted lines are
+  read from the section as it is. The rules: the section's one table, that header, a
+  `|---|---|---|` line, three cells a row, one row whose Area ends
+  `(catch-all)`, slugs `[a-z0-9][a-z0-9-]*` of at most 40 characters, unique, not `catch-all` or
+  `everything`, Approved by `@login`s, `Approvers`, both, or `none`. Each area is a dict like
+  `implicit_areas()`'s, label `approved:<slug>`. No table gives `implicit_areas()` with the
+  Approvers line; no section, with no approvers. The first problem stops with `ada-brief: <message>`
+  (exit 2 through the caller's `|| exit 2`).
+- `areas` (`:1258-1261`) and `who <area>...` (`:1232-1241`) run `area_report` (`:1155-1207`). `areas`
+  needs no `gh`. `who <area>...` runs it twice: first with no login, which prints `not-needed`
+  when no named area has an approver (no `gh` needed); otherwise again with `me()`'s login.
+  Ada runs both (`skills/begin/approval.md`, Getting the brief approved; `design-step.md` for
+  the design area's approvers; `ada:planning` step 6), and `/ada:onboard` runs `areas` on the
+  table it writes.
+- `brief_py()` (`:278-743`) prints the Python that reads briefs and PROJECT.md's Brief approval
+  section, shared by `policy()`, `render_body`, `after_submit`, `area_labels`, `area_report`,
+  `status` and `compare`: each runs `{ brief_py; cat <<'PY' ... PY; } | py -`. It holds
+  `strip_comments()`, `split()` and `table_rows()` (what a section and a table data row are),
+  `compare()`, `approved_version()`, `since_approval()`, `gh()`/`flat()`, `implicit_areas()`, the
+  project readers `read_project()`, `approval_section()`, `logins()`, `table_areas()` and
+  `areas_table()` (the table with comments stripped; `None` without one), `read_areas()`,
+  `approval()`, `parse_time()`, `counts_for()` (an area's Approved by logins
+  plus Trusted: who counts for it) and `area_state()`.
+- `compare <approved> <current>` (`:1522-1549`, rules in `compare()`, `:370-391`): offline. `same`
   when the files match after each line is right-stripped (a CR too) and blank lines at the end are
   dropped. Otherwise the added rows are the Amendments data rows of `<current>` not in
   `<approved>`, as cell lists, counted as a multiset. The first added row, in table order, with
-  Re-approval `needed: <trigger>`, no `Agreed by`, or no `not needed` (`row_problem()`, `:260-270`;
+  Re-approval `needed: <trigger>`, no `Agreed by`, or no `not needed` (`row_problem()`, `:358-369`;
   a row of other than five cells has no Re-approval) gives `reapprove <reason>`. Then, with no
   added row, a change to Decisions or Constraints less its `- Out of scope:` bullet and that
-  bullet's indented lines (`approved_sections()`, `:240-254`, comments stripped) gives
+  bullet's indented lines (`approved_sections()`, `:338-353`, comments stripped) gives
   `reapprove approved section changed with no amendment recorded`. Else `allowed`, followed by
-  the added rows. Exit 0 for all three; 2 on usage or an unreadable file.
-- The approved version (`approved_version()`, `:294-298`): `git log -1 --until=<label time>
+  the added rows. Exit 0 for all three; 2 on usage or an unreadable file. After `reapprove`, when
+  `<current>` has an `Areas:` header line, a second line `areas: <slug>, ...`
+  (`reapprove_areas()`, in `brief_py()` after `compare()`): from each added row
+  (`row_areas()`, which classifies it with `row_problem()`), the slugs of its `needed: <slug>,
+  ...` when all are on `Areas:` and the row has an `Agreed by`, none for `not needed`, else all
+  of them; `catch-all` for an approved section changed with no added row; listed in `Areas:`
+  order. `header_value()` reads a header line (before the first `##`, comments stripped): a
+  missing line, an empty value or one starting `<` (the template's prompt) is none, so such a
+  brief prints only the first line. `brief_areas()` lowercases the slugs and drops repeats; an
+  `Areas:` line holding only commas is none too, and prints only the first line as well.
+  `brief_author()` reads `Author: @<login>` (lowercased; `None` unless the value is one
+  `@login`), which `status` reads on its area path.
+- The approved version (`approved_version()`, `:459-463`): `git log -1 --until=<label time>
   <ref> -- <brief>`, then `git show`. The label time is the last `labeled` event's `created_at`
-  (`approval()`, `:311-321`, which returns nothing unless the label is on the PR).
-- `submit` (`:604-690`): validates names (`:605-613`), refuses `production`, `next-release`,
-  `review`, `main`, `master` (`:613`). If the base branch has its own PR, the base's brief must be
+  (`approval()`, `:589-600`, which returns nothing unless the label is on the PR).
+- `submit` (`:1263-1359`): validates names (`:1264-1272`), refuses `production`, `next-release`,
+  `review`, `main`, `master` (`:1272`). If the base branch has its own PR, the base's brief must be
   `approved`, `not-needed` or `not-submitted` first, by calling itself as `"$here/ada-brief" status "$base"`
-  (`:621-627`). On the current branch it copies `BRIEF.md` (and the plan) into `.claude/briefs/`,
-  commits only those paths, pushes (`:637-647`). For another branch it commits without a checkout
-  through a throwaway index and `git commit-tree` / `git update-ref` (`commit_to`, `:566-580`),
-  refusing a branch checked out in another worktree (`:650-652`). It creates the label if missing
-  (`:659`) and renders the PR body (`:660-661`). On a new branch it opens a draft PR (`:685-689`,
-  prints `opened   <url>`). On an existing PR it runs `policy()` and `after_submit` (`:527-562`),
+  (`:1280-1286`). On the current branch it copies `BRIEF.md` (and the plan) into `.claude/briefs/`,
+  commits only those paths, pushes (`:1298-1308`). For another branch it commits without a checkout
+  through a throwaway index and `git commit-tree` / `git update-ref` (`commit_to`, `:1211-1225`),
+  refusing a branch checked out in another worktree (`:1310-1313`). It creates its labels if missing
+  (`area_labels` and `create_labels`, `:1320-1321`) and renders the PR body (`:1322-1323`). On a new branch it opens a draft PR (`:1354-1357`,
+  prints `opened   <url>`). On an existing PR it runs `policy()` and `after_submit` (`:1005-1118`),
   which compares the approved version on `origin/<branch>` with the brief just pushed, when the
-  label is on and was added by an approver, and prints an action (`:670-684`):
+  label is on and was added by an approver, and prints an action (`:1324-1353`):
   - `keep` (`same` or `allowed`, PR body text unchanged): nothing changes on the PR. For
     `allowed` this is a repeat of a submit that already replaced the body and posted the comment.
   - `patch` (`same`, body differs, e.g. the plan in it changed): PATCH the body.
@@ -196,20 +243,48 @@ How it works:
   - `reset` (`reapprove`, no approver's label, or no approved version): PATCH the body and DELETE
     the label.
   The first three print `updated  <url> (approval kept)`; `reset` prints
-  `updated  <url> (approval reset)`.
-- `status` (`:692-755`): the PR body's marker names the brief path (`:708-711`); `since` is the
-  committer date of the last commit touching it on the pushed branch (`:713`). If the label is on
+  `updated  <url> (approval reset)`. A brief with `Areas:` is decided area by area, as `status`
+  decides it: `create_labels` makes each area's `approved:<slug>` label, the label of each area
+  `compare` sends back is removed, and when a label counted before the submit it prints
+  `updated  <url> (approval reset: <slug>, ...)`, the areas that need approval and have no label
+  that counts afterwards, or `(approval kept)`. Ada reads all three forms
+  (`skills/begin/approval.md`, Amending an approved brief).
+- `status` (`:1361-1520`): the PR body's marker names the brief path (`:1420-1423`); `since` is the
+  committer date of the last commit touching it on the pushed branch (`:1425`). If the label is on
   and was last added by an approver (`approval()`): at or after `since`, `approved`; before it,
   `since_approval()` on the pushed branch, where `same` or `allowed` prints `approved @<login>
   <time>` and a second line `amended since approval; no re-approval needed`, and `reapprove
   <reason>` adds the note `@<login> approved an earlier version; the brief has changed since:
-  <reason>` (`:720-734`). Otherwise `changes-requested` if any approver review, line comment or PR
-  comment is newer than `since`, else `waiting` (`:736-752`).
-- `ready` (`:791-802`): PATCHes title and body, keeps the Asana block, `gh pr ready`.
-- `render_body` (`:329-500`) parses the brief's headings and bullets and the plan's Units table,
-  and calls `gh pr list` once per unit (`:392-397`). The Amendments table keeps its column count:
+  <reason>` (`:1482-1509`). Otherwise `changes-requested` if any approver review, line comment or PR
+  comment is newer than `since`, else `waiting` (`:1510-1516`).
+  `gh pr view` also gives the PR's `author` (its opener). `policy()` `missing`, or `none` with
+  no areas table, still prints `not-needed` before any `gh pr view`: which brief is the PR's is
+  known only from the PR body's marker, so no brief can be read first. `none` with a table
+  (`policy()`'s second line `table`, from `areas_table()`) goes on: every answer before the
+  approval is read (no PR, no marker, the brief not pushed, no `Areas:` on the pushed brief) is
+  then `not-needed`. The pushed brief's
+  `Areas:` line (`brief_areas()`) picks the path: without one, the path above, unchanged; with
+  one, the area path (`:1437-1480`). It reads the areas with `read_areas()`, exits 2 on a slug
+  the project doesn't list, and runs `area_state()` (`:680-723`) for each slug in `Areas:`
+  order: `not needed` when the exempt author or no approver; `approved` when the area's
+  `approved:<slug>` label was last added by a login in `counts_for()`, at or after `since`, or
+  before it with the area left out of `reapprove_areas()` (the `catch-all` token mapped to the
+  catch-all's slug); `changes-requested` when a login that counts said something since `since`;
+  else `waiting`. The author is the PR's opener when the brief's `Author:` (`brief_author()`)
+  names them and `ADA_BRIEF_REQUIRE` isn't `1`; the `gh` login running `status` plays no part.
+  When an area's approval was compared and the catch-all came back, the catch-all is evaluated
+  too and its line goes last. Reviews and comments are fetched once (`said_since()`) for
+  everyone; the base path keeps only the approvers'. Labels of areas the brief doesn't touch are
+  never read. `brief-approved` is read on the area path only as the label of `everything`, the
+  one area of a project with no areas table. The area lines (`area <slug>: approved @<login>
+  <time>`, `waiting (@a, @b)`, `changes-requested`, `not needed (@<author> approves it)`, `not
+  needed (no approvers)`) are read by Ada (`skills/begin/approval.md`, Getting the brief
+  approved) and by `/ada:pickup` step 4.
+- `ready` (`:1560-1571`): PATCHes title and body, keeps the Asana block, `gh pr ready`.
+- `render_body` (`:752-961`) parses the brief's headings and bullets and the plan's Units table,
+  and calls `gh pr list` once per unit (`:815-818`). The Amendments table keeps its column count:
   five columns if any row has five cells (a four-cell row then gets an empty Re-approval), else
-  the old four (`amendments_table()`, `:223-231`). A filled `Overlaps:` header
+  the old four (`amendments_table()`, `:321-329`). A filled `Overlaps:` header
   line becomes `> Overlaps with work in flight: …` in the note to the approver; without the line
   the body is as before.
 - `overlap [<file>...]`: `branches()` reads `Branch from` and `PR into` from `PROJECT.md` with
@@ -235,22 +310,22 @@ Traps:
 
 - **Rows are compared as text, not mapped to changes.** Once an agreed `not needed` row has been
   added since approval, a later change to Decisions or Constraints with no row of its own still
-  gives `allowed` (`compare()`, `:272-292`). Claudia's review checks each change has its row.
-- **Approval time is the committer date.** `since` uses `%cI` (`:713`) and the approved version
-  uses `git log --until` (`:294-298`), so rebasing or amending the brief commit moves both: an
+  gives `allowed` (`compare()`, `:370-391`). Claudia's review checks each change has its row.
+- **Approval time is the committer date.** `since` uses `%cI` (`last_change()`, `:621-623`) and the approved version
+  uses `git log --until` (`:459-464`), so rebasing or amending the brief commit moves both: an
   earlier label stops counting, or no approved version is found and approval is reset.
-- **`status <branch>` reads `origin/<branch>`** (`:703`) and never fetches, so a stale
+- **`status <branch>` reads `origin/<branch>`** (`:1384`) and never fetches, so a stale
   remote-tracking ref gives an old `since` and an old brief to compare.
 - **One page only.** Every GitHub list is fetched with `per_page=100`, no paging (`gh()`,
-  `:306-307`); a PR with over 100 events or comments would miss later ones. `flat()` is a no-op
+  `:471-472`); a PR with over 100 events or comments would miss later ones. `flat()` is a no-op
   left for this.
 - **PR edits go through `gh api`, not `gh pr edit`,** which fails before gh 2.50 (header,
-  `:89-90`). Keep it that way.
-- **`gh pr create` errors are swallowed** (`:686`, `2>/dev/null`): only "couldn't open the draft
+  `:189-190`). Keep it that way.
+- **`gh pr create` errors are swallowed** (`:1355`, `2>/dev/null`): only "couldn't open the draft
   PR" reaches the user.
 - **The first line of `status` is an interface** read by `/ada:begin` (`skills/begin/approval.md`, Getting the brief approved),
-  by `submit` (`:621-627`) and by `ada-plan status` (`bin/ada-plan:268`). Don't change its words.
-- **The Asana block** is found by a fixed English sentence (`:512`); if Asana changes it, the
+  by `submit`, for a part's base (`:1280-1286`), and by `ada-plan status` (`bin/ada-plan:312`). Don't change its words.
+- **The Asana block** is found by a fixed English sentence (`:972`); if Asana changes it, the
   block is dropped on the next description replace.
 - **`overlap`'s first line is an interface** read by `/ada:begin`, as are its group headings,
   ` touches: ` and `unknown (`. Change them only with the begin skill.
@@ -263,67 +338,72 @@ Traps:
   current branch is left out, even one from a fork.
 - **`overlap` with the same `Branch from` and `PR into`** has nothing waiting to ship, by
   construction: the range is empty.
-- Parsing depends on template wording: `# Brief…:` title (`:358`, `:630`), `Plan:` line pointing
-  at `.claude/briefs/<id>-plan.md` (`:379`, `:633`), `- Out of scope:` / `- Expected review:`
-  bullets under `## Constraints` (`:365-373`), `- [ ]` Definition of Done items (`:374`), the
-  `Overlaps:` line (`:363`, `:441`). A change
+- Parsing depends on template wording: `# Brief…:` title (`:781`, `:1289`), `Plan:` line pointing
+  at `.claude/briefs/<id>-plan.md` (`:802`, `:1292`), `- Out of scope:` / `- Expected review:`
+  bullets under `## Constraints` (`:788-796`), `- [ ]` Definition of Done items (`:797`), the
+  `Overlaps:` line (`:786`, `:900`), the `Areas:` and `Author:` header lines (`header_value()`;
+  a value starting `<`, the template's prompt, is none). A change
   to `templates/handoff/BRIEF.md` can silently empty parts of the PR body.
 
 Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
 
 ### ada-onboard: templates, settings and refresh
 
-- `files` (`bin/ada-onboard:110-156`): walks `templates/repo/`, never overwrites (prints `kept`,
-  `:134-136`), fills `{{KEY}}` for nine known keys (`:115`), writes LF, keeps the mode bits (`:147`),
-  and records `copied <sha>` of what it wrote (`:148`). Kept files get no hash, and their line is
+- `files` (`bin/ada-onboard:113-159`): walks `templates/repo/`, never overwrites (prints `kept`,
+  `:137-139`), fills `{{KEY}}` for nine known keys (`:118`), writes LF, keeps the mode bits (`:150`),
+  and records `copied <sha>` of what it wrote (`:151`). Kept files get no hash, and their line is
   left as it is. A template whose path has a line in `.template-hashes` (any kind) but no file
-  was deleted by the project (`:137-141`): `files` prints `removed`, writes nothing, and records
+  was deleted by the project (`:140-144`): `files` prints `removed`, writes nothing, and records
   the line as `removed` with the sha it held. A missing template with no line is new, and is
   copied. `write_hashes` writes one line per path, sorted by path, with LF endings, so in a file
   the tool wrote the other lines keep their text and order. A hand-reordered file, or one with
   CRLF endings, is rewritten sorted with LF.
-- `kb [<path>]` (`:157-194`): for a product only (`/ada:onboard` step 5). Takes at most one
+- `kb [<path>]` (`:160-197`): for a product only (`/ada:onboard` step 5). Takes at most one
   argument, default `knowledge-base`, strips one trailing `/`, and refuses (exit 2, nothing
-  written) a path that doesn't match `:162` (relative, no part starting with a dot, so no `..` and
-  no absolute path). Then, part by part, it refuses (`:164-175`) a part that exists and isn't a
+  written) a path that doesn't match `:165` (relative, no part starting with a dot, so no `..` and
+  no absolute path). Then, part by part, it refuses (`:167-178`) a part that exists and isn't a
   folder (a file, or a symlink to nothing), and one whose real folder (`pwd -P`, so after any
   symlink) isn't inside the repo's. A part that doesn't exist ends the walk: `os.makedirs`
-  creates it and the rest inside the last real folder. Walks `templates/knowledge-base/` (`:176`,
+  creates it and the rest inside the last real folder. Walks `templates/knowledge-base/` (`:179`,
   next to `templates/repo/`, so `files` never copies it) in sorted order and, per file, prints
-  `kept` when it exists, else writes it with LF and prints `created` (`:187`, `:192`). It records
+  `kept` when it exists, else writes it with LF and prints `created` (`:190`, `:195`). It records
   no hashes and fills no placeholders, so `refresh` never touches the folder, and
   `config.json`'s two `{{KEY}}`s are left for the onboarding to fill by hand.
-- `refresh` (`:195-237`): only `.github/pull_request_template.md` (`:203`), because only
-  placeholder-free templates can be refreshed (`:202`). Order of the decision (`:211-233`): same
+- `refresh` (`:198-240`): only `.github/pull_request_template.md` (`:206`), because only
+  placeholder-free templates can be refreshed (`:205`). Order of the decision (`:214-236`): same
   text → `current`; a missing file with a hash line (any kind), without `--force` → `removed`,
   nothing written, the line recorded as `removed` with the sha it held, whatever `--decline` says
-  (`:213-218`); `--force`, a missing file with no hash line, or an untouched `copied` copy →
+  (`:216-221`); `--force`, a missing file with no hash line, or an untouched `copied` copy →
   `refreshed` (and rewrites the hash as `copied`); `--decline` → records
   `declined <sha of plugin copy>`; already declined at this plugin hash → `declined`; otherwise
   `edited` (hash recorded) or `unknown` (none, or `removed` with the file put back) followed by
   a unified diff, file left alone. `--force` brings a removed PR template back; for any
   template, so does deleting its line and running `files`. Hashes are of LF-normalised text
-  (`:81-91`), so CRLF checkouts on Windows still match.
-- `settings` (`:255-322`): loads `.claude/settings.json` with `json.load` (`:264`), sets the
-  marketplace and `ada@pie`, blanks commit/PR attribution (`:269`), sets `promptCacheTtl` only if
-  absent (`:272`), appends allow and deny rules not already present (`:284-317`), denies SSH to
-  the `PROD_SSH` host if `prod.env` has one (`:314-316`), and rewrites the file with two-space
-  indent (`:319`).
-- `check` (`:323-383`): reports `missing`, `fill in` (placeholders, `placeholders()` at `:328`),
-  `draft` (a `<prompt>` outside code, `:336-339`) or `ok` per file, then checks `ada@pie` and the
-  Brief approval section, and runs `ada-brief who`. Then the knowledge base (`:369-382`): only
+  (`:84-94`), so CRLF checkouts on Windows still match.
+- `settings` (`:258-325`): loads `.claude/settings.json` with `json.load` (`:267`), sets the
+  marketplace and `ada@pie`, blanks commit/PR attribution (`:272`), sets `promptCacheTtl` only if
+  absent (`:275`), appends allow and deny rules not already present (`:287-320`), denies SSH to
+  the `PROD_SSH` host if `prod.env` has one (`:317-319`), and rewrites the file with two-space
+  indent (`:322`).
+- `check` (`:326-393`): reports `missing`, `fill in` (placeholders, `placeholders()` at `:331`),
+  `draft` (a `<prompt>` outside code, `:339-342`) or `ok` per file, then checks `ada@pie` and the
+  Brief approval section, and runs `ada-brief who`. Then, when the section exists with neither an areas table
+  outside a comment (`ada-brief areas` prints `everything:` first) nor a `- **Areas:** defaults kept`
+  line (read from the section with CRs stripped), `missing  areas table in …` (`:355-362`), the
+  state `/ada:begin` offers the starter set for (`begin/SKILL.md` Session start 11, `begin/approval.md`,
+  The areas note). Then the knowledge base (`:380-393`): only
   when `PROJECT.md`'s `Kind:` reads exactly `product` and `Knowledge base:` reads a value other
   than empty or `none` (trailing `/` stripped). Then `missing  <path>/` if the folder isn't there,
   `missing  <path>/config.json` if it has none, `fill in  <path>/config.json: …` while it holds a
   `{{KEY}}`, and nothing once it's filled, so a filled-in product prints what a site does. It
-  reads both lines with a copy of `presstest`'s `project_line` (`:357-368`, beside
+  reads both lines with a copy of `presstest`'s `project_line` (`:368-379`, beside
   `bin/presstest:129-140`): the first code span, else the first word; a value starting `<` is unset.
   A change to one copy is made to both. The path isn't validated here: `kb` refuses a bad one.
-- `clock` (`:384-453`): run by `/ada:onboard` in a clock-sensitive project. Takes exactly
+- `clock` (`:395-464`): run by `/ada:onboard` in a clock-sensitive project. Takes exactly
   `LOCAL_WP_PATH=` and `LOCAL_WP=`, each once and non-empty; any other argument, or a value with a
-  newline, a `#` or the `<…>` form, exits 2 before anything is written (`:385-404`). The setup is
+  newline, a `#` or the `<…>` form, exits 2 before anything is written (`:396-415`). The setup is
   `local-linux` when `uname -s` is `Linux` and `$HOME/.config/Local` is a folder, else `manual`
-  (`:431-435`). It reads `local.env` with a copy of `ada-clock`'s parser (`:406-429`; the third
+  (`:442-446`). It reads `local.env` with a copy of `ada-clock`'s parser (`:417-440`; the third
   copy, beside `bin/ada-clock:128-151` and `bin/presstest`), and for `ADA_CLOCK_ADAPTER`,
   `LOCAL_WP_PATH` and `LOCAL_WP` in turn prints `kept` when the key reads non-empty, else appends
   `KEY=value` (a newline first if the file doesn't end in one) and prints `added`. The appended
@@ -333,16 +413,16 @@ Test it in a scratch GitHub repo you own (it pushes, labels and opens PRs).
 Traps:
 
 - `settings` crashes with a Python traceback on a `settings.json` that isn't strict JSON (comments,
-  trailing commas) (`:264`), and rewrites the whole file in its own two-space format (`:319`), so
+  trailing commas) (`:267`), and rewrites the whole file in its own two-space format (`:322`), so
   a hand-formatted file comes back reformatted.
-- `settings` sets `attribution` and the marketplace unconditionally (`:265-269`): a project's own
+- `settings` sets `attribution` and the marketplace unconditionally (`:268-272`): a project's own
   values there are overwritten.
 - A deleted template stays deleted only while `.template-hashes` has its line. With no line (the
   line deleted by hand, or a repo onboarded before the hashes), `files` and `refresh` read it as a
   new template and copy it back.
 - `check` and `settings` assume a PHP project: `check` lists `tools/composer.json`,
-  `phpcs.xml.dist`, `phpunit.xml.dist` (`:329-331`); `settings` allows `php -l`, phpcs, phpunit
-  (`:291`); `gitignore` adds `.phpunit.cache/` and `tools/vendor/` (`:240`). In this repo those
+  `phpcs.xml.dist`, `phpunit.xml.dist` (`:332-334`); `settings` allows `php -l`, phpcs, phpunit
+  (`:294`); `gitignore` adds `.phpunit.cache/` and `tools/vendor/` (`:243`). In this repo those
   show as missing and are expected to.
 - `clock`'s parser reads `KEY=   # comment` as the value `# comment`, as `ada-clock`'s and
   `presstest`'s do, so such a key is `kept`. A known gap, to be fixed in all three copies at once.
@@ -351,10 +431,10 @@ Traps:
   projects adopt it by hand (CHANGELOG). The same goes for the `Kind:` and `Knowledge base:`
   lines: a product onboarded before them adds the two lines by hand and runs `ada-onboard kb`.
 - The `Kind:` prompt starts with a word (`<one of ...>`) on purpose: `check` strips code spans
-  before it matches a `<prompt>` (`:338`), and ``<`product` ...>`` would leave `< ` behind, which
+  before it matches a `<prompt>` (`:341`), and ``<`product` ...>`` would leave `< ` behind, which
   doesn't match, so the unfilled line wouldn't be flagged.
-- `files`, `refresh` and `kb` read templates from `$(dirname "$0")/../templates/` (`:65`,
-  `:176`), so the copy of the script you run decides which templates you get (see Environments).
+- `files`, `refresh` and `kb` read templates from `$(dirname "$0")/../templates/` (`:68`,
+  `:179`), so the copy of the script you run decides which templates you get (see Environments).
 
 ### ada-plan: plans of several units
 
@@ -364,25 +444,32 @@ Traps:
   unit's draft brief and `PLAN.md` from there too, and `ada-handoff-init --archive-plan` archives
   it there.
 - Reads the `## Units` table, which must have exactly the columns `ID | Unit | Task | Branch |
-  Parent | Ships` (`bin/ada-plan:112-120`); rows whose cells all start `<` are the template's
-  example (`:126-127`). Validates IDs, task ids, branch names, parents (two levels at most), Ships
-  (`independent` or `after Unit X, ...`, same level), duplicates and cycles (`:133-177`).
+  Parent | Ships` (`bin/ada-plan:119-127`); rows whose cells all start `<` are the template's
+  example (`:133-134`). Validates IDs, task ids, branch names, parents (two levels at most), Ships
+  (`independent` or `after Unit X, ...`, same level), duplicates and cycles (`:140-184`).
 - The plan file is `.claude/briefs/<epic>-plan.md`, where `<epic>` is the last run of 6+ digits in
-  the `Epic:` URL (`:106-109`, `:186`). No Asana URL is a problem (`:134-135`).
-- `branches` (`:222-237`) creates missing branches with `git branch --no-track`, parents first:
+  the `Epic:` URL (`:113-116`, `:193`). No Asana URL is a problem (`:141-142`).
+- `branches` (`:250-265`) creates missing branches with `git branch --no-track`, parents first:
   from `origin/<branch>` if it exists, else the parent's branch, else `origin/<Branch from>`.
-- `status` (`:239-303`) calls `gh pr list` and `ada-brief status` per unit. A top-level unit is
-  "shipped" only if its merge commit is an ancestor of `origin/<Branch from>` (`:261-264`).
+- `status` (`:267-354`) calls `gh pr list` per unit, and `ada-brief status` for a unit with an open
+  PR when its brief needs approval. Whether it does comes from `ada-brief who`, run once for each
+  distinct set of a unit's areas (`needs_approval()`, `:274-283`). The areas are the slugs on the
+  `Areas:` line of the unit's draft in `plan/` (`unit_areas()`, `:198-217`), so a unit whose draft is
+  gone or has no `Areas:` line is asked with no areas. A unit with areas has `ada-brief status`
+  asked even when `who` says `not-needed` (`:309-313`). The `brief:` column and, for `waiting`
+  only, `next:` end with the areas in that state, read from the `area <slug>: <state>`
+  lines `ada-brief status` prints (`:314-315`, `:336-338`, `:351`). A top-level unit is "shipped"
+  only if its merge commit is an ancestor of `origin/<Branch from>` (`:303-305`).
 
 Traps:
 
 - `Branch from` has no default: every subcommand but `init` dies with `ada-plan: .claude/team/PROJECT.md
-  has no **Branch from:** line; add one under Code and branches` (`:68-84`) before any fetch, and
-  `PR into` falls back to `next-release` (`:81-82`, `:104`). `branches`/`status` then die if `git fetch
-  origin <it>` fails (`:88`). `ada-brief overlap` stops the same way (`branches()`).
+  has no **Branch from:** line; add one under Code and branches` (`:75-91`) before any fetch, and
+  `PR into` falls back to `next-release` (`:88-89`, `:111`). `branches`/`status` then die if `git fetch
+  origin <it>` fails (`:95`). `ada-brief overlap` stops the same way (`branches()`).
 - **Squash merges never "ship".** A squash-released unit's merge commit is never an ancestor of
-  the production branch, so it stays "waiting for release" (`:276` says to ask).
-- `status` is slow: two to three `gh` calls per unit plus one `ada-brief who`.
+  the production branch, so it stays "waiting for release" (`:325` says to ask).
+- `status` is slow: two to three `gh` calls per unit plus one `ada-brief who` for each distinct set of areas.
 
 ### The release workflow
 
@@ -466,10 +553,10 @@ Traps:
   (`~/.claude/plugins/cache/pie/ada/<version>/bin`, `DEVELOPING.md:42,53`), not this checkout's.
   To run edited scripts, call them by path (`plugins/ada/bin/ada-brief`) or start Claude with
   `--plugin-dir` and `ada@pie` switched off in `.claude/settings.local.json`
-  (`DEVELOPING.md:15-22`). Template lookups follow the script's own location (`bin/ada-onboard:65`,
-  `:176`, `bin/ada-handoff-init:20`, `bin/ada-plan:32, 36`).
-- **Flags.** `ADA_BRIEF_REQUIRE=1` makes everyone `required` for a dry run (`bin/ada-brief:13-14`,
-  `:595`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
+  (`DEVELOPING.md:15-22`). Template lookups follow the script's own location (`bin/ada-onboard:68`,
+  `:179`, `bin/ada-handoff-init:20`, `bin/ada-plan:39, 43`).
+- **Flags.** `ADA_BRIEF_REQUIRE=1` makes everyone `required` for a dry run (`bin/ada-brief:25-26`,
+  `:1251`). `prod-wp` reads `PROD_*` from `.claude/team/prod.env`, overridable by environment
   (`bin/prod-wp:19-30`). No production server exists for this repo, so `prod-wp` is never used here.
   `presstest` reads `LOCAL_URL` and `PRESSTEST_*` from `.claude/team/local.env`, likewise
   overridable, passes each `PRESSTEST_ENV_<NAME>` line to a local run as `<NAME>` (not to staging; the project's tests mustn't print the values;
@@ -480,7 +567,7 @@ Traps:
   `LOCAL_WP` (the command that runs WP-CLI on the site; unset means `wp --path=<LOCAL_WP_PATH>`)
   from the same file, likewise overridable, with the same parser copied in
   (`bin/ada-clock:128-151`). `ada-onboard clock` reads `ADA_CLOCK_ADAPTER`, `LOCAL_WP_PATH` and
-  `LOCAL_WP` with a third copy of it (`bin/ada-onboard:406-429`), not overridable by environment,
+  `LOCAL_WP` with a third copy of it (`bin/ada-onboard:417-440`), not overridable by environment,
   and appends the ones with no value; `uname -s` and `$HOME/.config/Local` pick the setup.
   `ada-clock` refuses any `LOCAL_URL` whose host isn't `localhost`, `127.0.0.1`, `.local` or
   `.test`, except for `ada-clock extension`, which reads no settings and runs before that
@@ -490,13 +577,13 @@ Traps:
   3.8+ (written for 3.8, only run on 3.12), `git`, `gh` logged in. Windows Git Bash expected but
   not tested. How the scripts cope:
   - Python is found as `python3`, `python` or `py -3`, each tried with a version check, which skips
-    the Microsoft Store stub (`bin/ada-brief:103-112`; same block in `ada-onboard:66-75`,
-    `ada-plan:38-45`, `ada-size:41-49`).
-  - Python output has `\r` stripped (`bin/ada-brief:113-114`, `bin/ada-plan:85-86, 96`, `bin/ada-size:72`);
+    the Microsoft Store stub (`bin/ada-brief:207-213`; same block in `ada-onboard:69-78`,
+    `ada-plan:45-52`, `ada-size:41-49`).
+  - Python output has `\r` stripped (`bin/ada-brief:214-215`, `bin/ada-plan:92-93, 103`, `bin/ada-size:72`);
     files are written with `newline='\n'`.
-  - No `mapfile` (bash 3.2): a `while read` loop instead (`bin/ada-brief:589`, `:698`); CHANGELOG
+  - No `mapfile` (bash 3.2): a `while read` loop instead (`bin/ada-brief:1243`, `:1332`); CHANGELOG
     0.3.0 records the bug this fixed (`CHANGELOG.md:191-192`).
-  - Empty arrays are guarded before `"${arr[@]}"` under `set -u` (`bin/ada-brief:599`,
+  - Empty arrays are guarded before `"${arr[@]}"` under `set -u` (`bin/ada-brief:1253`,
     `bin/ada-size:58`), which bash before 4.4 treats as unbound.
 
 ## What `ada-clock install` changes outside the repo
@@ -540,16 +627,16 @@ How it works:
 ## Known gotchas
 
 - The scripts `cd` to the repo root (`git rev-parse --show-toplevel`) and die outside a repo
-  (`bin/ada-brief:101-102` and the same in each); `ada-handoff-init` falls back to `pwd`
+  (`bin/ada-brief:202-203` and the same in each); `ada-handoff-init` falls back to `pwd`
   (`bin/ada-handoff-init:21`). In a worktree, the root is the worktree's, so its handoff files
   are its own. The plan is the exception: `ada-plan`, `ada-brief submit`'s plan paths and
   `ada-handoff-init --archive-plan` use the main checkout's (`ada-worktree main`).
 - A script that runs a sibling script works out its own folder (`here=`) before that `cd`
-  (`bin/ada-brief:99-100`), because a relative `$0` resolves against the folder it was started
+  (`bin/ada-brief:200-201`), because a relative `$0` resolves against the folder it was started
   from. `ada-brief` runs `"$here/ada-worktree"` and `"$here/ada-brief"`, and `ada-onboard check`
-  runs `"$here/ada-brief"` (`bin/ada-onboard:324-325`, `:351`), never `$0`.
-- Exit code 2 is every script's usage or precondition failure (`die`, e.g. `bin/ada-brief:98`).
-- `ada-brief who` with no Brief approval section succeeds with `not-needed` (`bin/ada-brief:591`):
+  runs `"$here/ada-brief"` (`bin/ada-onboard:327-328`, `:354`), never `$0`.
+- Exit code 2 is every script's usage or precondition failure (`die`, e.g. `bin/ada-brief:199`).
+- `ada-brief who` with no Brief approval section succeeds with `not-needed` (`bin/ada-brief:1245`):
   a missing section means no approval, not an error.
 - `ada-size` counts everything under `.claude/` as docs and `tests/` as tests (`bin/ada-size:92-104`);
   `bin/` scripts have no extension, so their `#` comments count as code, not comments

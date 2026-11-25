@@ -8,7 +8,9 @@ Plan: <none | .claude/briefs/<Epic task id>-plan.md, Unit <ID>>
 Ships: <independent | after Unit <ID>, Unit <ID>: built once they are in production (a part: merged into the feature branch)>
 Overlaps: <none | #N: <what we're doing about it>; ...>
 Status: draft | agreed | awaiting approval | building | in review | testing | ready for PR
-Approval: <not needed (why) | approved by @login on <date> | awaiting @approvers>
+Approval: <not needed (why) | approved by @login on <date> | awaiting @approvers | by area: approved: <area> by @x on <date>; <area> not needed (@y approves it); <area> awaiting @z>
+Areas: <the areas this brief touches, by slug from ada-brief areas, e.g. content, design; left as it is when PROJECT.md has no areas table>
+Author: <@login of the developer the step is for, from gh api user: the one who runs ada-brief submit>
 
 <!-- Overwritten each step. This is the contract, not a log; the log is BUILD-LOG.md. A unit of
 a plan is drafted as .claude/handoff/plan/<task id>.md in the main checkout and copied here, into
@@ -51,8 +53,9 @@ The guidance in comments like this one doesn't show in the draft PR. -->
 <!-- Changes to the agreed brief. Each one needs the developer's yes before it takes effect; an
 entry without "Agreed by" is not part of the brief. Decisions, and Constraints less its
 "- Out of scope:" bullet, are the approved sections: an approver approved them. Re-approval is
-"not needed" or "needed: <trigger>", from the triggers in /ada:begin and PROJECT.md. A change
-to an approved section with no row here needs approving again. -->
+"not needed" or "needed: <area>[, <area>]", the areas the change goes back to, from the
+triggers in /ada:begin and PROJECT.md ("needed: <trigger>" when PROJECT.md has no areas table).
+A change to an approved section with no row here needs approving again. -->
 
 | Date | What changed (old → new) | Why (evidence) | Re-approval | Agreed by |
 |---|---|---|---|---|

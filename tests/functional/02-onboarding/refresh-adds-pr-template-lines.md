@@ -6,7 +6,7 @@
   Unit B4); https://app.asana.com/1/100438094841948/project/1204538801343792/task/1220575393845404
   (a deleted template stays deleted: the `deleted` cases)
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 20 Nov 2026, 0 failed (bash 5.x local, bash 3.2 in Docker by the developer); break-it against 59499fb: 12 failed as expected (see the PR)
+- Last run: 24 Nov 2026, 0 failed (bash 5.x local; bash 3.2 in Docker not run this time) (see the PR)
 
 ## Precondition
 
@@ -108,8 +108,10 @@ clean() { test -z "$(git -C "$1" status --porcelain)"; }
 built() { awk '/^## /{ p = ($0 == "## Built") } p' "$1"; }
 in_built() { built "$NEWT" | grep -qF "$KBL"; }
 bare_angle() { grep -F 'Knowledge base:' "$NEWT" | sed 's/`[^`]*`//g' | grep -q '<[^>]*>'; }
-removed() { diff "$OLDT_K" "$NEWT" | grep -q '^<'; }
-added() { diff "$OLDT_K" "$NEWT" | grep '^> ' | sed 's/^> //' | grep -v '^[[:space:]]*$'; }
+# The Brief: line is left out: Unit G changes it on purpose, and refresh-brief-line-per-area.md
+# checks it exactly. Every other line is still held to 75554ce.
+removed() { diff "$OLDT_K" "$NEWT" | grep '^<' | grep -v '^< Brief:' | grep -q .; }
+added() { diff "$OLDT_K" "$NEWT" | grep '^> ' | sed 's/^> //' | grep -v '^[[:space:]]*$' | grep -v '^Brief:'; }
 only_kb_added() { test "$(added | wc -l | tr -d ' ')" = 1 && added | grep -qF "$KBL"; }
 
 # 0. The template under test (Unit B4, DoD 1) and the baselines.
@@ -118,8 +120,8 @@ t "template: exactly one Knowledge base: line" test "$(grep -c 'Knowledge base:'
 t "template: the Knowledge base: line is under ## Built" in_built
 t "template: no {{KEY}} anywhere, so refresh can offer it" not grep -q '{{' "$NEWT"
 t "template: the Knowledge base: line has no <...> outside a code span" not bare_angle
-t "template: against the released template ($BASE_K), no line removed or changed" not removed
-t "template: against the released template, the one non-blank line added is the Knowledge base: line" only_kb_added
+t "template: against the released template ($BASE_K), no line removed or changed but the Brief: line (Unit G)" not removed
+t "template: against the released template, the one non-blank line added, but the Brief: line, is the Knowledge base: line" only_kb_added
 t "regression: template keeps the Design: line with its three values (#30, Q5)" grep -qF "$DESIGN" "$NEWT"
 t "regression: ## Built keeps its prompt" grep -qF "Files touched, and any decision that wasn't in the brief." "$NEWT"
 t "baseline $BASE_D: no Design: line" not grep -q 'Design:' "$OLDT_D"
@@ -268,4 +270,6 @@ The script's output and exit code. On a failure the scratch folder is kept and n
   is the one case that changed: a deleted, listed template is now `removed`.
 - The PR template only gains the one line: every other line onboarded repos already have stays
   as it was (the template's "no line removed or changed" and "one non-blank line added" checks
-  against `75554ce`), and the `Design:` line keeps its three values.
+  against `75554ce`), and the `Design:` line keeps its three values. The `Brief:` line is left
+  out of those two checks since Unit G changed it on purpose;
+  `refresh-brief-line-per-area.md` checks it, and refresh's outcomes for it.

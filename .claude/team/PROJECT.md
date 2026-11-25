@@ -33,9 +33,11 @@ two lines as they are and change only the values.
 - **Approvers:** none
 - **Trusted:** none
 
-Approvers never need approval. Anyone on neither list does: a new developer is covered without
-anyone remembering to add them. Approval is the `brief-approved` label on the brief's draft PR,
-added by an approver.
+This project has no areas table, so a brief has one area, everything, approved by the
+Approvers with the `brief-approved` label on the brief's draft PR. Approvers and Trusted need no
+approval; a Trusted login's label counts only in a project with an areas table, where Trusted
+approves every area. Anyone else needs approval: a new developer is covered without anyone
+remembering to add them.
 
 ## Environments
 

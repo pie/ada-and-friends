@@ -10,7 +10,7 @@ it there wherever they run. A unit's worktree has no `plan/` of its own. Everyth
   3.2, a path with a space)
 - Asana: https://app.asana.com/1/100438094841948/project/100438094841951/task/1219769422658693
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 28 Oct 2026 (after the rebase onto PR #39), 0 failed (55 PASS) under bash 5 and Docker bash 3.2; the released-plugin break prints 24 FAIL (see the PR)
+- Last run: 2026-11-23: 54 PASS, 1 FAIL on the host: the baseline check (stale BASE default origin/next-release), also with the base plugin c79ff45, so not from Unit F; see the PR
 
 ## Precondition
 

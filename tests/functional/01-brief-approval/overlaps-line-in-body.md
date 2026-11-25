@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief body`, `render_body`); 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219790041247935
 - Automate as: none (the Steps block is a self-checking shell script; the repo has no test harness)
-- Last run: 28 Oct 2026 (after the test fix), 0 failed (20 PASS) under bash 5 and bash 3.2; breaks FAIL; see the PR
+- Last run: 2026-11-23, 0 failed (20 PASS) on the host (bash 5.3) and under bash 3.2 (Docker); the breaks not run; see the PR
 
 ## Precondition
 
@@ -13,6 +13,8 @@
   because `next-release` has had the line since #35 merged, so against it the baseline checks
   fail for that reason alone. The commit must be in this clone's history (it is, on any branch
   of `next-release` or `main`).
+- Commit `4b20da4` (`EBASE`, on `next-release`): the template before Unit E of "Brief approval
+  by area", whose four edits are undone before the template diff (they have their own checks).
 - `git`, `tar`, `python3` (3.8+), `mktemp`. No network and no GitHub login: `body` and `who`
   call `need_gh`, so a stub `gh` that is logged in and knows one user is put first on the PATH.
   The briefs are committed on a local branch, which `render_body` reads first.
@@ -37,7 +39,7 @@
 ```bash
 #!/bin/bash
 # Overlaps: in the brief template and in ada-brief body. PASS/FAIL per check; exit 1 if any FAIL.
-# Env: REPO, BASE (default 18e3c82^), PLUGIN (default $REPO/plugins/ada), OLD_PLUGIN.
+# Env: REPO, BASE (default 18e3c82^), PLUGIN (default $REPO/plugins/ada), OLD_PLUGIN, EBASE (default 4b20da4).
 # BASE is pinned to the commit before #35 added Overlaps:, not origin/next-release, which has had
 # the line since #35 merged (a moving baseline would fail the "released template has none" checks).
 # Because BASE is pinned, a later legitimate edit to the BRIEF template will fail the exact-added-lines
@@ -80,7 +82,42 @@ after_ships() { awk '/^Ships:/{getline; print; exit}' "$1"; }
 t "template: the line after Ships: is the Overlaps: line" test "$(after_ships "$NEWT")" = "$LINE"
 t "template: one Overlaps: line" test "$(grep -c '^Overlaps:' "$NEWT")" = 1
 t "baseline: the released template has no Overlaps: line" not grep -q '^Overlaps:' "$OLDT"
-diff "$OLDT" "$NEWT" > "$W/tdiff"
+# Unit E of "Brief approval by area" (task 1220198325269356) agreed four more edits: the Areas: and
+# Author: header lines, the Approval: prompt's per-area form, and the Amendments comment's
+# Re-approval wording. They are checked in
+# tests/functional/11-templates/templates-with-areas.md. Here they are undone before the diff: the
+# two header lines dropped, and the Approval: line and the Amendments comment put back as at EBASE (4b20da4, the
+# template's last change before Unit E), so this script still judges every other line exactly.
+EBASE=${EBASE:-4b20da4}
+git -C "$REPO" show "$EBASE:plugins/ada/templates/handoff/BRIEF.md" > "$W/ebase.md" 2>/dev/null || { echo "SETUP FAIL: no BRIEF template at $EBASE"; exit 2; }
+python3 - "$W/ebase.md" "$NEWT" > "$W/new.undone" <<'PY'
+import sys
+before = open(sys.argv[1], encoding='utf-8').read().split('\n')
+new = open(sys.argv[2], encoding='utf-8').read().split('\n')
+first = next((i for i, l in enumerate(new) if l.startswith('## ')), len(new))
+new = [l for i, l in enumerate(new) if not (i < first and (l.startswith('Areas:') or l.startswith('Author:')))]
+# The Approval: prompt gains the per-area form (Builder plan, item 1, settled by Ada): put back
+# the line as it was before Unit E.
+old_approval = next((l for l in before if l.startswith('Approval:')), None)
+new = [old_approval if (i < first and l.startswith('Approval:') and old_approval is not None) else l for i, l in enumerate(new)]
+def span(lines):
+    if '## Amendments' not in lines:
+        return None
+    i = lines.index('## Amendments') + 1
+    while i < len(lines) and '<!--' not in lines[i]:
+        if lines[i].startswith('## '):
+            return None
+        i += 1
+    j = i
+    while j < len(lines) and '-->' not in lines[j]:
+        j += 1
+    return (i, j) if j < len(lines) else None
+a, b = span(new), span(before)
+if a and b:
+    new = new[:a[0]] + before[b[0]:b[1] + 1] + new[a[1] + 1:]
+sys.stdout.write('\n'.join(new))
+PY
+diff "$OLDT" "$W/new.undone" > "$W/tdiff"
 # Step 1 of 25 Oct 2026 ("One worktree per step", DoD 9) agreed exactly one more edit to this template:
 # a Worktree: line after Branch:, and the comment's "a plan is drafted ..." line rewritten to three
 # lines. Nothing else released may be removed or changed, and nothing else may be added.

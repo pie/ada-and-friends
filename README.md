@@ -236,29 +236,75 @@ project's clock tests skip. The project's own tests say how to write one (V&Me:
 On some projects, PIE approves each brief before the team builds anything. This makes sure that
 PIE agrees with the work before time is spent on it.
 
-The **Brief approval** section of `PROJECT.md` says who needs approval:
+The **Brief approval** section of `PROJECT.md` says who approves what. It has an Approvers line
+and a Trusted line, and it can have a table of **areas**: the kinds of change a brief can touch,
+each with its approvers. For example:
+
+| Area | Slug | Approved by |
+|---|---|---|
+| Wording and content | content | @client |
+| Design and UI | design | @client |
+| System behaviour (catch-all) | system | Approvers |
+
+`Approvers` in the table means the logins on the Approvers line. One row is the catch-all: it
+covers anything no other area does. `/ada:onboard` offers a starter set of seven areas for you to
+edit, and the `PROJECT.md` template has them in a comment. A project with no table has one area,
+everything, approved by the Approvers. A project that has neither a table nor an
+`- **Areas:** defaults kept` line is offered the starter set once, by `/ada:begin`: say yes to set
+the areas up, or no, and `/ada:begin` adds the `defaults kept` line so the note doesn't return.
+
+Ada writes the areas a brief touches on its `Areas:` line, e.g. `Areas: content`, and your
+GitHub login on its `Author:` line. Who needs approval:
 
 | Who | Needs approval? | Can approve? |
 |---|---|---|
-| **Approvers** | No | Yes |
-| **Trusted** developers | No | No |
+| An area's approvers | Not for that area | That area |
+| **Trusted** developers | No | Every area, when the project has a table |
 | **All other developers** | Yes | No |
 
-A new developer is in the last group until someone adds them to a list. If the Approvers list is
-`none`, nobody needs approval.
+So an author needs no approval for the areas they approve, and Trusted approves every area. A
+new developer is in the last group until someone adds them to a list. If the Approvers list is
+`none` and there is no table, nobody needs approval.
 
 When your brief needs approval:
 
-1. Ada opens a draft PR that contains the brief. Then she stops.
-2. Give the PR link to an approver.
-3. The approver reads the brief on GitHub, and does one of these:
-   - **Approve:** add the `brief-approved` label to the PR.
+1. Ada tells you which areas need approval and who approves them. She opens a draft PR that
+   contains the brief. Then she stops.
+2. Give the PR link to those approvers.
+3. Each approver reads the brief on GitHub, and does one of these:
+   - **Approve:** add their area's `approved:<slug>` label to the PR, e.g. `approved:content`.
+     In a project with no table, add the `brief-approved` label.
    - **Ask for changes:** add review comments to the PR.
-4. Run `/ada:pickup`. If the brief is approved, the build starts. If the approver asked for
+4. Run `/ada:pickup`. Once every area is approved, the build starts. If an approver asked for
    changes, Ada goes through them with you, changes the brief, and sends it for approval again.
 
-Only a label that an approver adds after the last change to the brief counts. The draft PR
-becomes the PR for the work. You need `gh`, logged in.
+Only a label added after the last change to the brief counts, by someone who approves that area.
+The draft PR becomes the PR for the work. You need `gh`, logged in.
+
+### Changing the areas
+
+- **Editing.** Change the table in `PROJECT.md`'s Brief approval section: rename a row, change who
+  approves it, add or drop rows. One row stays the catch-all. Run `ada-brief areas` to check the
+  table.
+- **New labels.** A new slug's `approved:<slug>` label is created on the next `ada-brief submit`
+  that needs it.
+- **Renamed or dropped slugs.** A brief's open PR keeps the labels it has, and a label for a slug
+  that no longer exists counts for nothing. `ada-brief status` on an open PR whose brief names a
+  renamed or dropped area stops (exit 2, nothing on stdout) with `ada-brief: the brief names area
+  <slug>, which PROJECT.md doesn't list`, whatever the Approvers line says, until the brief's
+  `Areas:` line names slugs the table lists and the brief is submitted again. Only then does it
+  wait for the new areas' labels.
+- **Back to one area.** Delete the table, and add `- **Areas:** defaults kept (<name>, <date>)` to
+  the section so `/ada:begin` doesn't offer the starter set again. An open PR whose brief has an
+  `Areas:` line then stops in `ada-brief status` the same way (unless `Approvers: none`, when it
+  prints `not-needed`), until that line is removed and the brief submitted again; it is then
+  approved as a whole with the `brief-approved` label. A brief with no `Areas:` line is unaffected.
+
+**Changes after approval.** A change to an approved brief needs approving again only when it hits
+a re-approval trigger (`/ada:begin` lists them), and then only by the areas it touches. Ada
+records it as `needed: <area>`, e.g. `needed: content` for new wording, or the catch-all for a
+reversed decision. Only those areas' labels are removed; the others stay. In a project with no
+table, the whole brief goes back for `brief-approved`.
 
 Link each PR to its Asana task: on the task, open **Apps**, then **GitHub**, then
 **Add GitHub pull request**.

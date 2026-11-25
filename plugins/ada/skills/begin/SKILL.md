@@ -96,6 +96,7 @@ of work. The final gate is a PIE review of the PR, so your job is to make that r
     `edited` or `unknown`, show the diff and ask: take the new template
     (`ada-onboard refresh --force`), merge it by hand, or keep theirs
     (`ada-onboard refresh --decline`, so it isn't asked again until the template changes).
+11. No areas table yet? Do `approval.md`, The areas note.
 
 **No step facts in auto-memory.** Don't save a step's branch, task, decisions or state in Claude
 Code's auto-memory: another step's session in the same folder would read them as its own. Step
@@ -180,7 +181,8 @@ build order, definition of done. No prose. Name the `SYSTEM.md` sections and `AP
 that apply, the files you expect to change, and the surfaces to check (P12). Every item in the
 Definition of Done is observable: a thing Tess can see, not a feeling. For logic you expect to be
 unit-tested, name the function and its signature, so Tess can write the test before Bob writes
-the code (P29).
+the code (P29). Its `Areas:` line names the areas it touches and `Author:` the developer's
+`@login`, as `approval.md` says.
 
 **Check the brief against work in flight.** Before you confirm the brief, run
 `ada-brief overlap <the brief's expected files>`. It lists the work waiting to ship (in the

@@ -3,7 +3,7 @@
 - Area: 01 Brief approval (`ada-brief`); 12 Platforms (bash 3.2)
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219790041247935
 - Automate as: none (part A is a self-checking shell script with a stub `gh`; part B needs GitHub)
-- Last run: 10 Nov 2026, part A 0 failed (161 PASS) under bash 5, Docker bash 3.2 and Docker Python 3.8; the released-plugin break prints 10 FAIL; part B 0 failed (real GitHub, this repo); see the PR
+- Last run: 2026-11-23 (the feature branch with Release 0.16.0 merged in), part A 0 failed (161 PASS) on the host (bash 5.3); part B and Docker not run. Before that: 2026-11-20 on the feature branch, part A 0 failed (156 PASS) on the host (bash 5.3); 10 Nov 2026 on main, part A 0 failed (161 PASS) under bash 5, Docker bash 3.2 and Docker Python 3.8, the released-plugin break printing 10 FAIL, part B 0 failed (real GitHub, this repo); see the PR
 
 ## Precondition
 

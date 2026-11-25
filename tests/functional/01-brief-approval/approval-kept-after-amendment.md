@@ -5,7 +5,7 @@
   (also fixes https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219575725022328)
 - Automate as: none (a self-checking shell script, but it needs GitHub: it pushes, labels and
   opens PRs)
-- Last run: 2026-10-27, sequences A and B passed, 0 failed (fails against the released plugin); see the PR
+- Last run: 2026-11-23, sequences A and B passed, 0 failed (77 PASS), against this change on a scratch repo; see the PR
 
 ## Precondition
 

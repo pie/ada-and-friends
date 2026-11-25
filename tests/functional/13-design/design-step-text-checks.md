@@ -3,7 +3,7 @@
 - Area: 13 Design (`/ada:design`, Iris); also 08 Session flow, 09 Roles, 11 Templates
 - Asana: https://app.asana.com/1/100438094841948/project/1206474484537567/task/1219483548031905
 - Automate as: none (part A is a self-checking shell script; part B is read by a person)
-- Last run: 27 Oct 2026, part A 164 PASS, 1 failed (.template-hashes, KG-2, also fails on the base); part B not run (see the PR)
+- Last run: 2026-11-24, part A 0 failed (167 PASS) with BASE=origin/add/brief-approval-by-area; part B not run (see the PR)
 
 ## Precondition
 
@@ -103,6 +103,12 @@ t "design skill: archives a finished step first (Q2)" grep -qF -- '--archive' "$
 t "design skill: checks CHECKPOINT for an open step (Q2)" grep -qF 'CHECKPOINT' "$S"
 t "planning/SKILL.md: plan/DESIGN-<task id>.md (Q3)" grep -qF 'DESIGN-<task id>.md' "$P/skills/planning/SKILL.md"
 t "begin/SKILL.md: asks the developer to share the artifact (Q4)" grep -qiE 'share' "$BA"
+# Q4 as changed by Unit E of "Brief approval by area" (task 1220198325269356): the artifact goes to
+# the design area's approvers, the catch-all's when the project has no design area.
+# tests/functional/13-design/design-goes-to-design-approvers.md has the rest.
+DSF=$W/design-step1; tr '\n' ' ' < $P/skills/begin/design-step.md | tr -s ' ' > "$DSF"
+t "design-step.md: shares the artifact with the design area's approvers (Q4, Unit E)" grep -qiE "design area.{0,40}approvers|approvers of the design area|\`design\` area.{0,40}approvers" "$DSF"
+t "design-step.md: the catch-all's approvers without a design area (Q4, Unit E)" grep -qiE "catch-all.{0,200}(no|without a) design area|(no|without a) design area.{0,200}catch-all" "$DSF"
 t "begin/SKILL.md: a design summary in Constraints (Q4)" grep -qiE 'summary' "$BA"
 t "begin/SKILL.md: fills the PR's Design: line (Q5)" grep -qF 'Design:' "$BA"
 # Q6: a standalone design the developer says isn't for this task is set to Status: superseded. Check
@@ -131,12 +137,16 @@ t "REVIEW-REQUEST template: one UI not specified: line" test "$(grep -c 'UI not 
 t "plugin PR template: a Design: line" grep -q 'Design:' "$PT"
 t "plugin PR template: the Design: line as amended (Q5)" grep -qF 'Design: <the Design artifact link | text only, in the brief | none>' "$PT"
 # Rescoped for Unit B4 (the Knowledge base: line, added to the plugin's template only; this repo's
-# copy gets it from `ada-onboard refresh` after release): the two are byte for byte the same once
-# any `Knowledge base:` line is set aside, so the Design: line and every other line still match.
-nokb() { grep -v '^Knowledge base:' "$1" | cat -s; }
-t "this repo's PR template is the plugin's, byte for byte, apart from any Knowledge base: line" \
+# copy gets it from `ada-onboard refresh` after release) and again for Unit G (the Brief: line,
+# reworded in the plugin's template for approval by area; this repo's copy gets the new line from
+# `ada-onboard refresh` after release): the two are byte for byte the same once any `Knowledge base:`
+# and any `Brief:` line is set aside on both sides, so the Design: line and every other line still match.
+nokb() { grep -v -e '^Knowledge base:' -e '^Brief:' "$1" | cat -s; }
+t "this repo's PR template is the plugin's, byte for byte, apart from any Knowledge base: or Brief: line" \
   eval 'nokb "$PT" > "$W/pt-nokb"; nokb "$GT" > "$W/gt-nokb"; cmp -s "$W/pt-nokb" "$W/gt-nokb"'
-t "plugin PR template: no line removed" not sh -c "git diff '$BASE' -- '$PT' | grep '^-' | grep -v '^---' | grep -q ."
+# Rescoped for Unit G: the Brief: line is replaced (its old line shows as removed), the only change
+# this unit makes to the template. Any other removed line still fails.
+t "plugin PR template: no line removed, apart from the Brief: line (Unit G)" not sh -c "git diff '$BASE' -- '$PT' | grep '^-' | grep -v '^---' | grep -v '^-Brief:' | grep -q ."
 t "this repo's .template-hashes: PR template is an untouched copy" \
   grep -Fxq "copied $(sha "$GT") $GT" .claude/team/.template-hashes
 
@@ -343,9 +353,10 @@ item must be found, under a heading a reader would look in. The words in quotes 
 15. The test is there in full, word for word (part A checks the words).
 16. After Iris: Ada finishes the brief from `DESIGN.md`: build order, and Constraints carrying
     the artifact link and a short summary of the agreed design; for a text-only design, Ada
-    copies `DESIGN.md`'s "The agreed design" into Constraints. When `ada-brief who` says
-    `required`, Ada asks the developer to share the artifact with the approver (the developer's
-    decision, not Iris's or Ada's). (Amendment Q4)
+    copies `DESIGN.md`'s "The agreed design" into Constraints. When `ada-brief who` says an
+    area needs approval, Ada asks the developer to share the artifact with the design area's
+    approvers, or the catch-all's when the project has no design area (the developer's decision,
+    not Iris's or Ada's). (Amendment Q4, as changed by Unit E of "Brief approval by area")
 17. A standalone run is a `DESIGN.md` (`Status: draft` or `Status: agreed`) while no brief has been
     started, that is, `BRIEF.md` has no Outcome yet: Ada confirms its requirements with the
     developer before writing the brief. The blank template (neither) triggers nothing. A `draft`

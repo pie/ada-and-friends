@@ -81,7 +81,10 @@ both say `Ready for PR: YES`.
      If the brief's draft PR already exists, use it instead (`ada-brief ready` keeps the
      Asana app's block):
      `ada-brief ready "<title>" .claude/handoff/PR.md`. Fill the PR's `Brief:` line from the brief's
-     `Approval:` line, and its `Design:` line from `.claude/handoff/DESIGN.md`: the artifact link,
+     `Approval:` line, area by area for a brief with `Areas:` (`approved by area: design by @x on
+     <date>, content not needed (@y approves it), seo not needed (no approvers)`). A brief
+     without `Areas:` gets `approved by @login`, or `approval not needed` and why.
+     Fill its `Design:` line from `.claude/handoff/DESIGN.md`: the artifact link,
      `text only, in the brief` for a text-only design, or `none` when it isn't `Status: agreed`.
      Without `gh`, give the developer the compare link and the description to paste. PRs are
      squash-merged; the `## Squash commit` section is the commit the merger pastes.

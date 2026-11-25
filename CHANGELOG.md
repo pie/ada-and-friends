@@ -5,7 +5,55 @@ Releasing in DEVELOPING.md).
 
 ## Unreleased
 
-Nothing yet.
+- **Brief approval by area.** A project can list its areas of concern, each with its approvers,
+  in a table in `PROJECT.md`'s Brief approval section (`| Area | Slug | Approved by |`, one row
+  marked `(catch-all)`). `ada-brief areas` prints the areas in effect with their approvers, and the
+  Trusted logins, without `gh`. `ada-brief who <area>...` says whether a brief touching those areas
+  needs approval for you, and after `required` lists the areas you can't approve and who can. A
+  bad table stops `ada-brief` with a message saying what is wrong. `ada-brief who` with no areas
+  is unchanged.
+  `ada-brief` reads two new header lines in a brief, `Areas: <slug>,
+  ...` (the approval areas the brief touches) and `Author: @<login>`, and an amendment's
+  Re-approval `needed: <area>, ...`. When an amended brief needs approving again,
+  `ada-brief compare` adds a second line, `areas: <slug>, ...`, naming the areas it goes back to
+  (`catch-all` for a change to an approved section with no Amendments row). A brief without an
+  `Areas:` line gets exactly the output it got before.
+  A brief with an `Areas:` line is approved area by area: an approver of an area approves it by
+  adding the `approved:<slug>` label to the draft PR (a Trusted login's label counts too).
+  `ada-brief status` then prints one `area <slug>: …` line per area, and its first line is
+  `approved` only when every area is approved or needs no approval. An area needs none when it
+  has no approvers, or when the PR's opener approves it and the brief's `Author:` line names
+  them. A change to an approved section with no Amendments row sends the brief back to the
+  catch-all area's approvers.
+  `ada-brief submit` creates the `approved:<slug>` labels of the areas a brief touches, and the
+  draft PR lists each label with its approvers. When an amended brief is submitted, only the
+  labels of the areas it sends back are removed; the others stay. Submit then prints
+  `updated  <url> (approval reset: <slug>, ...)`, naming every area still to approve, and posts
+  one PR comment saying which labels were removed and why, or which areas now need approving.
+  To set up areas, run `/ada:onboard`, which asks who decides what and offers a starter set of
+  seven areas to edit; or add the table to the Brief approval section of
+  `.claude/team/PROJECT.md` (the plugin's template has it in a comment) and fill in Approved by.
+  A project with neither a table nor a `- **Areas:** defaults kept` line gets a one-time note
+  offering the starter set in `/ada:begin`: the answer is written into `PROJECT.md` (the table, or
+  the `defaults kept` line, which `/ada:onboard` also writes when the developer keeps one area),
+  and `ada-onboard check` prints `missing  areas table …` until it is.
+  Ada then writes the areas each brief touches on its
+  `Areas:` line and your login on `Author:`, and asks only those areas' approvers, naming them.
+  You need no approval for the areas you approve, and Trusted approves every area. If you
+  approve an area, add its `approved:<slug>` label to the draft PR. An amendment comes back to
+  you only when it touches your area, and Iris's designs go to the design area's approvers.
+  Without a table, approval works as before, with `brief-approved`.
+  `ada-plan status` decides each unit's approval from the `Areas:` line of its draft brief
+  (`.claude/handoff/plan/<task>.md`), asking `ada-brief who <areas>` once for each distinct set of
+  areas. A unit with areas always has `ada-brief status` asked for its open PR, so a unit whose
+  areas need no approval from you shows `not-needed`. For a brief waiting or with changes
+  requested, the areas in that state follow it: `brief: waiting (design, content)`,
+  `brief: changes-requested (design)`, and `next: waiting for the brief to be approved (design,
+  content)`. A plan whose units have no `Areas:` prints as before.
+  The PR template's `Brief:` line records approval area by area (`approved by area: design by @x
+  on <date>, content not needed (@y approves it)`), and Ada fills it from the brief's `Approval:`
+  line. `/ada:begin` offers the new PR template: an untouched copy is refreshed, and an edited
+  copy shows the diff so you can take it, merge it by hand or keep yours.
 
 ## 0.16.0, 23 Nov 2026
 
